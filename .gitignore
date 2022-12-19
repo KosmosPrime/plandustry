@@ -1,0 +1,6 @@
+# rustc/cargo outputs
+/Cargo.lock
+/target
+
+# Visual Studio Code
+/.vscode
