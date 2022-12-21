@@ -1,0 +1,270 @@
+use std::str::Utf8Error;
+
+pub mod base64;
+
+pub struct DataRead<'d>
+{
+	data: &'d [u8]
+}
+
+macro_rules!make_read
+{
+	($name:ident, $type:ty) =>
+	{
+		pub fn $name(&mut self) -> Result<$type, ReadError>
+		{
+			const LEN: usize = std::mem::size_of::<$type>();
+			if self.data.len() < LEN
+			{
+				return Err(ReadError::Underflow{need: LEN, have: self.data.len()});
+			}
+			let mut output = [0u8; LEN];
+			output.copy_from_slice(&self.data[..LEN]);
+			self.data = &self.data[LEN..];
+			Ok(<$type>::from_be_bytes(output))
+		}
+	};
+}
+
+impl<'d> DataRead<'d>
+{
+	pub fn new(data: &'d [u8]) -> Self
+	{
+		Self{data}
+	}
+	
+	pub fn read_bool(&mut self) -> Result<bool, ReadError>
+	{
+		Ok(self.read_u8()? != 0)
+	}
+	
+	make_read!(read_u8, u8);
+	make_read!(read_i8, i8);
+	make_read!(read_u16, u16);
+	make_read!(read_i16, i16);
+	make_read!(read_u32, u32);
+	make_read!(read_i32, i32);
+	make_read!(read_f32, f32);
+	make_read!(read_u64, u64);
+	make_read!(read_i64, i64);
+	make_read!(read_f64, f64);
+	
+	pub fn read_utf(&mut self) -> Result<&'d str, ReadError>
+	{
+		if self.data.len() < 2
+		{
+			return Err(ReadError::Underflow{need: 2, have: self.data.len()});
+		}
+		let len = u16::from_be_bytes([self.data[0], self.data[1]]);
+		let end = 2 + len as usize;
+		if self.data.len() < end
+		{
+			return Err(ReadError::Underflow{need: end, have: self.data.len()});
+		}
+		let result = std::str::from_utf8(&self.data[2..end])?;
+		self.data = &self.data[end..];
+		Ok(result)
+	}
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReadError
+{
+	Underflow{need: usize, have: usize},
+	Utf8(Utf8Error),
+}
+
+impl From<Utf8Error> for ReadError
+{
+	fn from(err: Utf8Error) -> Self
+	{
+		ReadError::Utf8(err)
+	}
+}
+
+enum WriteBuff<'d>
+{
+	// unlike the DataRead want to access the written region after
+	Ref{raw: &'d mut [u8], pos: usize},
+	Vec(Vec<u8>),
+}
+
+impl<'d> WriteBuff<'d>
+{
+	fn check_capacity(&self, need: usize) -> Result<(), WriteError>
+	{
+		match self
+		{
+			Self::Ref{raw, pos} if raw.len() - pos < need => Err(WriteError::Overflow{need, have: raw.len() - pos}),
+			_ => Ok(()),
+		}
+	}
+	
+	fn write(&mut self, data: &[u8])
+	{
+		match self
+		{
+			Self::Ref{raw, pos} =>
+			{
+				let end = *pos + data.len();
+				raw[*pos..end].copy_from_slice(data);
+				*pos += data.len();
+			},
+			Self::Vec(v) => v.extend_from_slice(data),
+		}
+	}
+}
+
+pub struct DataWrite<'d>
+{
+	data: WriteBuff<'d>
+}
+
+macro_rules!make_write
+{
+	($name:ident, $type:ty) =>
+	{
+		pub fn $name(&mut self, val: $type) -> Result<(), WriteError>
+		{
+			const LEN: usize = std::mem::size_of::<$type>();
+			self.data.check_capacity(LEN)?;
+			self.data.write(&<$type>::to_be_bytes(val));
+			Ok(())
+		}
+	};
+}
+
+impl<'d> DataWrite<'d>
+{
+	pub fn write_bool(&mut self, val: bool) -> Result<(), WriteError>
+	{
+		self.write_u8(val as u8)
+	}
+	
+	make_write!(write_u8, u8);
+	make_write!(write_i8, i8);
+	make_write!(write_u16, u16);
+	make_write!(write_i16, i16);
+	make_write!(write_u32, u32);
+	make_write!(write_i32, i32);
+	make_write!(write_f32, f32);
+	make_write!(write_u64, u64);
+	make_write!(write_i64, i64);
+	make_write!(write_f64, f64);
+	
+	pub fn write_utf(&mut self, val: &str) -> Result<(), WriteError>
+	{
+		if val.len() > u16::MAX as usize
+		{
+			return Err(WriteError::TooLong{len: val.len()});
+		}
+		self.data.check_capacity(2 + val.len())?;
+		self.data.write(&u16::to_be_bytes(val.len() as u16));
+		self.data.write(val.as_bytes());
+		Ok(())
+	}
+	
+	pub fn is_owned(&self) -> bool
+	{
+		match self.data
+		{
+			WriteBuff::Vec(..) => true,
+			_ => false,
+		}
+	}
+	
+	pub fn get_written(&self) -> &[u8]
+	{
+		match &self.data
+		{
+			WriteBuff::Ref{raw, pos} => &raw[..*pos],
+			WriteBuff::Vec(v) => &v,
+		}
+	}
+}
+
+impl DataWrite<'static>
+{
+	pub fn new() -> Self
+	{
+		Self{data: WriteBuff::Vec(Vec::new())}
+	}
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WriteError
+{
+	Overflow{need: usize, have: usize},
+	TooLong{len: usize},
+}
+
+impl<'d> From<&'d mut [u8]> for DataWrite<'d>
+{
+	fn from(value: &'d mut [u8]) -> Self
+	{
+		Self{data: WriteBuff::Ref{raw: value, pos: 0}}
+	}
+}
+
+impl From<Vec<u8>> for DataWrite<'static>
+{
+	fn from(value: Vec<u8>) -> Self
+	{
+		Self{data: WriteBuff::Vec(value)}
+	}
+}
+
+impl<'d> TryFrom<DataWrite<'d>> for Vec<u8>
+{
+	type Error = ();
+	
+	fn try_from(value: DataWrite<'d>) -> Result<Self, Self::Error>
+	{
+		match value.data
+		{
+			WriteBuff::Vec(v) => Ok(v),
+			_ => Err(()),
+		}
+	}
+}
+
+#[cfg(test)]
+mod test
+{
+	use super::*;
+	
+	#[test]
+	fn read()
+	{
+		let mut read = DataRead::new("Thé qûick ઉrown fox 🦘 over\0\rthe lazy dog.".as_bytes());
+		assert_eq!(read.read_u8(), Ok(84));
+		assert_eq!(read.read_i8(), Ok(104));
+		assert_eq!(read.read_i8(), Ok(-61));
+		assert_eq!(read.read_u16(), Ok(43296));
+		assert_eq!(read.read_i16(), Ok(29123));
+		assert_eq!(read.read_i16(), Ok(-17559));
+		assert_eq!(read.read_i32(), Ok(1667965152));
+		assert_eq!(read.read_i32(), Ok(-1433832849));
+		assert_eq!(read.read_i64(), Ok(8605851562280493296));
+		assert_eq!(read.read_i64(), Ok(-6942694510468635278));
+		assert_eq!(read.read_utf(), Ok("the lazy dog."));
+	}
+	
+	#[test]
+	fn write()
+	{
+		let mut write = DataWrite::new();
+		assert_eq!(write.write_u8(84), Ok(()));
+		assert_eq!(write.write_i8(104), Ok(()));
+		assert_eq!(write.write_i8(-61), Ok(()));
+		assert_eq!(write.write_u16(43296), Ok(()));
+		assert_eq!(write.write_i16(29123), Ok(()));
+		assert_eq!(write.write_i16(-17559), Ok(()));
+		assert_eq!(write.write_i32(1667965152), Ok(()));
+		assert_eq!(write.write_i32(-1433832849), Ok(()));
+		assert_eq!(write.write_i64(8605851562280493296), Ok(()));
+		assert_eq!(write.write_i64(-6942694510468635278), Ok(()));
+		assert_eq!(write.write_utf("the lazy dog."), Ok(()));
+		assert_eq!(write.get_written(), "Thé qûick ઉrown fox 🦘 over\0\rthe lazy dog.".as_bytes());
+	}
+}
