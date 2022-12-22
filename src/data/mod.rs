@@ -3,6 +3,7 @@ use std::str::Utf8Error;
 
 pub mod base64;
 pub mod dynamic;
+pub mod schematic;
 
 pub struct DataRead<'d>
 {

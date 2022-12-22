@@ -39,6 +39,7 @@ impl Block
 	}
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Rotation
 {
 	Right, Up, Left, Down
