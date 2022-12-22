@@ -1,6 +1,8 @@
+use std::fmt;
 use std::str::Utf8Error;
 
 pub mod base64;
+pub mod dynamic;
 
 pub struct DataRead<'d>
 {
@@ -64,6 +66,28 @@ impl<'d> DataRead<'d>
 		let result = std::str::from_utf8(&self.data[2..end])?;
 		self.data = &self.data[end..];
 		Ok(result)
+	}
+	
+	pub fn read_bytes(&mut self, dst: &mut [u8]) -> Result<(), ReadError>
+	{
+		if self.data.len() < dst.len()
+		{
+			return Err(ReadError::Underflow{need: dst.len(), have: self.data.len()});
+		}
+		dst.copy_from_slice(&self.data[..dst.len()]);
+		self.data = &self.data[dst.len()..];
+		Ok(())
+	}
+	
+	pub fn read_vec(&mut self, dst: &mut Vec<u8>, len: usize) -> Result<(), ReadError>
+	{
+		if self.data.len() < len
+		{
+			return Err(ReadError::Underflow{need: len, have: self.data.len()});
+		}
+		dst.extend_from_slice(&self.data[..len]);
+		self.data = &self.data[len..];
+		Ok(())
 	}
 }
 
@@ -164,6 +188,13 @@ impl<'d> DataWrite<'d>
 		Ok(())
 	}
 	
+	pub fn write_bytes(&mut self, val: &[u8]) -> Result<(), WriteError>
+	{
+		self.data.check_capacity(val.len())?;
+		self.data.write(val);
+		Ok(())
+	}
+	
 	pub fn is_owned(&self) -> bool
 	{
 		match self.data
@@ -227,6 +258,110 @@ impl<'d> TryFrom<DataWrite<'d>> for Vec<u8>
 		}
 	}
 }
+
+pub trait Serializer<D>
+{
+	type ReadError;
+	type WriteError;
+	
+	fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<D, Self::ReadError>;
+	
+	fn serialize(&mut self, buff: &mut DataWrite<'_>, data: &D) -> Result<(), Self::WriteError>;
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GridPos(pub u16, pub u16);
+
+impl From<u32> for GridPos
+{
+	fn from(value: u32) -> Self
+	{
+		GridPos((value >> 16) as u16, value as u16)
+	}
+}
+
+impl From<GridPos> for u32
+{
+	fn from(value: GridPos) -> Self
+	{
+		((value.0 as u32) << 16) | (value.1 as u32)
+	}
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Team(u8);
+
+impl Team
+{
+	pub fn of(id: u8) -> Self
+	{
+		Self(id)
+	}
+	
+	pub fn get_id(&self) -> u8
+	{
+		self.0
+	}
+	
+	pub fn is_base(&self) -> bool
+	{
+		self.0 < 6
+	}
+	
+	pub fn get_name(&self) -> Option<&'static str>
+	{
+		match self.0
+		{
+			0 => Some("derelict"),
+			1 => Some("sharded"),
+			2 => Some("crux"),
+			3 => Some("malis"),
+			4 => Some("green"),
+			5 => Some("blue"),
+			_ => None,
+		}
+	}
+}
+
+impl From<u8> for Team
+{
+	fn from(value: u8) -> Self
+	{
+		Team::of(value)
+	}
+}
+
+impl From<Team> for u8
+{
+	fn from(value: Team) -> Self
+	{
+		value.0
+	}
+}
+
+impl fmt::Display for Team
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self.0
+		{
+			0 => f.write_str("Derelict"),
+			1 => f.write_str("Sharded"),
+			2 => f.write_str("Crux"),
+			3 => f.write_str("Malis"),
+			4 => f.write_str("Green"),
+			5 => f.write_str("Blue"),
+			id => write!(f, "Team #{id}"),
+		}
+	}
+}
+
+pub const TEAM_DERELICT: Team = Team(0);
+pub const TEAM_SHARDED: Team = Team(1);
+pub const TEAM_CRUX: Team = Team(2);
+pub const TEAM_MALIS: Team = Team(3);
+pub const TEAM_GREEN: Team = Team(4);
+pub const TEAM_BLUE: Team = Team(5);
 
 #[cfg(test)]
 mod test
