@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 pub trait BlockLogic
 {
@@ -70,5 +72,49 @@ impl From<Rotation> for u8
 			Rotation::Left => 2,
 			Rotation::Down => 3,
 		}
+	}
+}
+
+pub struct BlockRegistry<'l>
+{
+	blocks: HashMap<&'l str, &'l Block>,
+}
+
+impl<'l> BlockRegistry<'l>
+{
+	pub fn new() -> Self
+	{
+		Self{blocks: HashMap::new()}
+	}
+	
+	pub fn register(&mut self, block: &'l Block) -> Result<(), &'l Block>
+	{
+		let key = match block.name
+		{
+			Cow::Borrowed(r) => r,
+			Cow::Owned(ref s) => s,
+		};
+		match self.blocks.entry(key)
+		{
+			Entry::Occupied(e) => Err(e.get()),
+			Entry::Vacant(e) =>
+			{
+				e.insert(block);
+				Ok(())
+			},
+		}
+	}
+	
+	pub fn get(&self, name: &str) -> Option<&'l Block>
+	{
+		self.blocks.get(name).map(|&r| r)
+	}
+}
+
+impl<'l> AsRef<HashMap<&'l str, &'l Block>> for BlockRegistry<'l>
+{
+	fn as_ref(&self) -> &HashMap<&'l str, &'l Block>
+	{
+		&self.blocks
 	}
 }
