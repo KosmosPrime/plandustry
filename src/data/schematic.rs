@@ -6,6 +6,7 @@ use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, 
 
 use crate::block::{Block, BlockRegistry, Rotation};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
+use crate::data::base64;
 use crate::data::dynamic::{self, DynSerializer, DynData};
 
 pub const MAX_DIMENSION: u16 = 128;
@@ -424,6 +425,79 @@ impl From<dynamic::WriteError> for WriteError
 	fn from(value: dynamic::WriteError) -> Self
 	{
 		Self::BlockState(value)
+	}
+}
+
+impl<'l> SchematicSerializer<'l>
+{
+	pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic, R64Error>
+	{
+		let mut buff = Vec::<u8>::new();
+		buff.resize(data.len() / 4 * 3 + 1, 0);
+		let n_out = base64::decode(data.as_bytes(), buff.as_mut())?;
+		Ok(self.deserialize(&mut DataRead::new(&buff[..n_out]))?)
+	}
+	
+	pub fn serialize_base64(&mut self, data: &Schematic) -> Result<String, W64Error>
+	{
+		let mut buff = DataWrite::new();
+		self.serialize(&mut buff, data)?;
+		let buff = buff.get_written();
+		// round up because of padding
+		let required = 4 * (buff.len() / 3 + if buff.len() % 3 != 0 {1} else {0});
+		let mut text = Vec::<u8>::new();
+		text.resize(required, 0);
+		let n_out = base64::encode(buff, text.as_mut())?;
+		// trailing zeros are valid UTF8, but not valid base64
+		assert_eq!(n_out, text.len());
+		// SAFETY: base64 encoding outputs pure ASCII (see base64::CHARS)
+		Ok(unsafe{String::from_utf8_unchecked(text)})
+	}
+}
+
+#[derive(Debug)]
+pub enum R64Error
+{
+	Base64(base64::DecodeError),
+	Content(ReadError),
+}
+
+impl From<base64::DecodeError> for R64Error
+{
+	fn from(value: base64::DecodeError) -> Self
+	{
+		Self::Base64(value)
+	}
+}
+
+impl From<ReadError> for R64Error
+{
+	fn from(value: ReadError) -> Self
+	{
+		Self::Content(value)
+	}
+}
+
+#[derive(Debug)]
+pub enum W64Error
+{
+	Base64(base64::EncodeError),
+	Content(WriteError),
+}
+
+impl From<base64::EncodeError> for W64Error
+{
+	fn from(value: base64::EncodeError) -> Self
+	{
+		Self::Base64(value)
+	}
+}
+
+impl From<WriteError> for W64Error
+{
+	fn from(value: WriteError) -> Self
+	{
+		Self::Content(value)
 	}
 }
 
