@@ -2,6 +2,8 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
+use crate::data::dynamic::DynData;
+
 pub trait BlockLogic
 {
 	fn get_size(&self) -> u8;
@@ -9,6 +11,11 @@ pub trait BlockLogic
 	fn is_symmetric(&self) -> bool
 	{
 		true
+	}
+	
+	fn state_from_i32(&self, _config: i32) -> DynData
+	{
+		DynData::Empty
 	}
 }
 
@@ -38,6 +45,11 @@ impl Block
 	pub fn is_symmetric(&self) -> bool
 	{
 		self.logic.is_symmetric()
+	}
+	
+	pub fn state_from_i32(&self, config: i32) -> DynData
+	{
+		self.logic.state_from_i32(config)
 	}
 }
 

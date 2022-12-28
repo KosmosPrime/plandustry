@@ -1,9 +1,12 @@
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::iter::FusedIterator;
 
-use crate::block::{Block, Rotation};
-use crate::data::GridPos;
-use crate::data::dynamic::DynData;
+use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress, FlushDecompress, Status};
+
+use crate::block::{Block, BlockRegistry, Rotation};
+use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
+use crate::data::dynamic::{self, DynSerializer, DynData};
 
 pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
@@ -128,6 +131,299 @@ impl Schematic
 	pub fn block_iter(&self) -> BlockIter
 	{
 		BlockIter{x: 0, y: 0, schematic: self, encountered: 0}
+	}
+}
+
+const SCHEMATIC_HEADER: u32 = ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
+
+pub struct SchematicSerializer<'l>(pub &'l BlockRegistry<'static>);
+
+impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
+{
+	type ReadError = ReadError;
+	type WriteError = WriteError;
+	
+	fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Schematic, Self::ReadError>
+	{
+		let hdr = buff.read_u32()?;
+		if hdr != SCHEMATIC_HEADER {return Err(ReadError::Header(hdr));}
+		let version = buff.read_u8()?;
+		if version > 1 {return Err(ReadError::Version(version));}
+		let mut dec = Decompress::new(true);
+		let mut raw = Vec::<u8>::new();
+		raw.reserve(1024);
+		loop
+		{
+			let t_in = dec.total_in();
+			let t_out = dec.total_out();
+			let res = dec.decompress_vec(buff.data, &mut raw, FlushDecompress::Finish)?;
+			if dec.total_in() > t_in
+			{
+				// we have to advance input every time, decompress_vec only knows the output position
+				buff.data = &buff.data[(dec.total_in() - t_in) as usize..];
+			}
+			match res
+			{
+				// there's no more input (and the flush mode says so), we need to reserve additional space
+				Status::Ok | Status::BufError => (),
+				// input was already at the end, so this is referring to the output
+				Status::StreamEnd => break,
+			}
+			if dec.total_in() == t_in && dec.total_out() == t_out
+			{
+				// protect against looping forever
+				return Err(ReadError::DecompressStall);
+			}
+			raw.reserve(1024);
+		}
+		assert_eq!(dec.total_out() as usize, raw.len());
+		let mut rbuff = DataRead::new(&raw);
+		let w = rbuff.read_i16()?;
+		let h = rbuff.read_i16()?;
+		if w < 0 || h < 0 || w as u16 > MAX_DIMENSION || h as u16 > MAX_DIMENSION
+		{
+			return Err(ReadError::Dimensions(w, h));
+		}
+		let mut schematic = Schematic::new(w as u16, h as u16);
+		for _ in 0..rbuff.read_u8()?
+		{
+			let key = rbuff.read_utf()?;
+			let value = rbuff.read_utf()?;
+			schematic.tags.insert(key.to_owned(), value.to_owned());
+		}
+		let num_table = rbuff.read_i8()?;
+		if num_table < 0
+		{
+			return Err(ReadError::TableSize(num_table));
+		}
+		let mut block_table = Vec::<&'static Block>::new();
+		block_table.reserve(num_table as usize);
+		for _ in 0..num_table
+		{
+			let name = rbuff.read_utf()?;
+			match self.0.get(name)
+			{
+				None => return Err(ReadError::NoSuchBlock(name.to_owned())),
+				Some(b) => block_table.push(b),
+			}
+		}
+		let num_blocks = rbuff.read_i32()?;
+		if num_blocks < 0 || num_blocks as u32 > MAX_BLOCKS
+		{
+			return Err(ReadError::BlockCount(num_blocks));
+		}
+		for _ in 0..num_blocks
+		{
+			let idx = rbuff.read_i8()?;
+			if idx < 0 || idx as usize >= block_table.len()
+			{
+				return Err(ReadError::BlockIndex(idx, block_table.len()));
+			}
+			let pos = GridPos::from(rbuff.read_u32()?);
+			let block = block_table[idx as usize];
+			let config = if version < 1
+			{
+				block.state_from_i32(rbuff.read_i32()?)
+			}
+			else {DynSerializer.deserialize(&mut rbuff)?};
+			let rot = Rotation::from(rbuff.read_u8()?);
+			schematic.set(pos.0, pos.1, block, config, rot);
+		}
+		Ok(schematic)
+	}
+	
+	fn serialize(&mut self, buff: &mut DataWrite<'_>, data: &Schematic) -> Result<(), Self::WriteError>
+	{
+		// write the header first just in case
+		buff.write_u32(SCHEMATIC_HEADER)?;
+		buff.write_u8(1)?;
+		
+		let mut rbuff = DataWrite::new();
+		// don't have to check dimensions because they're already limited to MAX_DIMENSION
+		rbuff.write_i16(data.width as i16)?;
+		rbuff.write_i16(data.height as i16)?;
+		if data.tags.len() > u8::MAX as usize
+		{
+			return Err(WriteError::TagCount(data.tags.len()));
+		}
+		rbuff.write_u8(data.tags.len() as u8)?;
+		for (k, v) in data.tags.iter()
+		{
+			rbuff.write_utf(k)?;
+			rbuff.write_utf(v)?;
+		}
+		// use string keys here to avoid issues with different block refs with the same name
+		let mut block_map = HashMap::<&str, u32>::new();
+		let mut block_table = Vec::<&str>::new();
+		for opt in data.blocks.iter()
+		{
+			match opt
+			{
+				Some(s) =>
+				{
+					match block_map.entry(s.0.get_name())
+					{
+						Entry::Vacant(e) =>
+						{
+							e.insert(block_table.len() as u32);
+							block_table.push(s.0.get_name());
+						},
+						_ => (),
+					}
+				},
+				_ => (),
+			}
+		}
+		if block_table.len() > i8::MAX as usize
+		{
+			return Err(WriteError::TableSize(block_table.len()));
+		}
+		// else: implies contents are also valid i8 (they're strictly less than the map length)
+		rbuff.write_i8(block_table.len() as i8)?;
+		for &name in block_table.iter()
+		{
+			rbuff.write_utf(name)?;
+		}
+		// don't have to check data.block_count because dimensions don't allow exceeding MAX_BLOCKS
+		rbuff.write_i32(data.block_cnt as i32)?;
+		let mut num = 0;
+		for (p, b, d, r) in data.block_iter()
+		{
+			rbuff.write_i8(block_map[b.get_name()] as i8)?;
+			rbuff.write_u32(u32::from(p))?;
+			DynSerializer.serialize(&mut rbuff, d)?;
+			rbuff.write_u8(r.into())?;
+			num += 1;
+		}
+		assert_eq!(num, data.block_cnt);
+		
+		// compress into the provided buffer
+		let raw = match rbuff.data
+		{
+			data::WriteBuff::Vec(v) => v,
+			_ => unreachable!("write buffer not owned"),
+		};
+		let mut comp = Compress::new(Compression::default(), true);
+		// compress the immediate buffer into a temp buffer to copy it to buff? no thanks
+		match buff.data
+		{
+			data::WriteBuff::Ref{raw: ref mut dst, ref mut pos} =>
+			{
+				match comp.compress(&raw, &mut dst[*pos..], FlushCompress::Finish)?
+				{
+					// there's no more input (and the flush mode says so), but we can't resize the output
+					Status::Ok | Status::BufError => return Err(WriteError::CompressEof(raw.len() - comp.total_in() as usize)),
+					Status::StreamEnd => (),
+				}
+			},
+			data::WriteBuff::Vec(ref mut dst) =>
+			{
+				let mut input = raw.as_ref();
+				dst.reserve(1024);
+				loop
+				{
+					let t_in = comp.total_in();
+					let t_out = comp.total_out();
+					let res = comp.compress_vec(input, dst, FlushCompress::Finish)?;
+					if comp.total_in() > t_in
+					{
+						// we have to advance input every time, compress_vec only knows the output position
+						input = &input[(comp.total_in() - t_in) as usize..];
+					}
+					match res
+					{
+						// there's no more input (and the flush mode says so), we need to reserve additional space
+						Status::Ok | Status::BufError => (),
+						// input was already at the end, so this is referring to the output
+						Status::StreamEnd => break,
+					}
+					if comp.total_in() == t_in && comp.total_out() == t_out
+					{
+						// protect against looping forever
+						return Err(WriteError::CompressStall);
+					}
+					dst.reserve(1024);
+				}
+			},
+		}
+		assert_eq!(comp.total_in() as usize, raw.len());
+		Ok(())
+	}
+}
+
+#[derive(Debug)]
+pub enum ReadError
+{
+	Read(data::ReadError),
+	Header(u32),
+	Version(u8),
+	Decompress(DecompressError),
+	DecompressStall,
+	Dimensions(i16, i16),
+	TableSize(i8),
+	NoSuchBlock(String),
+	BlockCount(i32),
+	BlockIndex(i8, usize),
+	BlockState(dynamic::ReadError),
+}
+
+impl From<data::ReadError> for ReadError
+{
+	fn from(value: data::ReadError) -> Self
+	{
+		Self::Read(value)
+	}
+}
+
+impl From<DecompressError> for ReadError
+{
+	fn from(value: DecompressError) -> Self
+	{
+		Self::Decompress(value)
+	}
+}
+
+impl From<dynamic::ReadError> for ReadError
+{
+	fn from(value: dynamic::ReadError) -> Self
+	{
+		Self::BlockState(value)
+	}
+}
+
+#[derive(Debug)]
+pub enum WriteError
+{
+	Write(data::WriteError),
+	TagCount(usize),
+	TableSize(usize),
+	BlockState(dynamic::WriteError),
+	Compress(CompressError),
+	CompressEof(usize),
+	CompressStall,
+}
+
+impl From<data::WriteError> for WriteError
+{
+	fn from(value: data::WriteError) -> Self
+	{
+		Self::Write(value)
+	}
+}
+
+impl From<CompressError> for WriteError
+{
+	fn from(value: CompressError) -> Self
+	{
+		Self::Compress(value)
+	}
+}
+
+impl From<dynamic::WriteError> for WriteError
+{
+	fn from(value: dynamic::WriteError) -> Self
+	{
+		Self::BlockState(value)
 	}
 }
 
