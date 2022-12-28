@@ -605,13 +605,14 @@ impl<'l> Iterator for BlockIter<'l>
 					// compute the coordinate of this result
 					let i0 = i + self.x as usize;
 					let x = (i0 % w as usize) as u16;
-					let y = (i / w as usize) as u16;
+					let y = self.y + (i0 / w as usize) as u16;
 					self.x = x + 1;
 					if self.x == w
 					{
 						self.x = 0;
-						self.y += 1;
+						self.y = y + 1;
 					}
+					else {self.y = y;}
 					self.encountered += 1;
 					Some((GridPos(x, y), s.0, &s.1, s.2))
 				},
@@ -648,7 +649,7 @@ impl<'l> Iterator for BlockIter<'l>
 					// last consumes self so we don't have to update fields
 					let i0 = i + self.x as usize;
 					let x = (i0 % w as usize) as u16;
-					let y = (i / w as usize) as u16;
+					let y = (i0 / w as usize) as u16;
 					return Some((GridPos(x, y), s.0, &s.1, s.2));
 				}
 			}
