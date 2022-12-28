@@ -3,12 +3,13 @@ use std::iter::FusedIterator;
 
 use crate::block::{Block, Rotation};
 use crate::data::GridPos;
+use crate::data::dynamic::DynData;
 
 pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
 
-#[derive(Clone, Copy)]
-struct Storage(&'static Block, Rotation);
+#[derive(Clone)]
+struct Storage(&'static Block, DynData, Rotation);
 
 #[derive(Clone)]
 pub struct Schematic
@@ -59,7 +60,7 @@ impl Schematic
 		&mut self.tags
 	}
 	
-	pub fn get(&self, x: u16, y: u16) -> Option<(&'static Block, Rotation)>
+	pub fn get(&self, x: u16, y: u16) -> Option<(&'static Block, &DynData, Rotation)>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -71,11 +72,11 @@ impl Schematic
 		{
 			None => None,
 			Some(None) => None,
-			Some(Some(Storage(b, r))) => Some((*b, *r)),
+			Some(Some(Storage(b, c, r))) => Some((*b, c, *r)),
 		}
 	}
 	
-	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, rot: Rotation) -> Option<(&'static Block, Rotation)>
+	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, config: DynData, rot: Rotation) -> Option<(&'static Block, DynData, Rotation)>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -86,18 +87,18 @@ impl Schematic
 			self.blocks.resize_with((self.width as usize) * (self.height as usize), || None);
 		}
 		let index = (x as usize) + (y as usize) * (self.width as usize);
-		match self.blocks[index].replace(Storage(block, rot))
+		match self.blocks[index].replace(Storage(block, config, rot))
 		{
 			None =>
 			{
 				self.block_cnt += 1;
 				None
 			},
-			Some(s) => Some((s.0, s.1)),
+			Some(s) => Some((s.0, s.1, s.2)),
 		}
 	}
 	
-	pub fn take(&mut self, x: u16, y: u16) -> Option<(&'static Block, Rotation)>
+	pub fn take(&mut self, x: u16, y: u16) -> Option<(&'static Block, DynData, Rotation)>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -112,7 +113,7 @@ impl Schematic
 				Some(s) =>
 				{
 					self.block_cnt -= 1;
-					Some((s.0, s.1))
+					Some((s.0, s.1, s.2))
 				},
 			}
 		}
@@ -195,7 +196,7 @@ pub struct BlockIter<'l>
 
 impl<'l> Iterator for BlockIter<'l>
 {
-	type Item = (GridPos, &'static Block, Rotation);
+	type Item = (GridPos, &'static Block, &'l DynData, Rotation);
 	
 	fn next(&mut self) -> Option<Self::Item>
 	{
@@ -216,7 +217,7 @@ impl<'l> Iterator for BlockIter<'l>
 				self.y += 1;
 			}
 			self.encountered += 1;
-			Some((p, s.0, s.1))
+			Some((p, s.0, &s.1, s.2))
 		}
 		else
 		{
@@ -242,7 +243,7 @@ impl<'l> Iterator for BlockIter<'l>
 						self.y += 1;
 					}
 					self.encountered += 1;
-					Some((GridPos(x, y), s.0, s.1))
+					Some((GridPos(x, y), s.0, &s.1, s.2))
 				},
 				_ => unreachable!("searched for Some but got None"),
 			}
@@ -278,7 +279,7 @@ impl<'l> Iterator for BlockIter<'l>
 					let i0 = i + self.x as usize;
 					let x = (i0 % w as usize) as u16;
 					let y = (i / w as usize) as u16;
-					return Some((GridPos(x, y), s.0, s.1));
+					return Some((GridPos(x, y), s.0, &s.1, s.2));
 				}
 			}
 			None
