@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+use std::collections::HashMap;
+
 pub trait ArgHandler
 {
 	type Error;
@@ -75,4 +78,175 @@ pub fn parse_args<H: ArgHandler>(handler: &mut H) -> Result<(), Error<H::Error>>
 {
 	parse(&mut std::env::args(), handler)?;
 	Ok(())
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArgOption
+{
+	short: Option<char>,
+	long: Option<Cow<'static, str>>,
+}
+
+impl ArgOption
+{
+	pub const fn new(short: Option<char>, long: Option<Cow<'static, str>>) -> Self
+	{
+		if short.is_none() && long.is_none()
+		{
+			panic!("option must have at least a short or long name");
+		}
+		Self{short, long}
+	}
+	
+	pub fn get_short(&self) -> Option<char>
+	{
+		self.short
+	}
+	
+	pub fn get_long(&self) -> Option<&str>
+	{
+		match self.long
+		{
+			None => None,
+			Some(ref s) => Some(s),
+		}
+	}
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OptionValue
+{
+	Absent,
+	Present,
+	Value(String),
+}
+
+#[derive(Clone, Debug)]
+pub struct OptionHandler
+{
+	options: Vec<(ArgOption, OptionValue)>,
+	short_map: HashMap<char, usize>,
+	long_map: HashMap<String, usize>,
+	literals: Vec<String>,
+}
+
+impl OptionHandler
+{
+	pub fn new() -> Self
+	{
+		Self{options: Vec::new(), short_map: HashMap::new(), long_map: HashMap::new(), literals: Vec::new()}
+	}
+	
+	pub fn add(&mut self, opt: ArgOption) -> Result<(), (ArgOption, &ArgOption)>
+	{
+		match opt.short
+		{
+			Some(c) => match self.short_map.get(&c)
+			{
+				Some(&i) => return Err((opt, &self.options[i].0)),
+				_ => (),
+			},
+			_ => (),
+		}
+		match opt.long
+		{
+			Some(ref s) => match self.long_map.get(&**s)
+			{
+				Some(&i) => return Err((opt, &self.options[i].0)),
+				_ => (),
+			},
+			_ => (),
+		}
+		
+		let idx = self.options.len();
+		self.options.push((opt, OptionValue::Absent));
+		let opt = &self.options[idx].0;
+		if let Some(c) = opt.short
+		{
+			self.short_map.insert(c, idx);
+		}
+		if let Some(ref s) = opt.long
+		{
+			let k = &**s;
+			self.long_map.insert(k.to_owned(), idx);
+		}
+		Ok(())
+	}
+	
+	pub fn options(&self) -> &Vec<(ArgOption, OptionValue)>
+	{
+		&self.options
+	}
+	
+	pub fn get_short(&self, name: char) -> Option<&(ArgOption, OptionValue)>
+	{
+		self.short_map.get(&name).map(|&i| &self.options[i])
+	}
+	
+	pub fn get_long(&self, name: &str) -> Option<&(ArgOption, OptionValue)>
+	{
+		self.long_map.get(name).map(|&i| &self.options[i])
+	}
+	
+	pub fn get_literals(&self) -> &Vec<String>
+	{
+		&self.literals
+	}
+	
+	fn set_arg(&mut self, idx: usize, value: Option<&str>) -> Result<(), OptionError>
+	{
+		let (ref o, ref mut v) = self.options[idx];
+		if *v == OptionValue::Absent
+		{
+			match value
+			{
+				None => *v = OptionValue::Present,
+				Some(s) => *v = OptionValue::Value(s.to_owned()),
+			}
+			Ok(())
+		}
+		else {Err(OptionError::Duplicate(o.clone()))}
+	}
+	
+	pub fn clear(&mut self)
+	{
+		self.options.iter_mut().for_each(|(_, v)| *v = OptionValue::Absent);
+	}
+}
+
+impl ArgHandler for OptionHandler
+{
+	type Error = OptionError;
+	
+	fn on_literal(&mut self, name: &str) -> Result<(), Self::Error>
+	{
+		self.literals.push(name.to_owned());
+		Ok(())
+	}
+	
+	fn on_short(&mut self, name: char, value: Option<&str>) -> Result<(), Self::Error>
+	{
+		match self.short_map.get(&name)
+		{
+			None => Err(OptionError::NoSuchShort(name)),
+			Some(&i) => self.set_arg(i, value),
+		}
+	}
+	
+	fn on_long(&mut self, name: &str, value: Option<&str>) -> Result<(), Self::Error>
+	{
+		match self.long_map.get(name)
+		{
+			None => Err(OptionError::NoSuchLong(name.to_owned())),
+			Some(&i) => self.set_arg(i, value),
+		}
+	}
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum OptionError
+{
+	NoSuchShort(char),
+	NoSuchLong(String),
+	Duplicate(ArgOption),
 }
