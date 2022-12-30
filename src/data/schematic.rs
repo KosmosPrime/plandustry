@@ -39,9 +39,19 @@ impl Placement
 		&self.state
 	}
 	
+	pub fn set_state(&mut self, state: DynData) -> DynData
+	{
+		std::mem::replace(&mut self.state, state)
+	}
+	
 	pub fn get_rotation(&self) -> Rotation
 	{
 		self.rot
+	}
+	
+	pub fn set_rotation(&mut self, rot: Rotation) -> Rotation
+	{
+		std::mem::replace(&mut self.rot, rot)
 	}
 }
 
@@ -149,6 +159,21 @@ impl Schematic
 		{
 			None => Ok(None),
 			Some(idx) => Ok(Some(&self.blocks[idx])),
+		}
+	}
+	
+	pub fn get_mut(&mut self, x: u16, y: u16) -> Result<Option<&mut Placement>, PosError>
+	{
+		if x >= self.width || y >= self.height
+		{
+			return Err(PosError{x, y, w: self.width, h: self.height});
+		}
+		if self.blocks.len() == 0 {return Ok(None);}
+		let pos = (x as usize) + (y as usize) * (self.width as usize);
+		match self.lookup[pos]
+		{
+			None => Ok(None),
+			Some(idx) => Ok(Some(&mut self.blocks[idx])),
 		}
 	}
 	
