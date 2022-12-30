@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::iter::FusedIterator;
+use std::slice::Iter;
 
 use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress, FlushDecompress, Status};
 
@@ -13,7 +14,36 @@ pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
 
 #[derive(Clone)]
-struct Storage(&'static Block, DynData, Rotation);
+pub struct Placement
+{
+	pos: GridPos,
+	block: &'static Block,
+	state: DynData,
+	rot: Rotation,
+}
+
+impl Placement
+{
+	pub fn get_pos(&self) -> GridPos
+	{
+		self.pos
+	}
+	
+	pub fn get_block(&self) -> &'static Block
+	{
+		self.block
+	}
+	
+	pub fn get_state(&self) -> &DynData
+	{
+		&self.state
+	}
+	
+	pub fn get_rotation(&self) -> Rotation
+	{
+		self.rot
+	}
+}
 
 #[derive(Clone)]
 pub struct Schematic
@@ -21,8 +51,8 @@ pub struct Schematic
 	width: u16,
 	height: u16,
 	tags: HashMap<String, String>,
-	blocks: Vec<Option<Storage>>,
-	block_cnt: u32,
+	blocks: Vec<Placement>,
+	lookup: Vec<Option<usize>>,
 }
 
 impl Schematic
@@ -41,7 +71,7 @@ impl Schematic
 		tags.insert("name".to_string(), String::new());
 		tags.insert("description".to_string(), String::new());
 		tags.insert("labels".to_string(), "[]".to_string());
-		Self{width, height, tags, blocks: Vec::new(), block_cnt: 0}
+		Self{width, height, tags, blocks: Vec::new(), lookup: Vec::new()}
 	}
 	
 	pub fn get_width(&self) -> u16
@@ -64,45 +94,162 @@ impl Schematic
 		&mut self.tags
 	}
 	
-	pub fn get(&self, x: u16, y: u16) -> Option<(&'static Block, &DynData, Rotation)>
+	pub fn is_empty(&self) -> bool
+	{
+		self.blocks.is_empty()
+	}
+	
+	pub fn get_block_count(&self) -> usize
+	{
+		self.blocks.len()
+	}
+	
+	pub fn is_region_empty(&self, x: u16, y: u16, w: u16, h: u16) -> bool
+	{
+		if self.blocks.len() == 0 {return true;}
+		if x >= self.width || y >= self.height || w == 0 || h == 0 {return true;}
+		if w > 1 || h > 1
+		{
+			let stride = self.width as usize;
+			let x_end = if self.width - x > w {x + w} else {self.width} as usize;
+			let y_end = if self.height - y > h {y + h} else {self.height} as usize;
+			let x = x as usize;
+			let y = y as usize;
+			for cy in y..y_end
+			{
+				for cx in x..x_end
+				{
+					if self.lookup[cx + cy * stride].is_some() {return false;}
+				}
+			}
+			true
+		}
+		else {self.lookup[(x as usize) + (y as usize) * (self.width as usize)].is_none()}
+	}
+	
+	pub fn get(&self, x: u16, y: u16) -> Option<&Placement>
 	{
 		if x >= self.width || y >= self.height
 		{
 			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
 		}
-		if self.block_cnt == 0 {return None;}
-		let index = (x as usize) + (y as usize) * (self.width as usize);
-		match self.blocks.get(index)
+		if self.blocks.len() == 0 {return None;}
+		let pos = (x as usize) + (y as usize) * (self.width as usize);
+		match self.lookup[pos]
 		{
 			None => None,
-			Some(None) => None,
-			Some(Some(Storage(b, c, r))) => Some((*b, c, *r)),
+			Some(idx) => Some(&self.blocks[idx]),
 		}
 	}
 	
-	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, config: DynData, rot: Rotation) -> Option<(&'static Block, DynData, Rotation)>
+	fn swap_remove(&mut self, idx: usize) -> Placement
+	{
+		// swap_remove not only avoids moves in self.blocks but also reduces the lookup changes we have to do
+		let prev = self.blocks.swap_remove(idx);
+		self.fill_lookup(prev.pos.0 as usize, prev.pos.1 as usize, prev.block.get_size() as usize, None);
+		if idx < self.blocks.len()
+		{
+			// fix the swapped block's lookup entries
+			let swapped = &self.blocks[idx];
+			self.fill_lookup(swapped.pos.0 as usize, swapped.pos.1 as usize, swapped.block.get_size() as usize, Some(idx));
+		}
+		prev
+	}
+	
+	fn fill_lookup(&mut self, x: usize, y: usize, sz: usize, val: Option<usize>)
+	{
+		if self.lookup.len() == 0
+		{
+			self.lookup.resize((self.width as usize) * (self.height as usize), None);
+		}
+		if sz > 1
+		{
+			for dy in 0..sz
+			{
+				for dx in 0..sz
+				{
+					self.lookup[(x + dx) + (y + dy) * (self.width as usize)] = val;
+				}
+			}
+		}
+		else {self.lookup[x + y * (self.width as usize)] = val;}
+	}
+	
+	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation) -> bool
 	{
 		if x >= self.width || y >= self.height
 		{
 			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
 		}
-		if self.blocks.len() == 0
+		if self.width - x < block.get_size() as u16 || self.height - y < block.get_size() as u16
 		{
-			self.blocks.resize_with((self.width as usize) * (self.height as usize), || None);
+			let ex = x + block.get_size() as u16 - 1;
+			let ey = y + block.get_size() as u16 - 1;
+			panic!("position {ex} / {ey} out of bounds ({} / {})", self.width, self.height);
 		}
-		let index = (x as usize) + (y as usize) * (self.width as usize);
-		match self.blocks[index].replace(Storage(block, config, rot))
+		let sz = block.get_size() as u16;
+		if self.is_region_empty(x, y, sz, sz)
 		{
-			None =>
+			let idx = self.blocks.len();
+			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
+			self.fill_lookup(x as usize, y as usize, block.get_size() as usize, Some(idx));
+			true
+		}
+		else {false}
+	}
+	
+	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation)
+	{
+		if x >= self.width || y >= self.height
+		{
+			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
+		}
+		if self.width - x < block.get_size() as u16 || self.height - y < block.get_size() as u16
+		{
+			let ex = x + block.get_size() as u16 - 1;
+			let ey = y + block.get_size() as u16 - 1;
+			panic!("position {ex} / {ey} out of bounds ({} / {})", self.width, self.height);
+		}
+		let sz = block.get_size() as usize;
+		if sz > 1
+		{
+			// remove all blocks in the region
+			for dy in 0..sz
 			{
-				self.block_cnt += 1;
-				None
-			},
-			Some(s) => Some((s.0, s.1, s.2)),
+				for dx in 0..sz
+				{
+					if let Some(idx) = self.lookup[(x as usize + dx) + (y as usize + dy) * (self.width as usize)]
+					{
+						self.swap_remove(idx);
+					}
+				}
+			}
+			let idx = self.blocks.len();
+			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
+			self.fill_lookup(x as usize, y as usize, sz, Some(idx));
+		}
+		else
+		{
+			let pos = (x as usize) + (y as usize) * (self.width as usize);
+			match self.lookup[pos]
+			{
+				None =>
+				{
+					let idx = self.blocks.len();
+					self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
+					self.lookup[pos] = Some(idx);
+				},
+				Some(idx) =>
+				{
+					let prev = std::mem::replace(&mut self.blocks[idx], Placement{pos: GridPos(x, y), block, state, rot});
+					self.fill_lookup(prev.pos.0 as usize, prev.pos.1 as usize, prev.block.get_size() as usize, None);
+					self.fill_lookup(x as usize, y as usize, sz, Some(idx));
+				}
+			}
 		}
 	}
 	
-	pub fn take(&mut self, x: u16, y: u16) -> Option<(&'static Block, DynData, Rotation)>
+	pub fn take(&mut self, x: u16, y: u16) -> Option<Placement>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -110,15 +257,11 @@ impl Schematic
 		}
 		if self.blocks.len() > 0
 		{
-			let index = (x as usize) + (y as usize) * (self.width as usize);
-			match self.blocks[index].take()
+			let pos = (x as usize) + (y as usize) * (self.width as usize);
+			match self.lookup[pos]
 			{
 				None => None,
-				Some(s) =>
-				{
-					self.block_cnt -= 1;
-					Some((s.0, s.1, s.2))
-				},
+				Some(idx) => Some(self.swap_remove(idx)),
 			}
 		}
 		else {None}
@@ -129,9 +272,9 @@ impl Schematic
 		PosIter{x: 0, y: 0, w: self.width, h: self.height}
 	}
 	
-	pub fn block_iter(&self) -> BlockIter
+	pub fn block_iter<'s>(&'s self) -> Iter<'s, Placement>
 	{
-		BlockIter{x: 0, y: 0, schematic: self, encountered: 0}
+		self.blocks.iter()
 	}
 }
 
@@ -228,7 +371,10 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 			}
 			else {DynSerializer.deserialize(&mut rbuff)?};
 			let rot = Rotation::from(rbuff.read_u8()?);
-			schematic.set(pos.0, pos.1, block, config, rot);
+			if !schematic.set(pos.0, pos.1, block, config, rot)
+			{
+				return Err(ReadError::Overlap(pos));
+			}
 		}
 		Ok(schematic)
 	}
@@ -256,21 +402,14 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 		// use string keys here to avoid issues with different block refs with the same name
 		let mut block_map = HashMap::<&str, u32>::new();
 		let mut block_table = Vec::<&str>::new();
-		for opt in data.blocks.iter()
+		for curr in data.blocks.iter()
 		{
-			match opt
+			match block_map.entry(curr.block.get_name())
 			{
-				Some(s) =>
+				Entry::Vacant(e) =>
 				{
-					match block_map.entry(s.0.get_name())
-					{
-						Entry::Vacant(e) =>
-						{
-							e.insert(block_table.len() as u32);
-							block_table.push(s.0.get_name());
-						},
-						_ => (),
-					}
+					e.insert(block_table.len() as u32);
+					block_table.push(curr.block.get_name());
 				},
 				_ => (),
 			}
@@ -285,18 +424,18 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 		{
 			rbuff.write_utf(name)?;
 		}
-		// don't have to check data.block_count because dimensions don't allow exceeding MAX_BLOCKS
-		rbuff.write_i32(data.block_cnt as i32)?;
+		// don't have to check data.blocks.len() because dimensions don't allow exceeding MAX_BLOCKS
+		rbuff.write_i32(data.blocks.len() as i32)?;
 		let mut num = 0;
-		for (p, b, d, r) in data.block_iter()
+		for curr in data.blocks.iter()
 		{
-			rbuff.write_i8(block_map[b.get_name()] as i8)?;
-			rbuff.write_u32(u32::from(p))?;
-			DynSerializer.serialize(&mut rbuff, d)?;
-			rbuff.write_u8(r.into())?;
+			rbuff.write_i8(block_map[curr.block.get_name()] as i8)?;
+			rbuff.write_u32(u32::from(curr.pos))?;
+			DynSerializer.serialize(&mut rbuff, &curr.state)?;
+			rbuff.write_u8(curr.rot.into())?;
 			num += 1;
 		}
-		assert_eq!(num, data.block_cnt);
+		assert_eq!(num, data.blocks.len());
 		
 		// compress into the provided buffer
 		let raw = match rbuff.data
@@ -366,6 +505,7 @@ pub enum ReadError
 	BlockCount(i32),
 	BlockIndex(i8, usize),
 	BlockState(dynamic::ReadError),
+	Overlap(GridPos),
 }
 
 impl From<data::ReadError> for ReadError
@@ -555,111 +695,6 @@ impl Iterator for PosIter
 }
 
 impl FusedIterator for PosIter {}
-
-pub struct BlockIter<'l>
-{
-	x: u16,
-	y: u16,
-	schematic: &'l Schematic,
-	encountered: u32,
-}
-
-impl<'l> Iterator for BlockIter<'l>
-{
-	type Item = (GridPos, &'static Block, &'l DynData, Rotation);
-	
-	fn next(&mut self) -> Option<Self::Item>
-	{
-		let w = self.schematic.width;
-		let blocks: &[Option<Storage>] = &self.schematic.blocks;
-		let pos = (self.x as usize) + (self.y as usize) * (w as usize);
-		if blocks.len() <= pos
-		{
-			return None;
-		}
-		if let Some(ref s) = blocks[pos]
-		{
-			let p = GridPos(self.x, self.y);
-			self.x += 1;
-			if self.x == w
-			{
-				self.x = 0;
-				self.y += 1;
-			}
-			self.encountered += 1;
-			Some((p, s.0, &s.1, s.2))
-		}
-		else
-		{
-			match blocks[pos..].iter().enumerate().find(|(_, v)| v.is_some())
-			{
-				None =>
-				{
-					// move to the end of the iterator
-					self.x = 0;
-					self.y = self.schematic.height;
-					None
-				},
-				Some((i, Some(s))) =>
-				{
-					// compute the coordinate of this result
-					let i0 = i + self.x as usize;
-					let x = (i0 % w as usize) as u16;
-					let y = self.y + (i0 / w as usize) as u16;
-					self.x = x + 1;
-					if self.x == w
-					{
-						self.x = 0;
-						self.y = y + 1;
-					}
-					else {self.y = y;}
-					self.encountered += 1;
-					Some((GridPos(x, y), s.0, &s.1, s.2))
-				},
-				_ => unreachable!("searched for Some but got None"),
-			}
-		}
-	}
-	
-	fn size_hint(&self) -> (usize, Option<usize>)
-	{
-		let remain = self.schematic.block_cnt - self.encountered;
-		(remain as usize, Some(remain as usize))
-	}
-	
-	fn count(self) -> usize
-	{
-		(self.schematic.block_cnt - self.encountered) as usize
-	}
-	
-	fn last(self) -> Option<Self::Item>
-	{
-		let w = self.schematic.width;
-		let h = self.schematic.height;
-		// self.y < h implies h > 0
-		if w > 0 && self.y < h
-		{
-			let pos = (self.x as usize) + (self.y as usize) * (w as usize);
-			let end = (w as usize) * (h as usize);
-			let blocks: &[Option<Storage>] = &self.schematic.blocks;
-			for i in (pos..end).rev()
-			{
-				if let Some(ref s) = blocks[i]
-				{
-					// last consumes self so we don't have to update fields
-					let i0 = i + self.x as usize;
-					let x = (i0 % w as usize) as u16;
-					let y = (i0 / w as usize) as u16;
-					return Some((GridPos(x, y), s.0, &s.1, s.2));
-				}
-			}
-			None
-		}
-		else {None}
-	}
-}
-
-impl<'l> FusedIterator for BlockIter<'l> {}
 
 #[cfg(test)]
 mod test
