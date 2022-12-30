@@ -59,19 +59,29 @@ impl Schematic
 {
 	pub fn new(width: u16, height: u16) -> Self
 	{
+		match Self::try_new(width, height)
+		{
+			Ok(s) => s,
+			Err(NewError::Width(w)) => panic!("invalid schematic width ({w})"),
+			Err(NewError::Height(h)) => panic!("invalid schematic height ({h})"),
+		}
+	}
+	
+	pub fn try_new(width: u16, height: u16) -> Result<Self, NewError>
+	{
 		if width > MAX_DIMENSION
 		{
-			panic!("invalid schematic width ({width})");
+			return Err(NewError::Width(width));
 		}
 		if height > MAX_DIMENSION
 		{
-			panic!("invalid schematic width ({height})");
+			return Err(NewError::Height(height));
 		}
 		let mut tags = HashMap::<String, String>::new();
 		tags.insert("name".to_string(), String::new());
 		tags.insert("description".to_string(), String::new());
 		tags.insert("labels".to_string(), "[]".to_string());
-		Self{width, height, tags, blocks: Vec::new(), lookup: Vec::new()}
+		Ok(Self{width, height, tags, blocks: Vec::new(), lookup: Vec::new()})
 	}
 	
 	pub fn get_width(&self) -> u16
@@ -127,18 +137,18 @@ impl Schematic
 		else {self.lookup[(x as usize) + (y as usize) * (self.width as usize)].is_none()}
 	}
 	
-	pub fn get(&self, x: u16, y: u16) -> Option<&Placement>
+	pub fn get(&self, x: u16, y: u16) -> Result<Option<&Placement>, PosError>
 	{
 		if x >= self.width || y >= self.height
 		{
-			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
+			return Err(PosError{x, y, w: self.width, h: self.height});
 		}
-		if self.blocks.len() == 0 {return None;}
+		if self.blocks.len() == 0 {return Ok(None);}
 		let pos = (x as usize) + (y as usize) * (self.width as usize);
 		match self.lookup[pos]
 		{
-			None => None,
-			Some(idx) => Some(&self.blocks[idx]),
+			None => Ok(None),
+			Some(idx) => Ok(Some(&self.blocks[idx])),
 		}
 	}
 	
@@ -175,17 +185,15 @@ impl Schematic
 		else {self.lookup[x + y * (self.width as usize)] = val;}
 	}
 	
-	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation) -> bool
+	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation) -> Result<&Placement, PlaceError>
 	{
 		if x >= self.width || y >= self.height
 		{
-			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
+			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
 		}
 		if self.width - x < block.get_size() as u16 || self.height - y < block.get_size() as u16
 		{
-			let ex = x + block.get_size() as u16 - 1;
-			let ey = y + block.get_size() as u16 - 1;
-			panic!("position {ex} / {ey} out of bounds ({} / {})", self.width, self.height);
+			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
 		}
 		let sz = block.get_size() as u16;
 		if self.is_region_empty(x, y, sz, sz)
@@ -193,26 +201,26 @@ impl Schematic
 			let idx = self.blocks.len();
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 			self.fill_lookup(x as usize, y as usize, block.get_size() as usize, Some(idx));
-			true
+			Ok(&self.blocks[idx])
 		}
-		else {false}
+		else {Err(PlaceError::Overlap{x, y})}
 	}
 	
-	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation)
+	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation, collect: bool)
+		-> Result<Option<Vec<Placement>>, PlaceError>
 	{
 		if x >= self.width || y >= self.height
 		{
-			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
+			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
 		}
 		if self.width - x < block.get_size() as u16 || self.height - y < block.get_size() as u16
 		{
-			let ex = x + block.get_size() as u16 - 1;
-			let ey = y + block.get_size() as u16 - 1;
-			panic!("position {ex} / {ey} out of bounds ({} / {})", self.width, self.height);
+			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
 		}
 		let sz = block.get_size() as usize;
 		if sz > 1
 		{
+			let mut result = if collect {Some(Vec::new())} else {None};
 			// remove all blocks in the region
 			for dy in 0..sz
 			{
@@ -220,13 +228,15 @@ impl Schematic
 				{
 					if let Some(idx) = self.lookup[(x as usize + dx) + (y as usize + dy) * (self.width as usize)]
 					{
-						self.swap_remove(idx);
+						let prev = self.swap_remove(idx);
+						if let Some(ref mut v) = result {v.push(prev);}
 					}
 				}
 			}
 			let idx = self.blocks.len();
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 			self.fill_lookup(x as usize, y as usize, sz, Some(idx));
+			Ok(result)
 		}
 		else
 		{
@@ -238,33 +248,35 @@ impl Schematic
 					let idx = self.blocks.len();
 					self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 					self.lookup[pos] = Some(idx);
+					Ok(if collect {Some(Vec::new())} else {None})
 				},
 				Some(idx) =>
 				{
 					let prev = std::mem::replace(&mut self.blocks[idx], Placement{pos: GridPos(x, y), block, state, rot});
 					self.fill_lookup(prev.pos.0 as usize, prev.pos.1 as usize, prev.block.get_size() as usize, None);
 					self.fill_lookup(x as usize, y as usize, sz, Some(idx));
+					Ok(if collect {Some(vec![prev])} else {None})
 				}
 			}
 		}
 	}
 	
-	pub fn take(&mut self, x: u16, y: u16) -> Option<Placement>
+	pub fn take(&mut self, x: u16, y: u16) -> Result<Option<Placement>, PosError>
 	{
 		if x >= self.width || y >= self.height
 		{
-			panic!("position {x} / {y} out of bounds ({} / {})", self.width, self.height);
+			return Err(PosError{x, y, w: self.width, h: self.height});
 		}
 		if self.blocks.len() > 0
 		{
 			let pos = (x as usize) + (y as usize) * (self.width as usize);
 			match self.lookup[pos]
 			{
-				None => None,
-				Some(idx) => Some(self.swap_remove(idx)),
+				None => Ok(None),
+				Some(idx) => Ok(Some(self.swap_remove(idx))),
 			}
 		}
-		else {None}
+		else {Ok(None)}
 	}
 	
 	pub fn pos_iter(&self) -> PosIter
@@ -276,6 +288,29 @@ impl Schematic
 	{
 		self.blocks.iter()
 	}
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum NewError
+{
+	Width(u16),
+	Height(u16),
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct PosError
+{
+	pub x: u16,
+	pub y: u16,
+	pub w: u16,
+	pub h: u16,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PlaceError
+{
+	Bounds{x: u16, y: u16, sz: u8, w: u16, h: u16},
+	Overlap{x: u16, y: u16},
 }
 
 const SCHEMATIC_HEADER: u32 = ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
@@ -371,7 +406,7 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 			}
 			else {DynSerializer.deserialize(&mut rbuff)?};
 			let rot = Rotation::from(rbuff.read_u8()?);
-			if !schematic.set(pos.0, pos.1, block, config, rot)
+			if schematic.set(pos.0, pos.1, block, config, rot).is_err()
 			{
 				return Err(ReadError::Overlap(pos));
 			}
