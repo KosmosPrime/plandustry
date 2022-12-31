@@ -304,6 +304,83 @@ impl Schematic
 		else {Ok(None)}
 	}
 	
+	fn rebuild_lookup(&mut self)
+	{
+		self.lookup.clear();
+		if self.blocks.len() > 0
+		{
+			self.lookup.resize((self.width as usize) * (self.height as usize), None);
+			for (i, curr) in self.blocks.iter().enumerate()
+			{
+				let x = curr.pos.0 as usize;
+				let y = curr.pos.1 as usize;
+				let sz = curr.block.get_size() as usize;
+				if sz > 1
+				{
+					for dy in 0..sz
+					{
+						for dx in 0..sz
+						{
+							self.lookup[(x + dx) + (y + dy) * (self.width as usize)] = Some(i);
+						}
+					}
+				}
+				else {self.lookup[x + y * (self.width as usize)] = Some(i);}
+			}
+		}
+	}
+	
+	pub fn mirror(&mut self, horizontally: bool, vertically: bool)
+	{
+		if !self.blocks.is_empty() && (horizontally || vertically)
+		{
+			for curr in self.blocks.iter_mut()
+			{
+				// because position is the bottom left corner (which changes during mirroring)
+				let shift = curr.block.get_size() as u16 - 1;
+				if horizontally {curr.pos.0 = self.width - 1 - curr.pos.0 - shift;}
+				if vertically {curr.pos.1 = self.height - 1 - curr.pos.1 - shift;}
+				if !curr.block.is_symmetric() {curr.rot.mirror(horizontally, vertically);}
+			}
+			self.rebuild_lookup();
+		}
+	}
+	
+	pub fn rotate(&mut self, clockwise: bool)
+	{
+		let w = self.width;
+		let h = self.height;
+		self.width = h;
+		self.height = w;
+		if !self.blocks.is_empty()
+		{
+			for curr in self.blocks.iter_mut()
+			{
+				let x = curr.pos.0;
+				let y = curr.pos.1;
+				// because position is the bottom left corner (which changes during rotation)
+				let shift = curr.block.get_size() as u16 - 1;
+				if clockwise
+				{
+					curr.pos.0 = y;
+					curr.pos.1 = w - 1 - x - shift;
+				}
+				else
+				{
+					curr.pos.0 = h - 1 - y - shift;
+					curr.pos.1 = x;
+				}
+				if !curr.block.is_symmetric() {curr.rot.rotate(clockwise);}
+			}
+			self.rebuild_lookup();
+		}
+	}
+	
+	pub fn rotate_180(&mut self)
+	{
+		self.mirror(true, true);
+	}
+	
 	pub fn pos_iter(&self) -> PosIter
 	{
 		PosIter{x: 0, y: 0, w: self.width, h: self.height}

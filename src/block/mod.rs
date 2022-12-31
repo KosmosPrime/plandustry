@@ -59,6 +59,57 @@ pub enum Rotation
 	Right, Up, Left, Down
 }
 
+impl Rotation
+{
+	pub fn mirrored(self, horizontally: bool, vertically: bool) -> Self
+	{
+		match self
+		{
+			Rotation::Right => if horizontally {Rotation::Left} else {Rotation::Right},
+			Rotation::Up => if vertically {Rotation::Down} else {Rotation::Up},
+			Rotation::Left => if horizontally {Rotation::Right} else {Rotation::Left},
+			Rotation::Down => if vertically {Rotation::Up} else {Rotation::Down},
+		}
+	}
+	
+	pub fn mirror(&mut self, horizontally: bool, vertically: bool)
+	{
+		*self = self.mirrored(horizontally, vertically);
+	}
+	
+	pub fn rotated(self, clockwise: bool) -> Self
+	{
+		match self
+		{
+			Rotation::Right => if clockwise {Rotation::Up} else {Rotation::Down},
+			Rotation::Up => if clockwise {Rotation::Left} else {Rotation::Right},
+			Rotation::Left => if clockwise {Rotation::Down} else {Rotation::Up},
+			Rotation::Down => if clockwise {Rotation::Right} else {Rotation::Left},
+		}
+	}
+	
+	pub fn rotate(&mut self, clockwise: bool)
+	{
+		*self = self.rotated(clockwise);
+	}
+	
+	pub fn rotated_180(self) -> Self
+	{
+		match self
+		{
+			Rotation::Right => Rotation::Left,
+			Rotation::Up => Rotation::Down,
+			Rotation::Left => Rotation::Right,
+			Rotation::Down => Rotation::Up,
+		}
+	}
+	
+	pub fn rotate_180(&mut self)
+	{
+		*self = self.rotated_180();
+	}
+}
+
 impl From<u8> for Rotation
 {
 	fn from(val: u8) -> Self
