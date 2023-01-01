@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
+use crate::access::BoxAccess;
 use crate::data::dynamic::DynData;
 
 pub trait BlockLogic
@@ -22,12 +23,12 @@ pub trait BlockLogic
 pub struct Block
 {
 	name: Cow<'static, str>,
-	logic: Box<dyn BlockLogic>,
+	logic: BoxAccess<'static, dyn BlockLogic + Sync>,
 }
 
 impl Block
 {
-	pub fn new(name: Cow<'static, str>, logic: Box<dyn BlockLogic>) -> Self
+	pub const fn new(name: Cow<'static, str>, logic: BoxAccess<'static, dyn BlockLogic + Sync>) -> Self
 	{
 		Self{name, logic}
 	}
@@ -152,12 +153,7 @@ impl<'l> BlockRegistry<'l>
 	
 	pub fn register(&mut self, block: &'l Block) -> Result<&'l Block, &'l Block>
 	{
-		let key = match block.name
-		{
-			Cow::Borrowed(r) => r,
-			Cow::Owned(ref s) => s,
-		};
-		match self.blocks.entry(key)
+		match self.blocks.entry(&block.name)
 		{
 			Entry::Occupied(e) => Err(e.get()),
 			Entry::Vacant(e) => Ok(*e.insert(block)),
