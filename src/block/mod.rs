@@ -150,7 +150,7 @@ impl<'l> BlockRegistry<'l>
 		Self{blocks: HashMap::new()}
 	}
 	
-	pub fn register(&mut self, block: &'l Block) -> Result<(), &'l Block>
+	pub fn register(&mut self, block: &'l Block) -> Result<&'l Block, &'l Block>
 	{
 		let key = match block.name
 		{
@@ -160,11 +160,7 @@ impl<'l> BlockRegistry<'l>
 		match self.blocks.entry(key)
 		{
 			Entry::Occupied(e) => Err(e.get()),
-			Entry::Vacant(e) =>
-			{
-				e.insert(block);
-				Ok(())
-			},
+			Entry::Vacant(e) => Ok(*e.insert(block)),
 		}
 	}
 	
