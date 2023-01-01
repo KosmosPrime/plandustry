@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::fmt::{self, Write};
 use std::iter::FusedIterator;
 use std::slice::Iter;
 
@@ -413,6 +414,199 @@ pub enum PlaceError
 {
 	Bounds{x: u16, y: u16, sz: u8, w: u16, h: u16},
 	Overlap{x: u16, y: u16},
+}
+
+impl fmt::Display for Schematic
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		/*
+		Because characters are about twice as tall as they are wide, two are used to represent a single block.
+		Each block has a single letter to describe what it is + an optional rotation.
+		For size-1 blocks, that's "*]" for symmetric and "*>", "*^", "*<", "*v" for rotations.
+		Larger blocks are formed using pipes, slashes and minuses to form a border, which is filled with spaces.
+		Then, the letter is placed inside followed by the rotation (if any).
+		*/
+		
+		// find unique letters for each block, more common blocks pick first
+		let mut name_cnt = HashMap::<&str, u16>::new();
+		for p in self.blocks.iter()
+		{
+			match name_cnt.entry(p.block.get_name())
+			{
+				Entry::Occupied(mut e) => *e.get_mut() += 1,
+				Entry::Vacant(e) => {e.insert(1);},
+			}
+		}
+		// only needed the map for counting
+		let mut name_cnt = Vec::from_iter(name_cnt);
+		name_cnt.sort_by(|l, r| r.1.cmp(&l.1));
+		// set for control characters, space, b'*', DEL and b">^<v]/|\\-"
+		let mut used = [0xFFu8, 0xFFu8, 0xFFu8, 0xFFu8, 0x01u8, 0xA4u8, 0x00u8, 0x50u8, 0x00u8, 0x00u8, 0x00u8, 0x70u8, 0x00u8, 0x00u8, 0x40u8, 0x90u8];
+		let mut types = HashMap::<&str, char>::new();
+		for &(name, _) in name_cnt.iter()
+		{
+			let mut found = false;
+			for c in name.chars()
+			{
+				if c > ' ' && c <= '~'
+				{
+					let upper = c.to_ascii_uppercase() as usize;
+					let lower = c.to_ascii_lowercase() as usize;
+					if used[upper >> 3] & (1 << (upper & 7)) == 0
+					{
+						found = true;
+						used[upper >> 3] |= 1 << (upper & 7);
+						types.insert(name, unsafe{char::from_u32_unchecked(upper as u32)});
+						break;
+					}
+					if lower != upper && used[lower >> 3] & (1 << (lower & 7)) == 0
+					{
+						found = true;
+						used[lower >> 3] |= 1 << (lower & 7);
+						types.insert(name, unsafe{char::from_u32_unchecked(lower as u32)});
+						break;
+					}
+				}
+			}
+			if !found
+			{
+				// just take whatever symbol's still free (avoids collisions with letters)
+				match used.iter().enumerate().find(|(_, &v)| v != u8::MAX)
+				{
+					// there's no more free symbols... how? use b'*' instead for all of them (reserved)
+					None => {types.insert(name, '*');},
+					Some((i, v)) =>
+					{
+						let idx = i + v.trailing_ones() as usize;
+						used[idx >> 3] |= 1 << (idx & 7);
+						types.insert(name, unsafe{char::from_u32_unchecked(idx as u32)});
+					},
+				}
+			}
+		}
+		
+		// coordinates start in the bottom left, so y starts at self.height - 1
+		if self.blocks.len() > 0
+		{
+			for y in (0..self.height as usize).rev()
+			{
+				let mut x = 0usize;
+				while x < self.width as usize
+				{
+					if let Some(idx) = self.lookup[x + y * (self.width as usize)]
+					{
+						let Placement{pos, block, state: _, rot} = self.blocks[idx];
+						let c = *types.get(block.get_name()).unwrap();
+						match block.get_size() as usize
+						{
+							0 => unreachable!(),
+							1 =>
+							{
+								f.write_char(c)?;
+								match rot
+								{
+									_ if block.is_symmetric() => f.write_char(']')?,
+									Rotation::Right => f.write_char('>')?,
+									Rotation::Up => f.write_char('^')?,
+									Rotation::Left => f.write_char('<')?,
+									Rotation::Down => f.write_char('v')?,
+								}
+							},
+							s =>
+							{
+								if y == pos.1 as usize + (s - 1)
+								{
+									// top row, which looks like /---[...]---\
+									f.write_char('/')?;
+									if s == 2
+									{
+										// label & rotation are in this row
+										f.write_char(c)?;
+										match rot
+										{
+											_ if block.is_symmetric() => f.write_char('-')?,
+											Rotation::Right => f.write_char('>')?,
+											Rotation::Up => f.write_char('^')?,
+											Rotation::Left => f.write_char('<')?,
+											Rotation::Down => f.write_char('v')?,
+										}
+									}
+									else
+									{
+										// label & rotation are not in this row
+										for _ in 0..(2 * s - 2)
+										{
+											f.write_char('-')?;
+										}
+									}
+									f.write_char('\\')?;
+								}
+								else if y == pos.1 as usize
+								{
+									// bottom row, which looks like \---[...]---/
+									f.write_char('\\')?;
+									for _ in 0..(2 * s - 2)
+									{
+										f.write_char('-')?;
+									}
+									f.write_char('/')?;
+								}
+								else if s > 2 && y == pos.1 as usize + s / 2
+								{
+									// middle row with label
+									f.write_char('|')?;
+									for cx in 0..(2 * s - 2)
+									{
+										if cx == s - 2 {f.write_char(c)?;}
+										else if cx == s - 1
+										{
+											match rot
+											{
+												_ if block.is_symmetric() => f.write_char(' ')?,
+												Rotation::Right => f.write_char('>')?,
+												Rotation::Up => f.write_char('^')?,
+												Rotation::Left => f.write_char('<')?,
+												Rotation::Down => f.write_char('v')?,
+											}
+										}
+										else {f.write_char(' ')?;}
+									}
+									f.write_char('|')?;
+								}
+								else
+								{
+									// middle row, which looks like |   [...]   |
+									f.write_char('|')?;
+									for _ in 0..(2 * s - 2)
+									{
+										f.write_char(' ')?;
+									}
+									f.write_char('|')?;
+								}
+							},
+						}
+						x += block.get_size() as usize;
+					}
+					else
+					{
+						f.write_str("  ")?;
+						x += 1;
+					}
+				}
+				writeln!(f)?;
+			}
+			// print the letters assigned to blocks
+			writeln!(f)?;
+			for (k, _) in name_cnt
+			{
+				let v = *types.get(k).unwrap();
+				writeln!(f, "({v}) {k}")?;
+			}
+		}
+		else {write!(f, "<empty {} * {}>", self.width, self.height)?;}
+		Ok(())
+	}
 }
 
 const SCHEMATIC_HEADER: u32 = ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
