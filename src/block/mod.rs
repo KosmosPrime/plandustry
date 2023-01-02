@@ -5,6 +5,8 @@ use std::collections::hash_map::Entry;
 use crate::access::BoxAccess;
 use crate::data::dynamic::DynData;
 
+pub mod simple;
+
 pub trait BlockLogic
 {
 	fn get_size(&self) -> u8;
@@ -173,3 +175,20 @@ impl<'l> AsRef<HashMap<&'l str, &'l Block>> for BlockRegistry<'l>
 		&self.blocks
 	}
 }
+
+macro_rules!make_register
+{
+	($($field:ident: $name:literal => $logic:expr;)+) =>
+	{
+		$(
+			pub static $field: $crate::block::Block = $crate::block::Block::new(
+				std::borrow::Cow::Borrowed($name), $crate::access::Access::Borrowed(&$logic));
+		)+
+		
+		pub fn register<'l>(reg: &mut $crate::block::BlockRegistry<'l>)
+		{
+			$(assert!(reg.register(&$field).is_ok(), "duplicate block {:?}", $name);)+
+		}
+	};
+}
+pub(crate) use make_register;
