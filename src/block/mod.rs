@@ -9,6 +9,7 @@ pub mod defense;
 pub mod extraction;
 pub mod factory;
 pub mod fluid;
+pub mod payload;
 pub mod power;
 pub mod simple;
 pub mod transport;
