@@ -5,6 +5,7 @@ use std::collections::hash_map::Entry;
 use crate::access::BoxAccess;
 use crate::data::dynamic::DynData;
 
+pub mod defense;
 pub mod extraction;
 pub mod fluid;
 pub mod power;
