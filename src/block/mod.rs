@@ -7,6 +7,7 @@ use crate::data::dynamic::DynData;
 
 pub mod extraction;
 pub mod fluid;
+pub mod power;
 pub mod simple;
 pub mod transport;
 pub mod turret;
