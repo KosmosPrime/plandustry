@@ -6,6 +6,7 @@ use crate::access::BoxAccess;
 use crate::data::dynamic::DynData;
 
 pub mod simple;
+pub mod turret;
 
 pub trait BlockLogic
 {
