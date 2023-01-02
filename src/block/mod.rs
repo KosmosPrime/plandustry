@@ -6,6 +6,7 @@ use crate::access::BoxAccess;
 use crate::data::dynamic::DynData;
 
 pub mod extraction;
+pub mod fluid;
 pub mod simple;
 pub mod transport;
 pub mod turret;
