@@ -202,3 +202,24 @@ macro_rules!make_register
 	};
 }
 pub(crate) use make_register;
+
+pub fn build_registry() -> BlockRegistry<'static>
+{
+	let mut reg = BlockRegistry::new();
+	register(&mut reg);
+	reg
+}
+
+pub fn register<'l>(reg: &mut BlockRegistry<'l>)
+{
+	turret::register(reg);
+	extraction::register(reg);
+	transport::register(reg);
+	fluid::register(reg);
+	power::register(reg);
+	defense::register(reg);
+	factory::register(reg);
+	payload::register(reg);
+	base::register(reg);
+	logic::register(reg);
+}
