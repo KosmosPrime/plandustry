@@ -707,10 +707,7 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 			}
 			else {DynSerializer.deserialize(&mut rbuff)?};
 			let rot = Rotation::from(rbuff.read_u8()?);
-			if schematic.set(pos.0, pos.1, block, config, rot).is_err()
-			{
-				return Err(ReadError::Overlap(pos));
-			}
+			schematic.set(pos.0, pos.1, block, config, rot)?;
 		}
 		Ok(schematic)
 	}
@@ -841,7 +838,7 @@ pub enum ReadError
 	BlockCount(i32),
 	BlockIndex(i8, usize),
 	BlockState(dynamic::ReadError),
-	Overlap(GridPos),
+	Placement(PlaceError),
 }
 
 impl From<data::ReadError> for ReadError
@@ -865,6 +862,14 @@ impl From<dynamic::ReadError> for ReadError
 	fn from(value: dynamic::ReadError) -> Self
 	{
 		Self::BlockState(value)
+	}
+}
+
+impl From<PlaceError> for ReadError
+{
+	fn from(value: PlaceError) -> Self
+	{
+		Self::Placement(value)
 	}
 }
 
