@@ -200,11 +200,13 @@ impl Schematic
 		}
 		if sz > 1
 		{
+			let off = ((sz - 1) / 2) as usize;
+			let (x0, y0) = (x - off, y - off);
 			for dy in 0..sz
 			{
 				for dx in 0..sz
 				{
-					self.lookup[(x + dx) + (y + dy) * (self.width as usize)] = val;
+					self.lookup[(x0 + dx) + (y0 + dy) * (self.width as usize)] = val;
 				}
 			}
 		}
@@ -213,16 +215,17 @@ impl Schematic
 	
 	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation) -> Result<&Placement, PlaceError>
 	{
-		if x >= self.width || y >= self.height
-		{
-			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
-		}
-		if self.width - x < block.get_size() as u16 || self.height - y < block.get_size() as u16
-		{
-			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
-		}
 		let sz = block.get_size() as u16;
-		if self.is_region_empty(x, y, sz, sz)
+		let off = (sz - 1) / 2;
+		if x < off || y < off
+		{
+			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
+		}
+		if self.width - x < sz - off || self.height - y < sz - off
+		{
+			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
+		}
+		if self.is_region_empty(x - off, y - off, sz, sz)
 		{
 			let idx = self.blocks.len();
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
@@ -235,22 +238,23 @@ impl Schematic
 	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation, collect: bool)
 		-> Result<Option<Vec<Placement>>, PlaceError>
 	{
-		if x >= self.width || y >= self.height
+		let sz = block.get_size() as u16;
+		let off = (sz - 1) / 2;
+		if x < off || y < off
 		{
 			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
 		}
-		if self.width - x < block.get_size() as u16 || self.height - y < block.get_size() as u16
+		if self.width - x < sz - off || self.height - y < sz - off
 		{
 			return Err(PlaceError::Bounds{x, y, sz: block.get_size(), w: self.width, h: self.height});
 		}
-		let sz = block.get_size() as usize;
 		if sz > 1
 		{
 			let mut result = if collect {Some(Vec::new())} else {None};
 			// remove all blocks in the region
-			for dy in 0..sz
+			for dy in 0..(sz as usize)
 			{
-				for dx in 0..sz
+				for dx in 0..(sz as usize)
 				{
 					if let Some(idx) = self.lookup[(x as usize + dx) + (y as usize + dy) * (self.width as usize)]
 					{
@@ -261,7 +265,7 @@ impl Schematic
 			}
 			let idx = self.blocks.len();
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
-			self.fill_lookup(x as usize, y as usize, sz, Some(idx));
+			self.fill_lookup(x as usize, y as usize, sz as usize, Some(idx));
 			Ok(result)
 		}
 		else
@@ -280,7 +284,7 @@ impl Schematic
 				{
 					let prev = std::mem::replace(&mut self.blocks[idx], Placement{pos: GridPos(x, y), block, state, rot});
 					self.fill_lookup(prev.pos.0 as usize, prev.pos.1 as usize, prev.block.get_size() as usize, None);
-					self.fill_lookup(x as usize, y as usize, sz, Some(idx));
+					self.fill_lookup(x as usize, y as usize, sz as usize, Some(idx));
 					Ok(if collect {Some(vec![prev])} else {None})
 				}
 			}
@@ -313,9 +317,9 @@ impl Schematic
 			self.lookup.resize((self.width as usize) * (self.height as usize), None);
 			for (i, curr) in self.blocks.iter().enumerate()
 			{
-				let x = curr.pos.0 as usize;
-				let y = curr.pos.1 as usize;
 				let sz = curr.block.get_size() as usize;
+				let x = curr.pos.0 as usize - (sz - 1) / 2;
+				let y = curr.pos.1 as usize - (sz - 1) / 2;
 				if sz > 1
 				{
 					for dy in 0..sz
@@ -515,7 +519,8 @@ impl fmt::Display for Schematic
 							},
 							s =>
 							{
-								if y == pos.1 as usize + (s - 1)
+								let y0 = pos.1 as usize - (s - 1) / 2;
+								if y == y0 + (s - 1)
 								{
 									// top row, which looks like /---[...]---\
 									f.write_char('/')?;
@@ -542,7 +547,7 @@ impl fmt::Display for Schematic
 									}
 									f.write_char('\\')?;
 								}
-								else if y == pos.1 as usize
+								else if y == y0
 								{
 									// bottom row, which looks like \---[...]---/
 									f.write_char('\\')?;
@@ -552,7 +557,7 @@ impl fmt::Display for Schematic
 									}
 									f.write_char('/')?;
 								}
-								else if s > 2 && y == pos.1 as usize + s / 2
+								else if s > 2 && y == y0 + s / 2
 								{
 									// middle row with label
 									f.write_char('|')?;
