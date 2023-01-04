@@ -15,22 +15,14 @@ pub trait ArgHandler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Error<E>
 {
-	Handler(E),
-	EmptyName,
-}
-
-impl<E> From<E> for Error<E>
-{
-	fn from(value: E) -> Self
-	{
-		Self::Handler(value)
-	}
+	Handler{pos: usize, val: E},
+	EmptyName{pos: usize},
 }
 
 pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Result<bool, Error<H::Error>>
 	where I::Item: AsRef<str>
 {
-	for arg in args
+	for (pos, arg) in args.enumerate()
 	{
 		let arg = arg.as_ref();
 		if !arg.is_empty()
@@ -45,8 +37,11 @@ pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Resul
 						None => (&arg[2..], None),
 						Some((i, _)) => (&arg[2..i], Some(&arg[i + 1..])),
 					};
-					if name.is_empty() {return Err(Error::EmptyName);}
-					handler.on_long(name, value)?;
+					if name.is_empty() {return Err(Error::EmptyName{pos});}
+					if let Err(val) = handler.on_long(name, value)
+					{
+						return Err(Error::Handler{pos, val});
+					}
 				}
 				else
 				{
@@ -59,15 +54,21 @@ pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Resul
 					{
 						for c in arg[1..end].chars()
 						{
-							handler.on_short(c, value)?;
+							if let Err(val) = handler.on_short(c, value)
+							{
+								return Err(Error::Handler{pos, val});
+							}
 						}
 					}
-					else {return Err(Error::EmptyName);}
+					else {return Err(Error::EmptyName{pos});}
 				}
 			}
 			else
 			{
-				handler.on_literal(arg)?;
+				if let Err(val) = handler.on_literal(arg)
+				{
+					return Err(Error::Handler{pos, val});
+				}
 			}
 		}
 	}
