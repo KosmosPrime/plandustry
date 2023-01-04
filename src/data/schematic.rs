@@ -602,11 +602,10 @@ impl fmt::Display for Schematic
 				writeln!(f)?;
 			}
 			// print the letters assigned to blocks
-			writeln!(f)?;
 			for (k, _) in name_cnt
 			{
 				let v = *types.get(k).unwrap();
-				writeln!(f, "({v}) {k}")?;
+				write!(f, "\n({v}) {k}")?;
 			}
 		}
 		else {write!(f, "<empty {} * {}>", self.width, self.height)?;}
