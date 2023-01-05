@@ -3,7 +3,7 @@ use std::env::Args;
 use std::io::{self, Write};
 use std::fs;
 
-use crate::args::{ArgOption, OptionError, OptionHandler};
+use crate::args::{ArgCount, ArgOption, OptionError, OptionHandler};
 use crate::data::{DataRead, Serializer};
 use crate::data::schematic::{Schematic, SchematicSerializer};
 
@@ -28,8 +28,8 @@ fn main()
 fn main_print(mut args: Args)
 {
 	let mut handler = OptionHandler::new();
-	let opt_file = handler.add(ArgOption::new(Some('f'), Some(Cow::Borrowed("file")))).unwrap();
-	let opt_interact = handler.add(ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")))).unwrap();
+	let opt_file = handler.add(ArgOption::new(Some('f'), Some(Cow::Borrowed("file")), ArgCount::Required(1))).unwrap();
+	let opt_interact = handler.add(ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")), ArgCount::Forbidden)).unwrap();
 	match args::parse(&mut args, &mut handler)
 	{
 		Err(args::Error::Handler{pos, val: OptionError::NoSuchShort(short)}) =>
@@ -42,7 +42,7 @@ fn main_print(mut args: Args)
 			println!("Invalid argument \"--{long}\" (at #{pos})).");
 			return;
 		},
-		Err(args::Error::Handler{pos, val: OptionError::Duplicate(opt)}) =>
+		Err(args::Error::Handler{pos, val: OptionError::TooMany(opt)}) =>
 		{
 			match (opt.get_short(), opt.get_long())
 			{

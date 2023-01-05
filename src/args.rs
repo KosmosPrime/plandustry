@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::slice::from_ref;
 
 pub trait ArgHandler
 {
@@ -81,22 +82,68 @@ pub fn parse_args<H: ArgHandler>(handler: &mut H) -> Result<(), Error<H::Error>>
 	Ok(())
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ArgCount
+{
+	Forbidden,
+	Optional(usize),
+	Required(usize),
+}
+
+impl ArgCount
+{
+	pub const fn has_value(&self) -> bool
+	{
+		match self
+		{
+			ArgCount::Optional(..) | ArgCount::Required(..) => true,
+			_ => false
+		}
+	}
+	
+	pub const fn is_required(&self) -> bool
+	{
+		match self
+		{
+			ArgCount::Required(..) => true,
+			_ => false
+		}
+	}
+	
+	pub const fn get_max_count(&self) -> Option<usize>
+	{
+		match self
+		{
+			ArgCount::Optional(max) | ArgCount::Required(max) => Some(*max),
+			_ => None,
+		}
+	}
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgOption
 {
 	short: Option<char>,
 	long: Option<Cow<'static, str>>,
+	count: ArgCount,
 }
 
 impl ArgOption
 {
-	pub const fn new(short: Option<char>, long: Option<Cow<'static, str>>) -> Self
+	pub const fn new(short: Option<char>, long: Option<Cow<'static, str>>, count: ArgCount) -> Self
 	{
 		if short.is_none() && long.is_none()
 		{
 			panic!("option must have at least a short or long name");
 		}
-		Self{short, long}
+		if let Some(max) = count.get_max_count()
+		{
+			if max == 0
+			{
+				panic!("argument must be allowed to appear at least once");
+			}
+		}
+		Self{short, long, count}
 	}
 	
 	pub fn get_short(&self) -> Option<char>
@@ -109,8 +156,14 @@ impl ArgOption
 		match self.long
 		{
 			None => None,
-			Some(ref s) => Some(s),
+			Some(Cow::Borrowed(r)) => Some(r),
+			Some(Cow::Owned(ref s)) => Some(s.as_str()),
 		}
+	}
+	
+	pub const fn get_count(&self) -> &ArgCount
+	{
+		&self.count
 	}
 }
 
@@ -120,6 +173,7 @@ pub enum OptionValue
 	Absent,
 	Present,
 	Value(String),
+	Values(Vec<String>),
 }
 
 impl OptionValue
@@ -137,7 +191,7 @@ impl OptionValue
 	{
 		match self
 		{
-			OptionValue::Present | OptionValue::Value(..) => true,
+			OptionValue::Present | OptionValue::Value(..) | OptionValue::Values(..) => true,
 			_ => false,
 		}
 	}
@@ -147,6 +201,7 @@ impl OptionValue
 		match self
 		{
 			OptionValue::Value(..) => true,
+			OptionValue::Values(..) => true,
 			_ => false,
 		}
 	}
@@ -156,6 +211,16 @@ impl OptionValue
 		match self
 		{
 			OptionValue::Value(v) => Some(v),
+			_ => None,
+		}
+	}
+	
+	pub fn get_values(&self) -> Option<&[String]>
+	{
+		match self
+		{
+			OptionValue::Value(v) => Some(from_ref(v)),
+			OptionValue::Values(v) => Some(v.as_ref()),
 			_ => None,
 		}
 	}
@@ -251,17 +316,75 @@ impl OptionHandler
 	
 	fn set_arg(&mut self, idx: usize, value: Option<&str>) -> Result<(), OptionError>
 	{
-		let (ref o, ref mut v) = self.options[idx];
-		if *v == OptionValue::Absent
+		let (ref o, ref mut curr) = self.options[idx];
+		match o.count
 		{
-			match value
+			ArgCount::Forbidden =>
 			{
-				None => *v = OptionValue::Present,
-				Some(s) => *v = OptionValue::Value(s.to_owned()),
-			}
-			Ok(())
+				if let None = value
+				{
+					if curr.is_absent() {*curr = OptionValue::Present;}
+					Ok(())
+				}
+				else {Err(OptionError::ValueForbidden(o.clone()))}
+			},
+			ArgCount::Optional(max) =>
+			{
+				match curr
+				{
+					OptionValue::Absent | OptionValue::Present =>
+					{
+						if let Some(v) = value
+						{
+							if max == 1 {*curr = OptionValue::Value(v.to_owned());}
+							else {*curr = OptionValue::Values(vec![v.to_owned()]);}
+						}
+						else {*curr = OptionValue::Present;}
+						Ok(())
+					},
+					OptionValue::Value(..) => Err(OptionError::TooMany(o.clone())),
+					OptionValue::Values(vec) =>
+					{
+						if vec.len() <= max
+						{
+							if let Some(v) = value
+							{
+								vec.push(v.to_owned());
+							}
+							Ok(())
+						}
+						else {Err(OptionError::TooMany(o.clone()))}
+					},
+				}
+			},
+			ArgCount::Required(max) =>
+			{
+				if let Some(v) = value
+				{
+					match curr
+					{
+						OptionValue::Absent =>
+						{
+							if max == 1 {*curr = OptionValue::Value(v.to_owned());}
+							else {*curr = OptionValue::Values(vec![v.to_owned()]);}
+							Ok(())
+						},
+						OptionValue::Present => unreachable!("argument missing required value"),
+						OptionValue::Value(..) => Err(OptionError::TooMany(o.clone())),
+						OptionValue::Values(vec) =>
+						{
+							if vec.len() <= max
+							{
+								vec.push(v.to_owned());
+								Ok(())
+							}
+							else {Err(OptionError::TooMany(o.clone()))}
+						},
+					}
+				}
+				else {Err(OptionError::ValueRequired(o.clone()))}
+			},
 		}
-		else {Err(OptionError::Duplicate(o.clone()))}
 	}
 	
 	pub fn clear(&mut self)
@@ -307,5 +430,7 @@ pub enum OptionError
 {
 	NoSuchShort(char),
 	NoSuchLong(String),
-	Duplicate(ArgOption),
+	ValueForbidden(ArgOption),
+	ValueRequired(ArgOption),
+	TooMany(ArgOption),
 }
