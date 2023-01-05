@@ -1,3 +1,5 @@
+use std::fmt;
+
 const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const PADDING: u8 = b'=';
 
@@ -169,10 +171,35 @@ pub enum DecodeError
 	TrailingData{at: usize},
 }
 
+impl fmt::Display for DecodeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			DecodeError::Malformed{at, value} => write!(f, "Malformed base64 character {value:?} (at {at})"),
+			DecodeError::Overflow{need, have} => write!(f, "Decoder overflow (need {need}, but only have {have})"),
+			DecodeError::Truncated => write!(f, "Truncated base64 input stream"),
+			DecodeError::TrailingData{at} => write!(f, "Trailing data in base64 stream (at {at})"),
+		}
+	}
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EncodeError
 {
 	Overflow{need: usize, have: usize}
+}
+
+impl fmt::Display for EncodeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			EncodeError::Overflow{need, have} => write!(f, "Encoder overflow (need {need}, but only have {have})"),
+		}
+	}
 }
 
 #[cfg(test)]

@@ -6,65 +6,17 @@ use std::fs;
 use crate::block::build_registry;
 use crate::data::{DataRead, Serializer};
 use crate::data::schematic::{Schematic, SchematicSerializer};
-use crate::exe::args::{self, ArgCount, ArgOption, OptionError, OptionHandler};
+use crate::exe::args::{self, ArgCount, ArgOption, OptionHandler};
 
-pub fn main(mut args: Args)
+pub fn main(mut args: Args, arg_off: usize)
 {
 	let mut handler = OptionHandler::new();
 	let opt_file = handler.add(ArgOption::new(Some('f'), Some(Cow::Borrowed("file")), ArgCount::Required(usize::MAX))).unwrap();
 	let opt_interact = handler.add(ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")), ArgCount::Forbidden)).unwrap();
-	match args::parse(&mut args, &mut handler)
+	if let Err(e) = args::parse(&mut args, &mut handler, arg_off)
 	{
-		Err(args::Error::Handler{pos, val: OptionError::NoSuchShort(short)}) =>
-		{
-			println!("Invalid argument \"-{short}\" (at #{})).", pos + 1);
-			return;
-		},
-		Err(args::Error::Handler{pos, val: OptionError::NoSuchLong(long)}) =>
-		{
-			println!("Invalid argument \"--{long}\" (at #{})).", pos + 1);
-			return;
-		},
-		Err(args::Error::Handler{pos, val: OptionError::ValueForbidden(opt)}) =>
-		{
-			match (opt.get_short(), opt.get_long())
-			{
-				(None, None) => unreachable!("unnamed ArgOption (at #{}))", pos + 1),
-				(None, Some(long)) => println!("Illegal valued argument \"--{long}\" (at #{})).", pos + 1),
-				(Some(short), None) => println!("Illegal valued argument \"-{short}\" (at #{})).", pos + 1),
-				(Some(short), Some(long)) => println!("Illegal valued argument \"--{long}\" (\"-{short}\", at #{})).", pos + 1),
-			}
-			return;
-		},
-		Err(args::Error::Handler{pos, val: OptionError::ValueRequired(opt)}) =>
-		{
-			match (opt.get_short(), opt.get_long())
-			{
-				(None, None) => unreachable!("unnamed ArgOption (at #{}))", pos + 1),
-				(None, Some(long)) => println!("Missing value to argument \"--{long}\" (at #{})).", pos + 1),
-				(Some(short), None) => println!("Missing value to argument \"-{short}\" (at #{})).", pos + 1),
-				(Some(short), Some(long)) => println!("Missing value to argument \"--{long}\" (\"-{short}\", at #{})).", pos + 1),
-			}
-			return;
-		},
-		Err(args::Error::Handler{pos, val: OptionError::TooMany(opt)}) =>
-		{
-			let max = opt.get_count().get_max_count().unwrap();
-			match (opt.get_short(), opt.get_long())
-			{
-				(None, None) => unreachable!("unnamed ArgOption (at #{}))", pos + 1),
-				(None, Some(long)) => println!("Duplicate argument \"--{long}\" (more than {max} at #{})).", pos + 1),
-				(Some(short), None) => println!("Duplicate argument \"-{short}\" (more than {max} at #{})).", pos + 1),
-				(Some(short), Some(long)) => println!("Duplicate argument \"--{long}\" (\"-{short}\", more than {max} at #{})).", pos + 1),
-			}
-			return;
-		},
-		Err(args::Error::EmptyName{pos}) =>
-		{
-			println!("Invalid empty argument (at #{}).", pos + 1);
-			return;
-		},
-		_ => (),
+		println!("Command error: {e}");
+		return;
 	}
 	
 	let reg = build_registry();
@@ -99,7 +51,7 @@ pub fn main(mut args: Args)
 								if need_space {println!();}
 								first = false;
 								need_space = false;
-								println!("Could not read schematic: {e:?}");
+								println!("Could not read schematic: {e}");
 							},
 						}
 					},
@@ -135,7 +87,7 @@ pub fn main(mut args: Args)
 				if need_space {println!();}
 				first = false;
 				need_space = false;
-				println!("Could not read schematic: {e:?}");
+				println!("Could not read schematic: {e}");
 			},
 		}
 	}

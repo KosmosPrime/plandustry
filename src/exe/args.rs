@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt;
 use std::slice::from_ref;
 
 pub trait ArgHandler
@@ -20,7 +21,19 @@ pub enum Error<E>
 	EmptyName{pos: usize},
 }
 
-pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Result<bool, Error<H::Error>>
+impl<E: fmt::Display> fmt::Display for Error<E>
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Error::Handler{pos, val} => write!(f, "{val} (at #{pos})"),
+			Error::EmptyName{pos} => write!(f, "Malformed argument (at #{pos})"),
+		}
+	}
+}
+
+pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H, arg_off: usize) -> Result<bool, Error<H::Error>>
 	where I::Item: AsRef<str>
 {
 	for (pos, arg) in args.enumerate()
@@ -38,10 +51,10 @@ pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Resul
 						None => (&arg[2..], None),
 						Some((i, _)) => (&arg[2..i], Some(&arg[i + 1..])),
 					};
-					if name.is_empty() {return Err(Error::EmptyName{pos});}
+					if name.is_empty() {return Err(Error::EmptyName{pos: arg_off + pos});}
 					if let Err(val) = handler.on_long(name, value)
 					{
-						return Err(Error::Handler{pos, val});
+						return Err(Error::Handler{pos: arg_off + pos, val});
 					}
 				}
 				else
@@ -57,18 +70,18 @@ pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Resul
 						{
 							if let Err(val) = handler.on_short(c, value)
 							{
-								return Err(Error::Handler{pos, val});
+								return Err(Error::Handler{pos: arg_off + pos, val});
 							}
 						}
 					}
-					else {return Err(Error::EmptyName{pos});}
+					else {return Err(Error::EmptyName{pos: arg_off + pos});}
 				}
 			}
 			else
 			{
 				if let Err(val) = handler.on_literal(arg)
 				{
-					return Err(Error::Handler{pos, val});
+					return Err(Error::Handler{pos: arg_off + pos, val});
 				}
 			}
 		}
@@ -78,7 +91,7 @@ pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Resul
 
 pub fn parse_args<H: ArgHandler>(handler: &mut H) -> Result<(), Error<H::Error>>
 {
-	parse(&mut std::env::args(), handler)?;
+	parse(&mut std::env::args(), handler, 0)?;
 	Ok(())
 }
 
@@ -164,6 +177,20 @@ impl ArgOption
 	pub const fn get_count(&self) -> &ArgCount
 	{
 		&self.count
+	}
+}
+
+impl fmt::Display for ArgOption
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match (self.get_short(), self.get_long())
+		{
+			(None, None) => unreachable!("unnamed ArgOption"),
+			(None, Some(long)) => write!(f, "\"--{long}\""),
+			(Some(short), None) => write!(f, "\"-{short}\""),
+			(Some(short), Some(long)) => write!(f, "\"--{long}\" / \"-{short}\""),
+		}
 	}
 }
 
@@ -433,4 +460,23 @@ pub enum OptionError
 	ValueForbidden(ArgOption),
 	ValueRequired(ArgOption),
 	TooMany(ArgOption),
+}
+
+impl fmt::Display for OptionError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			OptionError::NoSuchShort(short) => write!(f, "Invalid argument \"-{short}\""),
+			OptionError::NoSuchLong(long) => write!(f, "Invalid argument \"--{long}\""),
+			OptionError::ValueForbidden(opt) => write!(f, "Argument {opt} has no value"),
+			OptionError::ValueRequired(opt) => write!(f, "Argument {opt} requires a value"),
+			OptionError::TooMany(opt) =>
+			{
+				if let Some(max) = opt.count.get_max_count() {write!(f, "Too many {opt} (max {max})")}
+				else {write!(f, "Duplicate argument {opt}")}
+			},
+		}
+	}
 }

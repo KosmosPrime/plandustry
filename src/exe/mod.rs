@@ -8,7 +8,7 @@ pub fn main(mut args: Args)
 	match args.next()
 	{
 		None => panic!("not enough arguments"),
-		Some(s) if s == "print" => print::main(args),
+		Some(s) if s == "print" => print::main(args, 1),
 		Some(s) => panic!("unknown argument {s}"),
 	}
 }

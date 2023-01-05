@@ -404,6 +404,18 @@ pub enum NewError
 	Height(u16),
 }
 
+impl fmt::Display for NewError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			NewError::Width(w) => write!(f, "Invalid schematic width ({w})"),
+			NewError::Height(h) => write!(f, "Invalid schematic height ({h})"),
+		}
+	}
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PosError
 {
@@ -413,11 +425,31 @@ pub struct PosError
 	pub h: u16,
 }
 
+impl fmt::Display for PosError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		write!(f, "Position {x} / {y} out of bounds {w} / {h}", x = self.x, y = self.y, w = self.w, h = self.h)
+	}
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PlaceError
 {
 	Bounds{x: u16, y: u16, sz: u8, w: u16, h: u16},
 	Overlap{x: u16, y: u16},
+}
+
+impl fmt::Display for PlaceError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			PlaceError::Bounds{x, y, sz, w, h} => write!(f, "Block placement {x} / {y} (size {sz}) within {w} / {h}"),
+			PlaceError::Overlap{x, y} => write!(f, "Overlapping an existing block at {x} / {y}"),
+		}
+	}
 }
 
 impl fmt::Display for Schematic
@@ -872,6 +904,28 @@ impl From<PlaceError> for ReadError
 	}
 }
 
+impl fmt::Display for ReadError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			ReadError::Read(..) => write!(f, "Failed to read data from buffer"),
+			ReadError::Header(hdr) => write!(f, "Incorrect header ({hdr:08X})"),
+			ReadError::Version(ver) => write!(f, "Unsupported version ({ver})"),
+			ReadError::Decompress(e) => e.fmt(f),
+			ReadError::DecompressStall => write!(f, "Decompressor stalled before completion"),
+			ReadError::Dimensions(w, h) => write!(f, "Invalid schematic dimensions ({w} * {h})"),
+			ReadError::TableSize(cnt) => write!(f, "Invalid block table size ({cnt})"),
+			ReadError::NoSuchBlock(name) => write!(f, "Unknown block {name:?}"),
+			ReadError::BlockCount(cnt) => write!(f, "Invalid total block count ({cnt})"),
+			ReadError::BlockIndex(idx, cnt) => write!(f, "Invalid block index ({idx} / {cnt})"),
+			ReadError::BlockState(..) => write!(f, "Failed to read block state"),
+			ReadError::Placement(e) => e.fmt(f),
+		}
+	}
+}
+
 #[derive(Debug)]
 pub enum WriteError
 {
@@ -905,6 +959,23 @@ impl From<dynamic::WriteError> for WriteError
 	fn from(value: dynamic::WriteError) -> Self
 	{
 		Self::BlockState(value)
+	}
+}
+
+impl fmt::Display for WriteError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			WriteError::Write(..) => write!(f, "Failed to write data to buffer"),
+			WriteError::TagCount(cnt) => write!(f, "Invalid tag count ({cnt})"),
+			WriteError::TableSize(cnt) => write!(f, "Invalid block table size ({cnt})"),
+			WriteError::BlockState(..) => write!(f, "Failed to write block state"),
+			WriteError::Compress(e) => e.fmt(f),
+			WriteError::CompressEof(remain) => write!(f, "Compression overflow with {remain} bytes of input remaining"),
+			WriteError::CompressStall => write!(f, "Compressor stalled before completion"),
+		}
 	}
 }
 
@@ -958,6 +1029,18 @@ impl From<ReadError> for R64Error
 	}
 }
 
+impl fmt::Display for R64Error
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			R64Error::Base64(e) => e.fmt(f),
+			R64Error::Content(e) => e.fmt(f),
+		}
+	}
+}
+
 #[derive(Debug)]
 pub enum W64Error
 {
@@ -978,6 +1061,18 @@ impl From<WriteError> for W64Error
 	fn from(value: WriteError) -> Self
 	{
 		Self::Content(value)
+	}
+}
+
+impl fmt::Display for W64Error
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			W64Error::Base64(e) => e.fmt(f),
+			W64Error::Content(e) => e.fmt(f),
+		}
 	}
 }
 
