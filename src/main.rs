@@ -27,11 +27,9 @@ fn main()
 
 fn main_print(mut args: Args)
 {
-	const FILE: ArgOption = ArgOption::new(Some('f'), Some(Cow::Borrowed("file")));
-	const INTERACTIVE: ArgOption = ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")));
 	let mut handler = OptionHandler::new();
-	handler.add(FILE).unwrap();
-	handler.add(INTERACTIVE).unwrap();
+	let opt_file = handler.add(ArgOption::new(Some('f'), Some(Cow::Borrowed("file")))).unwrap();
+	let opt_interact = handler.add(ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")))).unwrap();
 	match args::parse(&mut args, &mut handler)
 	{
 		Err(args::Error::Handler{pos, val: OptionError::NoSuchShort(short)}) =>
@@ -67,7 +65,7 @@ fn main_print(mut args: Args)
 	let mut ss = SchematicSerializer(&reg);
 	let mut first = true;
 	// process the file if any
-	let file = match handler.get_long("file").unwrap().1.get_value()
+	let file = match handler.get_value(opt_file).get_value()
 	{
 		None => false,
 		Some(ref path) =>
@@ -112,7 +110,7 @@ fn main_print(mut args: Args)
 		}
 	}
 	// if --interactive or no schematics: continue parsing from console
-	if handler.get_long("interactive").unwrap().1.is_present() || (!file && handler.get_literals().is_empty())
+	if handler.get_value(opt_interact).is_present() || (!file && handler.get_literals().is_empty())
 	{
 		println!("\nEntering interactive mode, paste schematic to print details.\n");
 		let mut buff = String::new();

@@ -177,7 +177,7 @@ impl OptionHandler
 		Self{options: Vec::new(), short_map: HashMap::new(), long_map: HashMap::new(), literals: Vec::new()}
 	}
 	
-	pub fn add(&mut self, opt: ArgOption) -> Result<(), (ArgOption, &ArgOption)>
+	pub fn add(&mut self, opt: ArgOption) -> Result<OptionRef, (ArgOption, &ArgOption)>
 	{
 		match opt.short
 		{
@@ -210,12 +210,28 @@ impl OptionHandler
 			let k = &**s;
 			self.long_map.insert(k.to_owned(), idx);
 		}
-		Ok(())
+		Ok(OptionRef(idx))
 	}
 	
 	pub fn options(&self) -> &Vec<(ArgOption, OptionValue)>
 	{
 		&self.options
+	}
+	
+	pub fn get(&self, opt_ref: OptionRef) -> (&ArgOption, &OptionValue)
+	{
+		let opt = &self.options[opt_ref.0];
+		(&opt.0, &opt.1)
+	}
+	
+	pub fn get_option(&self, opt_ref: OptionRef) -> &ArgOption
+	{
+		&self.options[opt_ref.0].0
+	}
+	
+	pub fn get_value(&self, opt_ref: OptionRef) -> &OptionValue
+	{
+		&self.options[opt_ref.0].1
 	}
 	
 	pub fn get_short(&self, name: char) -> Option<&(ArgOption, OptionValue)>
@@ -253,6 +269,9 @@ impl OptionHandler
 		self.options.iter_mut().for_each(|(_, v)| *v = OptionValue::Absent);
 	}
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct OptionRef(usize);
 
 impl ArgHandler for OptionHandler
 {
