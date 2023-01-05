@@ -3,7 +3,7 @@ use std::env::Args;
 use std::io::{self, Write};
 use std::fs;
 
-use crate::args::{ArgOption, OptionError, OptionHandler, OptionValue};
+use crate::args::{ArgOption, OptionError, OptionHandler};
 use crate::data::{DataRead, Serializer};
 use crate::data::schematic::{Schematic, SchematicSerializer};
 
@@ -67,14 +67,10 @@ fn main_print(mut args: Args)
 	let mut ss = SchematicSerializer(&reg);
 	let mut first = true;
 	// process the file if any
-	let file = match handler.get_long("file").unwrap().1
+	let file = match handler.get_long("file").unwrap().1.get_value()
 	{
-		OptionValue::Absent => false,
-		OptionValue::Present =>
-		{
-			return;
-		},
-		OptionValue::Value(ref path) =>
+		None => false,
+		Some(ref path) =>
 		{
 			match fs::read(path)
 			{
@@ -116,8 +112,7 @@ fn main_print(mut args: Args)
 		}
 	}
 	// if --interactive or no schematics: continue parsing from console
-	let interactive = if let OptionValue::Absent = handler.get_long("interactive").unwrap().1 {false} else {true};
-	if interactive || (!file && handler.get_literals().is_empty())
+	if handler.get_long("interactive").unwrap().1.is_present() || (!file && handler.get_literals().is_empty())
 	{
 		println!("\nEntering interactive mode, paste schematic to print details.\n");
 		let mut buff = String::new();

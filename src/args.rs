@@ -122,6 +122,45 @@ pub enum OptionValue
 	Value(String),
 }
 
+impl OptionValue
+{
+	pub const fn is_absent(&self) -> bool
+	{
+		match self
+		{
+			OptionValue::Absent => true,
+			_ => false,
+		}
+	}
+	
+	pub const fn is_present(&self) -> bool
+	{
+		match self
+		{
+			OptionValue::Present | OptionValue::Value(..) => true,
+			_ => false,
+		}
+	}
+	
+	pub const fn has_value(&self) -> bool
+	{
+		match self
+		{
+			OptionValue::Value(..) => true,
+			_ => false,
+		}
+	}
+	
+	pub const fn get_value(&self) -> Option<&String>
+	{
+		match self
+		{
+			OptionValue::Value(v) => Some(v),
+			_ => None,
+		}
+	}
+}
+
 #[derive(Clone, Debug)]
 pub struct OptionHandler
 {
