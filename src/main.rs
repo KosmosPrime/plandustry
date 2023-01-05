@@ -28,34 +28,57 @@ fn main()
 fn main_print(mut args: Args)
 {
 	let mut handler = OptionHandler::new();
-	let opt_file = handler.add(ArgOption::new(Some('f'), Some(Cow::Borrowed("file")), ArgCount::Required(1))).unwrap();
+	let opt_file = handler.add(ArgOption::new(Some('f'), Some(Cow::Borrowed("file")), ArgCount::Required(usize::MAX))).unwrap();
 	let opt_interact = handler.add(ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")), ArgCount::Forbidden)).unwrap();
 	match args::parse(&mut args, &mut handler)
 	{
 		Err(args::Error::Handler{pos, val: OptionError::NoSuchShort(short)}) =>
 		{
-			println!("Invalid argument \"-{short}\" (at #{pos})).");
+			println!("Invalid argument \"-{short}\" (at #{})).", pos + 1);
 			return;
 		},
 		Err(args::Error::Handler{pos, val: OptionError::NoSuchLong(long)}) =>
 		{
-			println!("Invalid argument \"--{long}\" (at #{pos})).");
+			println!("Invalid argument \"--{long}\" (at #{})).", pos + 1);
+			return;
+		},
+		Err(args::Error::Handler{pos, val: OptionError::ValueForbidden(opt)}) =>
+		{
+			match (opt.get_short(), opt.get_long())
+			{
+				(None, None) => unreachable!("unnamed ArgOption (at #{}))", pos + 1),
+				(None, Some(long)) => println!("Illegal valued argument \"--{long}\" (at #{})).", pos + 1),
+				(Some(short), None) => println!("Illegal valued argument \"-{short}\" (at #{})).", pos + 1),
+				(Some(short), Some(long)) => println!("Illegal valued argument \"--{long}\" (\"-{short}\", at #{})).", pos + 1),
+			}
+			return;
+		},
+		Err(args::Error::Handler{pos, val: OptionError::ValueRequired(opt)}) =>
+		{
+			match (opt.get_short(), opt.get_long())
+			{
+				(None, None) => unreachable!("unnamed ArgOption (at #{}))", pos + 1),
+				(None, Some(long)) => println!("Missing value to argument \"--{long}\" (at #{})).", pos + 1),
+				(Some(short), None) => println!("Missing value to argument \"-{short}\" (at #{})).", pos + 1),
+				(Some(short), Some(long)) => println!("Missing value to argument \"--{long}\" (\"-{short}\", at #{})).", pos + 1),
+			}
 			return;
 		},
 		Err(args::Error::Handler{pos, val: OptionError::TooMany(opt)}) =>
 		{
+			let max = opt.get_count().get_max_count().unwrap();
 			match (opt.get_short(), opt.get_long())
 			{
-				(None, None) => unreachable!("unnamed ArgOption (at #{pos}))"),
-				(None, Some(long)) => println!("Duplicate argument \"--{long}\" (at #{pos}))."),
-				(Some(short), None) => println!("Duplicate argument \"-{short}\" (at #{pos}))."),
-				(Some(short), Some(long)) => println!("Duplicate argument \"--{long}\" (\"-{short}\", at #{pos}))."),
+				(None, None) => unreachable!("unnamed ArgOption (at #{}))", pos + 1),
+				(None, Some(long)) => println!("Duplicate argument \"--{long}\" (more than {max} at #{})).", pos + 1),
+				(Some(short), None) => println!("Duplicate argument \"-{short}\" (more than {max} at #{})).", pos + 1),
+				(Some(short), Some(long)) => println!("Duplicate argument \"--{long}\" (\"-{short}\", more than {max} at #{})).", pos + 1),
 			}
 			return;
 		},
 		Err(args::Error::EmptyName{pos}) =>
 		{
-			println!("Invalid empty argument (at #{pos}).");
+			println!("Invalid empty argument (at #{}).", pos + 1);
 			return;
 		},
 		_ => (),
@@ -64,31 +87,48 @@ fn main_print(mut args: Args)
 	let reg = block::build_registry();
 	let mut ss = SchematicSerializer(&reg);
 	let mut first = true;
-	// process the file if any
-	let file = match handler.get_value(opt_file).get_value()
+	let mut need_space = false;
+	// process the files if any
+	let file = match handler.get_value(opt_file).get_values()
 	{
 		None => false,
-		Some(ref path) =>
+		Some(paths) =>
 		{
-			match fs::read(path)
+			for path in paths
 			{
-				Ok(data) =>
+				match fs::read(path)
 				{
-					match ss.deserialize(&mut DataRead::new(&data))
+					Ok(data) =>
 					{
-						Ok(s) =>
+						match ss.deserialize(&mut DataRead::new(&data))
 						{
-							if first {first = false;}
-							else {println!();}
-							println!("Schematic: @{path}");
-							print_schematic(&s);
-						},
-						// continue processing literals & maybe interactive mode
-						Err(e) => println!("Could not read schematic: {e:?}"),
-					}
-				},
-				// continue processing literals & maybe interactive mode
-				Err(e) => println!("Could not read file {path:?}: {e}"),
+							Ok(s) =>
+							{
+								if !first || need_space {println!();}
+								first = false;
+								need_space = true;
+								println!("Schematic: @{path}");
+								print_schematic(&s);
+							},
+							// continue processing files, literals & maybe interactive mode
+							Err(e) =>
+							{
+								if need_space {println!();}
+								first = false;
+								need_space = false;
+								println!("Could not read schematic: {e:?}");
+							},
+						}
+					},
+					// continue processing files, literals & maybe interactive mode
+					Err(e) =>
+					{
+						if need_space {println!();}
+						first = false;
+						need_space = false;
+						println!("Could not read file {path:?}: {e}");
+					},
+				}
 			}
 			true
 		},
@@ -100,24 +140,35 @@ fn main_print(mut args: Args)
 		{
 			Ok(s) =>
 			{
-				if first {first = false;}
-				else {println!();}
+				if !first || need_space {println!();}
+				first = false;
+				need_space = true;
 				println!("Schematic: {curr}");
 				print_schematic(&s);
 			},
 			// continue processing literals & maybe interactive mode
-			Err(e) => println!("Could not read schematic: {e:?}"),
+			Err(e) =>
+			{
+				if need_space {println!();}
+				first = false;
+				need_space = false;
+				println!("Could not read schematic: {e:?}");
+			},
 		}
 	}
 	// if --interactive or no schematics: continue parsing from console
 	if handler.get_value(opt_interact).is_present() || (!file && handler.get_literals().is_empty())
 	{
-		println!("\nEntering interactive mode, paste schematic to print details.\n");
+		if need_space {println!();}
+		need_space = false;
+		println!("Entering interactive mode, paste schematic to print details.");
 		let mut buff = String::new();
 		let stdin = io::stdin();
 		loop
 		{
 			buff.clear();
+			if need_space {println!();}
+			need_space = false;
 			print!("> ");
 			if let Err(e) = io::stdout().flush()
 			{
@@ -132,13 +183,24 @@ fn main_print(mut args: Args)
 					if data.is_empty() {break;}
 					match ss.deserialize_base64(data)
 					{
-						Ok(s) => print_schematic(&s),
+						Ok(s) =>
+						{
+							println!();
+							need_space = true;
+							print_schematic(&s)
+						},
 						// continue interactive mode, typos are especially likely here
-						Err(e) => println!("Could not read schematic: {e:?}"),
+						Err(e) =>
+						{
+							if need_space {println!();}
+							need_space = false;
+							println!("Could not read schematic: {e:?}")
+						},
 					}
 				},
 				Err(e) =>
 				{
+					if need_space {println!();}
 					println!("Failed to read next line: {e}");
 					break;
 				},

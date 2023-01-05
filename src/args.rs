@@ -51,7 +51,7 @@ pub fn parse<I: Iterator, H: ArgHandler>(args: &mut I, handler: &mut H) -> Resul
 						None => (None, arg.len()),
 						Some((i, _)) => (Some(&arg[i + 1..]), i),
 					};
-					if end > 2 || (end == 2 && value.is_none())
+					if end > 1
 					{
 						for c in arg[1..end].chars()
 						{
