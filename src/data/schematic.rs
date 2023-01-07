@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt::{self, Write};
@@ -14,12 +15,11 @@ use crate::data::dynamic::{self, DynSerializer, DynData};
 pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
 
-#[derive(Clone)]
 pub struct Placement
 {
 	pos: GridPos,
 	block: &'static Block,
-	state: DynData,
+	state: Option<Box<dyn Any>>,
 	rot: Rotation,
 }
 
@@ -35,13 +35,27 @@ impl Placement
 		self.block
 	}
 	
-	pub fn get_state(&self) -> &DynData
+	pub fn get_state(&self) -> Option<&dyn Any>
 	{
-		&self.state
+		match self.state
+		{
+			None => None,
+			Some(ref b) => Some(b.as_ref()),
+		}
 	}
 	
-	pub fn set_state(&mut self, state: DynData) -> DynData
+	pub fn get_state_mut(&mut self) -> Option<&mut dyn Any>
 	{
+		match self.state
+		{
+			None => None,
+			Some(ref mut b) => Some(b.as_mut()),
+		}
+	}
+	
+	pub fn set_state(&mut self, data: DynData) -> Option<Box<dyn Any>>
+	{
+		let state = self.block.deserialize_state(data);
 		std::mem::replace(&mut self.state, state)
 	}
 	
@@ -53,6 +67,25 @@ impl Placement
 	pub fn set_rotation(&mut self, rot: Rotation) -> Rotation
 	{
 		std::mem::replace(&mut self.rot, rot)
+	}
+}
+
+// manual impl because trait objects cannot be cloned
+impl Clone for Placement
+{
+	fn clone(&self) -> Self
+	{
+		Self
+		{
+			pos: self.pos,
+			block: self.block,
+			state: match self.state
+			{
+				None => None,
+				Some(ref s) => Some(self.block.clone_state(s)),
+			},
+			rot: self.rot,
+		}
 	}
 }
 
@@ -213,7 +246,7 @@ impl Schematic
 		else {self.lookup[x + y * (self.width as usize)] = val;}
 	}
 	
-	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation) -> Result<&Placement, PlaceError>
+	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, data: DynData, rot: Rotation) -> Result<&Placement, PlaceError>
 	{
 		let sz = block.get_size() as u16;
 		let off = (sz - 1) / 2;
@@ -228,6 +261,7 @@ impl Schematic
 		if self.is_region_empty(x - off, y - off, sz, sz)
 		{
 			let idx = self.blocks.len();
+			let state = block.deserialize_state(data);
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 			self.fill_lookup(x as usize, y as usize, block.get_size() as usize, Some(idx));
 			Ok(&self.blocks[idx])
@@ -235,7 +269,7 @@ impl Schematic
 		else {Err(PlaceError::Overlap{x, y})}
 	}
 	
-	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, state: DynData, rot: Rotation, collect: bool)
+	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, data: DynData, rot: Rotation, collect: bool)
 		-> Result<Option<Vec<Placement>>, PlaceError>
 	{
 		let sz = block.get_size() as u16;
@@ -264,6 +298,7 @@ impl Schematic
 				}
 			}
 			let idx = self.blocks.len();
+			let state = block.deserialize_state(data);
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 			self.fill_lookup(x as usize, y as usize, sz as usize, Some(idx));
 			Ok(result)
@@ -276,12 +311,14 @@ impl Schematic
 				None =>
 				{
 					let idx = self.blocks.len();
+					let state = block.deserialize_state(data);
 					self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 					self.lookup[pos] = Some(idx);
 					Ok(if collect {Some(Vec::new())} else {None})
 				},
 				Some(idx) =>
 				{
+					let state = block.deserialize_state(data);
 					let prev = std::mem::replace(&mut self.blocks[idx], Placement{pos: GridPos(x, y), block, state, rot});
 					self.fill_lookup(prev.pos.0 as usize, prev.pos.1 as usize, prev.block.get_size() as usize, None);
 					self.fill_lookup(x as usize, y as usize, sz as usize, Some(idx));
@@ -734,7 +771,7 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 			let block = block_table[idx as usize];
 			let config = if version < 1
 			{
-				block.state_from_i32(rbuff.read_i32()?)
+				block.data_from_i32(rbuff.read_i32()?)
 			}
 			else {DynSerializer.deserialize(&mut rbuff)?};
 			let rot = Rotation::from(rbuff.read_u8()?);
@@ -795,7 +832,12 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 		{
 			rbuff.write_i8(block_map[curr.block.get_name()] as i8)?;
 			rbuff.write_u32(u32::from(curr.pos))?;
-			DynSerializer.serialize(&mut rbuff, &curr.state)?;
+			let data = match curr.state
+			{
+				None => DynData::Empty,
+				Some(ref s) => curr.block.serialize_state(s.as_ref()),
+			};
+			DynSerializer.serialize(&mut rbuff, &data)?;
 			rbuff.write_u8(curr.rot.into())?;
 			num += 1;
 		}

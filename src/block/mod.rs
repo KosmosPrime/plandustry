@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -21,15 +22,15 @@ pub trait BlockLogic
 {
 	fn get_size(&self) -> u8;
 	
-	fn is_symmetric(&self) -> bool
-	{
-		true
-	}
+	fn is_symmetric(&self) -> bool;
 	
-	fn state_from_i32(&self, _config: i32) -> DynData
-	{
-		DynData::Empty
-	}
+	fn data_from_i32(&self, config: i32) -> DynData;
+	
+	fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>;
+	
+	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>;
+	
+	fn serialize_state(&self, state: &dyn Any) -> DynData;
 }
 
 pub struct Block
@@ -60,9 +61,24 @@ impl Block
 		self.logic.is_symmetric()
 	}
 	
-	pub fn state_from_i32(&self, config: i32) -> DynData
+	pub fn data_from_i32(&self, config: i32) -> DynData
 	{
-		self.logic.state_from_i32(config)
+		self.logic.data_from_i32(config)
+	}
+	
+	pub fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>
+	{
+		self.logic.deserialize_state(data)
+	}
+	
+	pub fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>
+	{
+		self.logic.clone_state(state)
+	}
+	
+	pub fn serialize_state(&self, state: &dyn Any) -> DynData
+	{
+		self.logic.serialize_state(state)
 	}
 }
 
