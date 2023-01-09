@@ -69,6 +69,44 @@ pub enum DynData
 	Team(Team),
 }
 
+impl DynData
+{
+	pub fn get_type(&self) -> DynType
+	{
+		match self
+		{
+			DynData::Empty => DynType::Empty,
+			DynData::Int(..) => DynType::Int,
+			DynData::Long(..) => DynType::Long,
+			DynData::Float(..) => DynType::Float,
+			DynData::String(..) => DynType::String,
+			DynData::Content(..) => DynType::Content,
+			DynData::IntArray(..) => DynType::IntArray,
+			DynData::Point2(..) => DynType::Point2,
+			DynData::Point2Array(..) => DynType::Point2Array,
+			DynData::TechNode(..) => DynType::TechNode,
+			DynData::Boolean(..) => DynType::Boolean,
+			DynData::Double(..) => DynType::Double,
+			DynData::Building(..) => DynType::Building,
+			DynData::LogicField(..) => DynType::LogicField,
+			DynData::ByteArray(..) => DynType::ByteArray,
+			DynData::UnitCommand(..) => DynType::UnitCommand,
+			DynData::BoolArray(..) => DynType::BoolArray,
+			DynData::Unit(..) => DynType::Unit,
+			DynData::Vec2Array(..) => DynType::Vec2Array,
+			DynData::Vec2(..) => DynType::Vec2,
+			DynData::Team(..) => DynType::Team,
+		}
+	}
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DynType
+{
+	Empty, Int, Long, Float, String, Content, IntArray, Point2, Point2Array, TechNode, Boolean, Double, Building,
+	LogicField, ByteArray, UnitCommand, BoolArray, Unit, Vec2Array, Vec2, Team,
+}
+
 pub struct DynSerializer;
 
 impl Serializer<DynData> for DynSerializer

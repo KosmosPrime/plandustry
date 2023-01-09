@@ -29,6 +29,31 @@ macro_rules!gen_state_empty
 	};
 }
 
+macro_rules!state_impl
+{
+	($vis:vis $type:ty) =>
+	{
+		$vis fn get_state<'l>(state: &'l dyn Any) -> &'l $type
+			where Self: Sized
+		{
+			state.downcast_ref::<$type>().unwrap()
+		}
+		
+		$vis fn get_state_mut<'l>(state: &'l mut dyn Any) -> &'l mut $type
+			where Self: Sized
+		{
+			state.downcast_mut::<$type>().unwrap()
+		}
+		
+		fn create_state(val: $type) -> Box<dyn Any>
+			where Self: Sized
+		{
+			Box::new(val)
+		}
+	};
+}
+pub(crate) use state_impl;
+
 pub struct SimpleBlock
 {
 	size: u8,
