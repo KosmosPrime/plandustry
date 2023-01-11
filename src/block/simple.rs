@@ -1,6 +1,6 @@
 use std::any::{Any, type_name};
 
-use crate::block::BlockLogic;
+use crate::block::{BlockLogic, DeserializeError, SerializeError};
 use crate::data::dynamic::DynData;
 
 macro_rules!gen_state_empty
@@ -12,9 +12,9 @@ macro_rules!gen_state_empty
 			DynData::Empty
 		}
 		
-		fn deserialize_state(&self, _: DynData) -> Option<Box<dyn Any>>
+		fn deserialize_state(&self, _: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
 		{
-			None
+			Ok(None)
 		}
 		
 		fn clone_state(&self, _: &dyn Any) -> Box<dyn Any>
@@ -22,9 +22,9 @@ macro_rules!gen_state_empty
 			panic!("{} has no custom state", type_name::<Self>())
 		}
 		
-		fn serialize_state(&self, _: &dyn Any) -> DynData
+		fn serialize_state(&self, _: &dyn Any) -> Result<DynData, SerializeError>
 		{
-			DynData::Empty
+			Ok(DynData::Empty)
 		}
 	};
 }

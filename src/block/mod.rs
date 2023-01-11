@@ -2,9 +2,11 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::error::Error;
+use std::fmt;
 
 use crate::access::BoxAccess;
-use crate::data::dynamic::DynData;
+use crate::data::dynamic::{DynData, DynType};
 
 pub mod base;
 pub mod defense;
@@ -26,11 +28,94 @@ pub trait BlockLogic
 	
 	fn data_from_i32(&self, config: i32) -> DynData;
 	
-	fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>;
+	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>;
 	
 	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>;
 	
-	fn serialize_state(&self, state: &dyn Any) -> DynData;
+	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>;
+}
+
+#[derive(Debug)]
+pub enum DeserializeError
+{
+	InvalidType{have: DynType, expect: DynType},
+	Custom(Box<dyn Error>),
+}
+
+impl DeserializeError
+{
+	pub fn filter<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
+	{
+		match result
+		{
+			Ok(v) => Ok(v),
+			Err(e) => Err(Self::Custom(Box::new(e))),
+		}
+	}
+}
+
+impl fmt::Display for DeserializeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::InvalidType{have, expect} => write!(f, "Expected type {expect:?} but got {have:?}"),
+			Self::Custom(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for DeserializeError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			Self::Custom(e) => Some(e.as_ref()),
+			_ => None,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub enum SerializeError
+{
+	Custom(Box<dyn Error>),
+}
+
+impl SerializeError
+{
+	pub fn filter<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
+	{
+		match result
+		{
+			Ok(v) => Ok(v),
+			Err(e) => Err(Self::Custom(Box::new(e))),
+		}
+	}
+}
+
+impl fmt::Display for SerializeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::Custom(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for SerializeError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			Self::Custom(e) => Some(e.as_ref()),
+		}
+	}
 }
 
 pub struct Block
@@ -66,7 +151,7 @@ impl Block
 		self.logic.data_from_i32(config)
 	}
 	
-	pub fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>
+	pub fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
 	{
 		self.logic.deserialize_state(data)
 	}
@@ -76,7 +161,7 @@ impl Block
 		self.logic.clone_state(state)
 	}
 	
-	pub fn serialize_state(&self, state: &dyn Any) -> DynData
+	pub fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		self.logic.serialize_state(state)
 	}

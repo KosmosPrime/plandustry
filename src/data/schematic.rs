@@ -1,13 +1,14 @@
 use std::any::Any;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::error::Error;
 use std::fmt::{self, Write};
 use std::iter::FusedIterator;
 use std::slice::Iter;
 
 use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress, FlushDecompress, Status};
 
-use crate::block::{Block, BlockRegistry, Rotation};
+use crate::block::{self, Block, BlockRegistry, Rotation};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynSerializer, DynData};
@@ -53,10 +54,10 @@ impl Placement
 		}
 	}
 	
-	pub fn set_state(&mut self, data: DynData) -> Option<Box<dyn Any>>
+	pub fn set_state(&mut self, data: DynData) -> Result<Option<Box<dyn Any>>, block::DeserializeError>
 	{
-		let state = self.block.deserialize_state(data);
-		std::mem::replace(&mut self.state, state)
+		let state = self.block.deserialize_state(data)?;
+		Ok(std::mem::replace(&mut self.state, state))
 	}
 	
 	pub fn get_rotation(&self) -> Rotation
@@ -261,7 +262,7 @@ impl Schematic
 		if self.is_region_empty(x - off, y - off, sz, sz)
 		{
 			let idx = self.blocks.len();
-			let state = block.deserialize_state(data);
+			let state = block.deserialize_state(data)?;
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 			self.fill_lookup(x as usize, y as usize, block.get_size() as usize, Some(idx));
 			Ok(&self.blocks[idx])
@@ -298,7 +299,7 @@ impl Schematic
 				}
 			}
 			let idx = self.blocks.len();
-			let state = block.deserialize_state(data);
+			let state = block.deserialize_state(data)?;
 			self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 			self.fill_lookup(x as usize, y as usize, sz as usize, Some(idx));
 			Ok(result)
@@ -311,14 +312,14 @@ impl Schematic
 				None =>
 				{
 					let idx = self.blocks.len();
-					let state = block.deserialize_state(data);
+					let state = block.deserialize_state(data)?;
 					self.blocks.push(Placement{pos: GridPos(x, y), block, state, rot});
 					self.lookup[pos] = Some(idx);
 					Ok(if collect {Some(Vec::new())} else {None})
 				},
 				Some(idx) =>
 				{
-					let state = block.deserialize_state(data);
+					let state = block.deserialize_state(data)?;
 					let prev = std::mem::replace(&mut self.blocks[idx], Placement{pos: GridPos(x, y), block, state, rot});
 					self.fill_lookup(prev.pos.0 as usize, prev.pos.1 as usize, prev.block.get_size() as usize, None);
 					self.fill_lookup(x as usize, y as usize, sz as usize, Some(idx));
@@ -470,11 +471,20 @@ impl fmt::Display for PosError
 	}
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum PlaceError
 {
 	Bounds{x: u16, y: u16, sz: u8, w: u16, h: u16},
 	Overlap{x: u16, y: u16},
+	Deserialize(block::DeserializeError),
+}
+
+impl From<block::DeserializeError> for PlaceError
+{
+	fn from(value: block::DeserializeError) -> Self
+	{
+		PlaceError::Deserialize(value)
+	}
 }
 
 impl fmt::Display for PlaceError
@@ -485,6 +495,19 @@ impl fmt::Display for PlaceError
 		{
 			PlaceError::Bounds{x, y, sz, w, h} => write!(f, "Block placement {x} / {y} (size {sz}) within {w} / {h}"),
 			PlaceError::Overlap{x, y} => write!(f, "Overlapping an existing block at {x} / {y}"),
+			PlaceError::Deserialize(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for PlaceError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			PlaceError::Deserialize(e) => Some(e),
+			_ => None,
 		}
 	}
 }
@@ -835,7 +858,7 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 			let data = match curr.state
 			{
 				None => DynData::Empty,
-				Some(ref s) => curr.block.serialize_state(s.as_ref()),
+				Some(ref s) => curr.block.serialize_state(s.as_ref())?,
 			};
 			DynSerializer.serialize(&mut rbuff, &data)?;
 			rbuff.write_u8(curr.rot.into())?;
@@ -974,6 +997,7 @@ pub enum WriteError
 	Write(data::WriteError),
 	TagCount(usize),
 	TableSize(usize),
+	StateSerialize(block::SerializeError),
 	BlockState(dynamic::WriteError),
 	Compress(CompressError),
 	CompressEof(usize),
@@ -985,6 +1009,14 @@ impl From<data::WriteError> for WriteError
 	fn from(value: data::WriteError) -> Self
 	{
 		Self::Write(value)
+	}
+}
+
+impl From<block::SerializeError> for WriteError
+{
+	fn from(value: block::SerializeError) -> Self
+	{
+		Self::StateSerialize(value)
 	}
 }
 
@@ -1013,6 +1045,7 @@ impl fmt::Display for WriteError
 			WriteError::Write(..) => write!(f, "Failed to write data to buffer"),
 			WriteError::TagCount(cnt) => write!(f, "Invalid tag count ({cnt})"),
 			WriteError::TableSize(cnt) => write!(f, "Invalid block table size ({cnt})"),
+			WriteError::StateSerialize(e) => e.fmt(f),
 			WriteError::BlockState(..) => write!(f, "Failed to write block state"),
 			WriteError::Compress(e) => e.fmt(f),
 			WriteError::CompressEof(remain) => write!(f, "Compression overflow with {remain} bytes of input remaining"),

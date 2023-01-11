@@ -1,12 +1,15 @@
-use std::any::{Any, type_name};
+use std::any::Any;
 use std::borrow::Cow;
+use std::error::Error;
+use std::fmt;
+use std::string::FromUtf8Error;
 
-use flate2::{Compress, Compression, Decompress, FlushCompress, FlushDecompress, Status};
+use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress, FlushDecompress, Status};
 
-use crate::block::{BlockLogic, make_register};
+use crate::block::{BlockLogic, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
-use crate::data::{DataRead, DataWrite};
-use crate::data::dynamic::DynData;
+use crate::data::{self, DataRead, DataWrite};
+use crate::data::dynamic::{DynData, DynType};
 
 make_register!
 (
@@ -45,13 +48,13 @@ impl BlockLogic for MessageLogic
 		DynData::Empty
 	}
 	
-	fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>
+	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
 	{
 		match data
 		{
-			DynData::Empty | DynData::String(None) => Some(Self::create_state(String::new())),
-			DynData::String(Some(s)) => Some(Self::create_state(s)),
-			_ => panic!("{} cannot use data of {:?}", type_name::<Self>(), data.get_type()),
+			DynData::Empty | DynData::String(None) => Ok(Some(Self::create_state(String::new()))),
+			DynData::String(Some(s)) => Ok(Some(Self::create_state(s))),
+			_ => Err(DeserializeError::InvalidType{have: data.get_type(), expect: DynType::String}),
 		}
 	}
 	
@@ -60,9 +63,9 @@ impl BlockLogic for MessageLogic
 		Box::new(Self::get_state(state).clone())
 	}
 	
-	fn serialize_state(&self, state: &dyn Any) -> DynData
+	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
-		DynData::String(Some(Self::get_state(state).clone()))
+		Ok(DynData::String(Some(Self::get_state(state).clone())))
 	}
 }
 
@@ -90,13 +93,13 @@ impl BlockLogic for SwitchLogic
 		DynData::Empty
 	}
 	
-	fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>
+	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
 	{
 		match data
 		{
-			DynData::Empty => Some(Self::create_state(true)),
-			DynData::Boolean(enabled) => Some(Self::create_state(enabled)),
-			_ => panic!("{} cannot use data of {:?}", type_name::<Self>(), data.get_type()),
+			DynData::Empty => Ok(Some(Self::create_state(true))),
+			DynData::Boolean(enabled) => Ok(Some(Self::create_state(enabled))),
+			_ => Err(DeserializeError::InvalidType{have: data.get_type(), expect: DynType::Boolean}),
 		}
 	}
 	
@@ -105,9 +108,9 @@ impl BlockLogic for SwitchLogic
 		Box::new(Self::get_state(state).clone())
 	}
 	
-	fn serialize_state(&self, state: &dyn Any) -> DynData
+	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
-		DynData::Boolean(*Self::get_state(state))
+		Ok(DynData::Boolean(*Self::get_state(state)))
 	}
 }
 
@@ -138,11 +141,11 @@ impl BlockLogic for ProcessorLogic
 		DynData::Empty
 	}
 	
-	fn deserialize_state(&self, data: DynData) -> Option<Box<dyn Any>>
+	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
 	{
 		match data
 		{
-			DynData::Empty => Some(Self::create_state(ProcessorState::new())),
+			DynData::Empty => Ok(Some(Self::create_state(ProcessorState::new()))),
 			DynData::ByteArray(arr) =>
 			{
 				let mut input = arr.as_ref();
@@ -153,7 +156,7 @@ impl BlockLogic for ProcessorLogic
 				{
 					let t_in = dec.total_in();
 					let t_out = dec.total_out();
-					let res = dec.decompress_vec(input, &mut raw, FlushDecompress::Finish).unwrap();
+					let res = ProcessorDeserializeError::forward(dec.decompress_vec(input, &mut raw, FlushDecompress::Finish))?;
 					if dec.total_in() > t_in
 					{
 						// we have to advance input every time, decompress_vec only knows the output position
@@ -169,43 +172,43 @@ impl BlockLogic for ProcessorLogic
 					if dec.total_in() == t_in && dec.total_out() == t_out
 					{
 						// protect against looping forever
-						panic!("decompressor stalled");
+						return Err(DeserializeError::Custom(Box::new(ProcessorDeserializeError::DecompressStall)));
 					}
 					raw.reserve(1024);
 				}
 				let mut buff = DataRead::new(&raw);
-				let ver = buff.read_u8().unwrap();
+				let ver = ProcessorDeserializeError::forward(buff.read_u8())?;
 				if ver != 1
 				{
-					panic!("unknown version {ver}");
+					return Err(DeserializeError::Custom(Box::new(ProcessorDeserializeError::Version(ver))));
 				}
 				
-				let code_len = buff.read_i32().unwrap();
+				let code_len = ProcessorDeserializeError::forward(buff.read_i32())?;
 				if code_len < 0 || code_len > 500 * 1024
 				{
-					panic!("invalid code length ({code_len})");
+					return Err(DeserializeError::Custom(Box::new(ProcessorDeserializeError::CodeLength(code_len))));
 				}
 				let mut code = Vec::<u8>::new();
 				code.resize(code_len as usize, 0);
-				buff.read_bytes(&mut code).unwrap();
-				let code = String::from_utf8(code).unwrap();
-				let link_cnt = buff.read_i32().unwrap();
+				ProcessorDeserializeError::forward(buff.read_bytes(&mut code))?;
+				let code = ProcessorDeserializeError::forward(String::from_utf8(code))?;
+				let link_cnt = ProcessorDeserializeError::forward(buff.read_i32())?;
 				if link_cnt < 0
 				{
-					panic!("link count is negative ({link_cnt})");
+					return Err(DeserializeError::Custom(Box::new(ProcessorDeserializeError::LinkCount(link_cnt))));
 				}
 				let mut links = Vec::<ProcessorLink>::new();
 				links.reserve(link_cnt as usize);
 				for _ in 0..link_cnt
 				{
-					let name = buff.read_utf().unwrap();
-					let x = buff.read_i16().unwrap();
-					let y = buff.read_i16().unwrap();
+					let name = ProcessorDeserializeError::forward(buff.read_utf())?;
+					let x = ProcessorDeserializeError::forward(buff.read_i16())?;
+					let y = ProcessorDeserializeError::forward(buff.read_i16())?;
 					links.push(ProcessorLink{name: String::from(name), x, y});
 				}
-				Some(Self::create_state(ProcessorState{code, links}))
+				Ok(Some(Self::create_state(ProcessorState{code, links})))
 			},
-			_ => panic!("{} cannot use data of {:?}", type_name::<Self>(), data.get_type()),
+			_ => Err(DeserializeError::InvalidType{have: data.get_type(), expect: DynType::Boolean}),
 		}
 	}
 	
@@ -214,27 +217,21 @@ impl BlockLogic for ProcessorLogic
 		Box::new(Self::get_state(state).clone())
 	}
 	
-	fn serialize_state(&self, state: &dyn Any) -> DynData
+	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		let state = Self::get_state(state);
 		let mut rbuff = DataWrite::new();
-		rbuff.write_u8(1).unwrap();
-		if state.code.len() > i32::MAX as usize
-		{
-			panic!("code too long ({})", state.code.len());
-		}
-		rbuff.write_i32(state.code.len() as i32).unwrap();
-		rbuff.write_bytes(state.code.as_bytes()).unwrap();
-		if state.links.len() > i32::MAX as usize
-		{
-			panic!("too many links ({})", state.links.len());
-		}
-		rbuff.write_i32(state.links.len() as i32).unwrap();
+		ProcessorSerializeError::forward(rbuff.write_u8(1))?;
+		assert!(state.code.len() < 500 * 1024);
+		ProcessorSerializeError::forward(rbuff.write_i32(state.code.len() as i32))?;
+		ProcessorSerializeError::forward(rbuff.write_bytes(state.code.as_bytes()))?;
+		assert!(state.links.len() < i32::MAX as usize);
+		ProcessorSerializeError::forward(rbuff.write_i32(state.links.len() as i32))?;
 		for link in state.links.iter()
 		{
-			rbuff.write_utf(&link.name).unwrap();
-			rbuff.write_i16(link.x).unwrap();
-			rbuff.write_i16(link.y).unwrap();
+			ProcessorSerializeError::forward(rbuff.write_utf(&link.name))?;
+			ProcessorSerializeError::forward(rbuff.write_i16(link.x))?;
+			ProcessorSerializeError::forward(rbuff.write_i16(link.y))?;
 		}
 		let mut input = rbuff.get_written();
 		let mut comp = Compress::new(Compression::default(), true);
@@ -244,7 +241,7 @@ impl BlockLogic for ProcessorLogic
 		{
 			let t_in = comp.total_in();
 			let t_out = comp.total_out();
-			let res = comp.compress_vec(input, &mut dst, FlushCompress::Finish).unwrap();
+			let res = ProcessorSerializeError::forward(comp.compress_vec(input, &mut dst, FlushCompress::Finish))?;
 			if comp.total_in() > t_in
 			{
 				// we have to advance input every time, compress_vec only knows the output position
@@ -260,11 +257,152 @@ impl BlockLogic for ProcessorLogic
 			if comp.total_in() == t_in && comp.total_out() == t_out
 			{
 				// protect against looping forever
-				panic!("compressor stalled");
+				return Err(SerializeError::Custom(Box::new(ProcessorSerializeError::CompressStall)));
 			}
 			dst.reserve(1024);
 		}
-		DynData::ByteArray(dst)
+		Ok(DynData::ByteArray(dst))
+	}
+}
+
+#[derive(Debug)]
+pub enum ProcessorDeserializeError
+{
+	Read(data::ReadError),
+	Decompress(DecompressError),
+	DecompressStall,
+	FromUtf8(FromUtf8Error),
+	Version(u8),
+	CodeLength(i32),
+	LinkCount(i32),
+}
+
+impl ProcessorDeserializeError
+{
+	pub fn forward<T, E: Into<Self>>(result: Result<T, E>) -> Result<T, DeserializeError>
+	{
+		match result
+		{
+			Ok(v) => Ok(v),
+			Err(e) => Err(DeserializeError::Custom(Box::new(e.into()))),
+		}
+	}
+}
+
+impl From<data::ReadError> for ProcessorDeserializeError
+{
+	fn from(value: data::ReadError) -> Self
+	{
+		Self::Read(value)
+	}
+}
+
+impl From<DecompressError> for ProcessorDeserializeError
+{
+	fn from(value: DecompressError) -> Self
+	{
+		Self::Decompress(value)
+	}
+}
+
+impl From<FromUtf8Error> for ProcessorDeserializeError
+{
+	fn from(value: FromUtf8Error) -> Self
+	{
+		Self::FromUtf8(value)
+	}
+}
+
+impl fmt::Display for ProcessorDeserializeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::Read(..) => write!(f, "Failed to read data from buffer"),
+			Self::Decompress(e) => e.fmt(f),
+			Self::DecompressStall => write!(f, "Decompressor stalled before completion"),
+			Self::FromUtf8(e) => e.fmt(f),
+			Self::Version(ver) => write!(f, "Unsupported version ({ver})"),
+			Self::CodeLength(len) => write!(f, "Invalid code length ({len})"),
+			Self::LinkCount(cnt) => write!(f, "Invalid link count ({cnt})"),
+		}
+	}
+}
+
+impl Error for ProcessorDeserializeError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			Self::Decompress(e) => Some(e),
+			Self::FromUtf8(e) => Some(e),
+			_ => None,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub enum ProcessorSerializeError
+{
+	Write(data::WriteError),
+	Compress(CompressError),
+	CompressEof(usize),
+	CompressStall,
+}
+
+impl ProcessorSerializeError
+{
+	pub fn forward<T, E: Into<Self>>(result: Result<T, E>) -> Result<T, SerializeError>
+	{
+		match result
+		{
+			Ok(v) => Ok(v),
+			Err(e) => Err(SerializeError::Custom(Box::new(e.into()))),
+		}
+	}
+}
+
+impl From<data::WriteError> for ProcessorSerializeError
+{
+	fn from(value: data::WriteError) -> Self
+	{
+		Self::Write(value)
+	}
+}
+
+impl From<CompressError> for ProcessorSerializeError
+{
+	fn from(value: CompressError) -> Self
+	{
+		Self::Compress(value)
+	}
+}
+
+impl fmt::Display for ProcessorSerializeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::Write(..) => write!(f, "Failed to write data to buffer"),
+			Self::Compress(e) => e.fmt(f),
+			Self::CompressEof(remain) => write!(f, "Compression overflow with {remain} bytes of input remaining"),
+			Self::CompressStall => write!(f, "Compressor stalled before completion"),
+		}
+	}
+}
+
+impl Error for ProcessorSerializeError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			Self::Compress(e) => Some(e),
+			_ => None,
+		}
 	}
 }
 
@@ -345,13 +483,13 @@ impl ProcessorState
 	{
 		if name.len() > u16::MAX as usize
 		{
-			return Err(CreateError::NameLength{len: name.len()})
+			return Err(CreateError::NameLength(name.len()))
 		}
 		for curr in self.links.iter()
 		{
 			if &name == &curr.name
 			{
-				return Err(CreateError::DuplicateName{name});
+				return Err(CreateError::DuplicateName(name));
 			}
 			if x == curr.x && y == curr.y
 			{
@@ -386,10 +524,38 @@ pub enum CodeError
 	TooLong(usize),
 }
 
+impl fmt::Display for CodeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::TooLong(len) => write!(f, "Code too long ({len} bytes)"),
+		}
+	}
+}
+
+impl Error for CodeError {}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CreateError
 {
-	NameLength{len: usize},
-	DuplicateName{name: String},
+	NameLength(usize),
+	DuplicateName(String),
 	DuplicatePos{name: String, x: i16, y: i16},
 }
+
+impl fmt::Display for CreateError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::NameLength(len) => write!(f, "Link name too long ({len} bytes)"),
+			Self::DuplicateName(name) => write!(f, "There already is a link named {name}"),
+			Self::DuplicatePos{name, x, y} => write!(f, "Link {name} already points to {x} / {y}"),
+		}
+	}
+}
+
+impl Error for CreateError {}
