@@ -6,6 +6,7 @@ use std::error::Error;
 use std::fmt;
 
 use crate::access::BoxAccess;
+use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
 
 pub mod base;
@@ -26,7 +27,7 @@ pub trait BlockLogic
 	
 	fn is_symmetric(&self) -> bool;
 	
-	fn data_from_i32(&self, config: i32) -> DynData;
+	fn data_from_i32(&self, config: i32, pos: GridPos) -> DynData;
 	
 	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>;
 	
@@ -146,9 +147,9 @@ impl Block
 		self.logic.is_symmetric()
 	}
 	
-	pub fn data_from_i32(&self, config: i32) -> DynData
+	pub fn data_from_i32(&self, config: i32, pos: GridPos) -> DynData
 	{
-		self.logic.data_from_i32(config)
+		self.logic.data_from_i32(config, pos)
 	}
 	
 	pub fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>

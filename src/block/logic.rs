@@ -8,7 +8,7 @@ use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, 
 
 use crate::block::{BlockLogic, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
-use crate::data::{self, DataRead, DataWrite};
+use crate::data::{self, DataRead, DataWrite, GridPos};
 use crate::data::dynamic::{DynData, DynType};
 
 make_register!
@@ -43,7 +43,7 @@ impl BlockLogic for MessageLogic
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
 	{
 		DynData::Empty
 	}
@@ -88,7 +88,7 @@ impl BlockLogic for SwitchLogic
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
 	{
 		DynData::Empty
 	}
@@ -136,7 +136,7 @@ impl BlockLogic for ProcessorLogic
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
 	{
 		DynData::Empty
 	}

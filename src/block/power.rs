@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::block::{BlockLogic, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
+use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
 
 make_register!
@@ -68,7 +69,7 @@ impl BlockLogic for ConnectorBlock
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
 	{
 		DynData::Empty
 	}

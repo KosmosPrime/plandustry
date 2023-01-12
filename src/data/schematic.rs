@@ -794,7 +794,7 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 			let block = block_table[idx as usize];
 			let config = if version < 1
 			{
-				block.data_from_i32(rbuff.read_i32()?)
+				block.data_from_i32(rbuff.read_i32()?, pos)
 			}
 			else {DynSerializer.deserialize(&mut rbuff)?};
 			let rot = Rotation::from(rbuff.read_u8()?);

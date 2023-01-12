@@ -1,33 +1,8 @@
 use std::any::{Any, type_name};
 
 use crate::block::{BlockLogic, DeserializeError, SerializeError};
+use crate::data::GridPos;
 use crate::data::dynamic::DynData;
-
-macro_rules!gen_state_empty
-{
-	() =>
-	{
-		fn data_from_i32(&self, _: i32) -> DynData
-		{
-			DynData::Empty
-		}
-		
-		fn deserialize_state(&self, _: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
-		{
-			Ok(None)
-		}
-		
-		fn clone_state(&self, _: &dyn Any) -> Box<dyn Any>
-		{
-			panic!("{} has no custom state", type_name::<Self>())
-		}
-		
-		fn serialize_state(&self, _: &dyn Any) -> Result<DynData, SerializeError>
-		{
-			Ok(DynData::Empty)
-		}
-	};
-}
 
 macro_rules!state_impl
 {
@@ -84,5 +59,23 @@ impl BlockLogic for SimpleBlock
 		self.symmetric
 	}
 	
-	gen_state_empty!();
+	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
+	{
+		DynData::Empty
+	}
+	
+	fn deserialize_state(&self, _: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
+	{
+		Ok(None)
+	}
+	
+	fn clone_state(&self, _: &dyn Any) -> Box<dyn Any>
+	{
+		panic!("{} has no custom state", type_name::<Self>())
+	}
+	
+	fn serialize_state(&self, _: &dyn Any) -> Result<DynData, SerializeError>
+	{
+		Ok(DynData::Empty)
+	}
 }
