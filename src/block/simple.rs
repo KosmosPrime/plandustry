@@ -64,6 +64,10 @@ impl SimpleBlock
 {
 	pub const fn new(size: u8, symmetric: bool) -> Self
 	{
+		if size == 0
+		{
+			panic!("invalid size");
+		}
 		Self{size, symmetric}
 	}
 }
