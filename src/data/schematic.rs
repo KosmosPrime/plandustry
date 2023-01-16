@@ -16,22 +16,22 @@ use crate::data::dynamic::{self, DynSerializer, DynData};
 pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
 
-pub struct Placement
+pub struct Placement<'l>
 {
 	pos: GridPos,
-	block: &'static Block,
+	block: &'l Block,
 	state: Option<Box<dyn Any>>,
 	rot: Rotation,
 }
 
-impl Placement
+impl<'l> Placement<'l>
 {
 	pub fn get_pos(&self) -> GridPos
 	{
 		self.pos
 	}
 	
-	pub fn get_block(&self) -> &'static Block
+	pub fn get_block(&self) -> &'l Block
 	{
 		self.block
 	}
@@ -72,7 +72,7 @@ impl Placement
 }
 
 // manual impl because trait objects cannot be cloned
-impl Clone for Placement
+impl<'l> Clone for Placement<'l>
 {
 	fn clone(&self) -> Self
 	{
@@ -91,16 +91,16 @@ impl Clone for Placement
 }
 
 #[derive(Clone)]
-pub struct Schematic
+pub struct Schematic<'l>
 {
 	width: u16,
 	height: u16,
 	tags: HashMap<String, String>,
-	blocks: Vec<Placement>,
+	blocks: Vec<Placement<'l>>,
 	lookup: Vec<Option<usize>>,
 }
 
-impl Schematic
+impl<'l> Schematic<'l>
 {
 	pub fn new(width: u16, height: u16) -> Self
 	{
@@ -182,7 +182,7 @@ impl Schematic
 		else {self.lookup[(x as usize) + (y as usize) * (self.width as usize)].is_none()}
 	}
 	
-	pub fn get(&self, x: u16, y: u16) -> Result<Option<&Placement>, PosError>
+	pub fn get(&self, x: u16, y: u16) -> Result<Option<&Placement<'l>>, PosError>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -197,7 +197,7 @@ impl Schematic
 		}
 	}
 	
-	pub fn get_mut(&mut self, x: u16, y: u16) -> Result<Option<&mut Placement>, PosError>
+	pub fn get_mut(&mut self, x: u16, y: u16) -> Result<Option<&mut Placement<'l>>, PosError>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -212,7 +212,7 @@ impl Schematic
 		}
 	}
 	
-	fn swap_remove(&mut self, idx: usize) -> Placement
+	fn swap_remove(&mut self, idx: usize) -> Placement<'l>
 	{
 		// swap_remove not only avoids moves in self.blocks but also reduces the lookup changes we have to do
 		let prev = self.blocks.swap_remove(idx);
@@ -247,7 +247,7 @@ impl Schematic
 		else {self.lookup[x + y * (self.width as usize)] = val;}
 	}
 	
-	pub fn set(&mut self, x: u16, y: u16, block: &'static Block, data: DynData, rot: Rotation) -> Result<&Placement, PlaceError>
+	pub fn set(&mut self, x: u16, y: u16, block: &'l Block, data: DynData, rot: Rotation) -> Result<&Placement<'l>, PlaceError>
 	{
 		let sz = block.get_size() as u16;
 		let off = (sz - 1) / 2;
@@ -270,8 +270,8 @@ impl Schematic
 		else {Err(PlaceError::Overlap{x, y})}
 	}
 	
-	pub fn replace(&mut self, x: u16, y: u16, block: &'static Block, data: DynData, rot: Rotation, collect: bool)
-		-> Result<Option<Vec<Placement>>, PlaceError>
+	pub fn replace(&mut self, x: u16, y: u16, block: &'l Block, data: DynData, rot: Rotation, collect: bool)
+		-> Result<Option<Vec<Placement<'l>>>, PlaceError>
 	{
 		let sz = block.get_size() as u16;
 		let off = (sz - 1) / 2;
@@ -512,7 +512,7 @@ impl Error for PlaceError
 	}
 }
 
-impl fmt::Display for Schematic
+impl<'l> fmt::Display for Schematic<'l>
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
 	{
@@ -707,14 +707,14 @@ impl fmt::Display for Schematic
 
 const SCHEMATIC_HEADER: u32 = ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
 
-pub struct SchematicSerializer<'l>(pub &'l BlockRegistry<'static>);
+pub struct SchematicSerializer<'l>(pub &'l BlockRegistry<'l>);
 
-impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
+impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l>
 {
 	type ReadError = ReadError;
 	type WriteError = WriteError;
 	
-	fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Schematic, Self::ReadError>
+	fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Schematic<'l>, Self::ReadError>
 	{
 		let hdr = buff.read_u32()?;
 		if hdr != SCHEMATIC_HEADER {return Err(ReadError::Header(hdr));}
@@ -767,7 +767,7 @@ impl<'l> Serializer<Schematic> for SchematicSerializer<'l>
 		{
 			return Err(ReadError::TableSize(num_table));
 		}
-		let mut block_table = Vec::<&'static Block>::new();
+		let mut block_table = Vec::<&'l Block>::new();
 		block_table.reserve(num_table as usize);
 		for _ in 0..num_table
 		{
@@ -1056,7 +1056,7 @@ impl fmt::Display for WriteError
 
 impl<'l> SchematicSerializer<'l>
 {
-	pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic, R64Error>
+	pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic<'l>, R64Error>
 	{
 		let mut buff = Vec::<u8>::new();
 		buff.resize(data.len() / 4 * 3 + 1, 0);
@@ -1064,7 +1064,7 @@ impl<'l> SchematicSerializer<'l>
 		Ok(self.deserialize(&mut DataRead::new(&buff[..n_out]))?)
 	}
 	
-	pub fn serialize_base64(&mut self, data: &Schematic) -> Result<String, W64Error>
+	pub fn serialize_base64(&mut self, data: &Schematic<'l>) -> Result<String, W64Error>
 	{
 		let mut buff = DataWrite::new();
 		self.serialize(&mut buff, data)?;
