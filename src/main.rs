@@ -6,6 +6,7 @@ pub mod exe;
 pub mod fluid;
 pub mod item;
 pub mod logic;
+pub mod modifier;
 
 fn main()
 {
