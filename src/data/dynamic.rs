@@ -1,5 +1,6 @@
-use crate::data::{self, DataRead, DataWrite, GridPos, Serializer, Team};
+use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::logic::LogicField;
+use crate::team::Team;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UnitCommand
@@ -461,7 +462,7 @@ impl From<data::WriteError> for WriteError
 mod test
 {
 	use super::*;
-	use crate::data::{TEAM_CRUX, TEAM_DERELICT, TEAM_SHARDED};
+	use crate::team::{CRUX, DERELICT, SHARDED};
 	
 	fn compare_vec2(lhs: (f32, f32), rhs: (f32, f32)) -> bool
 	{
@@ -558,5 +559,5 @@ mod test
 	make_dyn_test!(reparse_unit, DynData::Unit(0), DynData::Unit(2147483647));
 	make_dyn_test!(reparse_vec2_array, DynData::Vec2Array(vec![(4.4, 5.5), (-3.3, 6.6), (-2.2, -7.7)]), DynData::Vec2Array(vec![(2.2, -8.8)]));
 	make_dyn_test!(reparse_vec2, DynData::Vec2(1.5, 9.1234), DynData::Vec2(-0.0, -17.0), DynData::Vec2(-10.7, 3.8));
-	make_dyn_test!(reparse_team, DynData::Team(TEAM_SHARDED), DynData::Team(TEAM_CRUX), DynData::Team(TEAM_DERELICT));
+	make_dyn_test!(reparse_team, DynData::Team(SHARDED), DynData::Team(CRUX), DynData::Team(DERELICT));
 }
