@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::content::{Content, Type};
+
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Team(u8);
 
@@ -43,11 +45,33 @@ impl From<u8> for Team
 	}
 }
 
+impl TryFrom<u16> for Team
+{
+	type Error = TryFromU16Error;
+	
+	fn try_from(value: u16) -> Result<Self, Self::Error>
+	{
+		if value <= u8::MAX as u16 {Ok(Team(value as u8))}
+		else {Err(TryFromU16Error(value))}
+	}
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct TryFromU16Error(pub u16);
+
 impl From<Team> for u8
 {
 	fn from(value: Team) -> Self
 	{
 		value.0
+	}
+}
+
+impl From<Team> for u16
+{
+	fn from(value: Team) -> Self
+	{
+		value.0 as u16
 	}
 }
 
@@ -64,6 +88,33 @@ impl fmt::Display for Team
 			4 => f.write_str("Green"),
 			5 => f.write_str("Blue"),
 			id => write!(f, "Team #{id}"),
+		}
+	}
+}
+
+impl Content for Team
+{
+	fn get_type(&self) -> Type
+	{
+		Type::Team
+	}
+	
+	fn get_id(&self) -> u16
+	{
+		self.0 as u16
+	}
+	
+	fn get_name(&self) -> &str
+	{
+		match self.0
+		{
+			0 => "derelict",
+			1 => "sharded",
+			2 => "crux",
+			3 => "malis",
+			4 => "green",
+			5 => "blue",
+			_ => "<custom>", // TODO
 		}
 	}
 }
