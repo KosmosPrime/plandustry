@@ -92,6 +92,35 @@ numeric_enum!
 	}
 }
 
+macro_rules!gen_by_id
+{
+	($target:path, $id:expr) =>
+	{
+		match <$target>::try_from($id)
+		{
+			Ok(v) => Ok(Box::new(v)),
+			Err(..) => Err($id),
+		}
+	};
+}
+
+impl Type
+{
+	pub fn get(&self, id: u16) -> Result<Box<dyn Content>, u16>
+	{
+		match self
+		{
+			Type::Item => gen_by_id!(crate::item::Type, id),
+			Type::Block => gen_by_id!(crate::block::content::Type, id),
+			Type::Fluid => gen_by_id!(crate::fluid::Type, id),
+			Type::Modifier => gen_by_id!(crate::modifier::Type, id),
+			Type::Unit => gen_by_id!(crate::unit::Type, id),
+			Type::Team => gen_by_id!(crate::team::Team, id),
+			_ => Ok(Box::new(Generic(*self, id))),
+		}
+	}
+}
+
 pub trait Content
 {
 	fn get_type(&self) -> Type;
@@ -99,4 +128,24 @@ pub trait Content
 	fn get_id(&self) -> u16;
 	
 	fn get_name(&self) -> &str;
+}
+
+struct Generic(Type, u16);
+
+impl Content for Generic
+{
+	fn get_type(&self) -> Type
+	{
+		self.0
+	}
+	
+	fn get_id(&self) -> u16
+	{
+		self.1
+	}
+	
+	fn get_name(&self) -> &str
+	{
+		"<unknown>"
+	}
 }
