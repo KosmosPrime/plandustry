@@ -10,6 +10,7 @@ use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
 
 pub mod base;
+pub mod content;
 pub mod defense;
 pub mod extraction;
 pub mod factory;
