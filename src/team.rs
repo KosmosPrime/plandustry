@@ -12,28 +12,9 @@ impl Team
 		Self(id)
 	}
 	
-	pub fn get_id(&self) -> u8
-	{
-		self.0
-	}
-	
 	pub fn is_base(&self) -> bool
 	{
 		self.0 < 6
-	}
-	
-	pub fn get_name(&self) -> Option<&'static str>
-	{
-		match self.0
-		{
-			0 => Some("derelict"),
-			1 => Some("sharded"),
-			2 => Some("crux"),
-			3 => Some("malis"),
-			4 => Some("green"),
-			5 => Some("blue"),
-			_ => None,
-		}
 	}
 }
 
@@ -92,6 +73,8 @@ impl fmt::Display for Team
 	}
 }
 
+const TEAM_NAMES: &str = include_str!("../res/team_names.txt");
+
 impl Content for Team
 {
 	fn get_type(&self) -> Type
@@ -104,7 +87,7 @@ impl Content for Team
 		self.0 as u16
 	}
 	
-	fn get_name(&self) -> &str
+	fn get_name(&self) -> &'static str
 	{
 		match self.0
 		{
@@ -114,7 +97,25 @@ impl Content for Team
 			3 => "malis",
 			4 => "green",
 			5 => "blue",
-			_ => "<custom>", // TODO
+			// dark magic: offsets manually computed, then rely on the format "...|team#{i}|..."
+			i @ 6..=9 =>
+			{
+				// length: 7 ("team#" (5) + 1 digit + "|" (1))
+				let s = 0 + ((i - 6) as usize) * 7;
+				&TEAM_NAMES[s..s + 6] // exclude the trailing "|"
+			},
+			i @ 10..=99 =>
+			{
+				// length: 8 ("team#" (5) + 2 digits + "|" (1))
+				let s = 28 + ((i - 10) as usize) * 8;
+				&TEAM_NAMES[s..s + 7] // exclude the trailing "|"
+			},
+			i @ 100..=255 =>
+			{
+				// length: 9 ("team#" (5) + 3 digits + "|" (1))
+				let s = 748 + ((i - 100) as usize) * 9;
+				&TEAM_NAMES[s..s + 8] // exclude the trailing "|"
+			},
 		}
 	}
 }
