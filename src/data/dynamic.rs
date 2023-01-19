@@ -2,50 +2,9 @@ use std::error::Error;
 use std::fmt;
 
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
+use crate::data::command::{self, UnitCommand};
 use crate::logic::LogicField;
 use crate::team::Team;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum UnitCommand
-{
-	Attack, Rally, Idle
-}
-
-impl UnitCommand
-{
-	pub fn of(id: u8) -> Option<Self>
-	{
-		match id
-		{
-			0 => Some(Self::Attack),
-			1 => Some(Self::Rally),
-			2 => Some(Self::Idle),
-			_ => None
-		}
-	}
-}
-
-impl TryFrom<u8> for UnitCommand
-{
-	type Error = u8;
-	
-	fn try_from(value: u8) -> Result<Self, Self::Error>
-	{
-		match Self::of(value)
-		{
-			None => Err(value),
-			Some(c) => Ok(c),
-		}
-	}
-}
-
-impl From<UnitCommand> for u8
-{
-	fn from(value: UnitCommand) -> u8
-	{
-		value as u8
-	}
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum DynData
@@ -194,10 +153,10 @@ impl Serializer<DynData> for DynSerializer
 			15 =>
 			{
 				let id = buff.read_u8()?;
-				match UnitCommand::of(id)
+				match UnitCommand::try_from(id)
 				{
-					None => Err(ReadError::UnitCommand(id)),
-					Some(f) => Ok(DynData::UnitCommand(f)),
+					Ok(f) => Ok(DynData::UnitCommand(f)),
+					Err(e) => Err(ReadError::UnitCommand(e)),
 				}
 			},
 			16 =>
@@ -429,7 +388,7 @@ pub enum ReadError
 	Point2ArrayLen(i8),
 	LogicField(u8),
 	ByteArrayLen(i32),
-	UnitCommand(u8),
+	UnitCommand(command::TryFromU8Error),
 	BoolArrayLen(i32),
 	Vec2ArrayLen(i16),
 }

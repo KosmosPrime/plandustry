@@ -3,6 +3,7 @@ use std::fmt;
 use std::str::Utf8Error;
 
 pub mod base64;
+pub mod command;
 pub mod dynamic;
 pub mod schematic;
 
