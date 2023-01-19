@@ -105,7 +105,7 @@ impl From<Utf8Error> for ReadError
 {
 	fn from(err: Utf8Error) -> Self
 	{
-		ReadError::Utf8(err)
+		Self::Utf8(err)
 	}
 }
 
@@ -115,8 +115,8 @@ impl fmt::Display for ReadError
 	{
 		match self
 		{
-			ReadError::Underflow{need, have} => write!(f, "buffer underflow (expected {need} but got {have})"),
-			ReadError::Utf8(e) => e.fmt(f),
+			Self::Underflow{need, have} => write!(f, "buffer underflow (expected {need} but got {have})"),
+			Self::Utf8(e) => e.fmt(f),
 		}
 	}
 }
@@ -127,7 +127,7 @@ impl Error for ReadError
 	{
 		match self
 		{
-			ReadError::Utf8(e) => Some(e),
+			Self::Utf8(e) => Some(e),
 			_ => None,
 		}
 	}
@@ -262,8 +262,8 @@ impl fmt::Display for WriteError
 	{
 		match self
 		{
-			WriteError::Overflow{need, have} => write!(f, "buffer overflow (expected {need} but got {have})"),
-			WriteError::TooLong{len} => write!(f, "string too long ({len} bytes of {})", u16::MAX),
+			Self::Overflow{need, have} => write!(f, "buffer overflow (expected {need} but got {have})"),
+			Self::TooLong{len} => write!(f, "string too long ({len} bytes of {})", u16::MAX),
 		}
 	}
 }

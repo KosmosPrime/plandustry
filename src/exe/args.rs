@@ -28,8 +28,8 @@ impl<E: error::Error + 'static> fmt::Display for Error<E>
 	{
 		match self
 		{
-			Error::Handler{pos, val} => write!(f, "{val} (at #{pos})"),
-			Error::EmptyName{pos} => write!(f, "malformed argument (at #{pos})"),
+			Self::Handler{pos, val} => write!(f, "{val} (at #{pos})"),
+			Self::EmptyName{pos} => write!(f, "malformed argument (at #{pos})"),
 		}
 	}
 }
@@ -40,7 +40,7 @@ impl<E: error::Error + 'static> error::Error for Error<E>
 	{
 		match self
 		{
-			Error::Handler{pos: _, val} => Some(val),
+			Self::Handler{pos: _, val} => Some(val),
 			_ => None,
 		}
 	}
@@ -122,7 +122,7 @@ impl ArgCount
 	{
 		match self
 		{
-			ArgCount::Optional(..) | ArgCount::Required(..) => true,
+			Self::Optional(..) | ArgCount::Required(..) => true,
 			_ => false
 		}
 	}
@@ -131,7 +131,7 @@ impl ArgCount
 	{
 		match self
 		{
-			ArgCount::Required(..) => true,
+			Self::Required(..) => true,
 			_ => false
 		}
 	}
@@ -140,7 +140,7 @@ impl ArgCount
 	{
 		match self
 		{
-			ArgCount::Optional(max) | ArgCount::Required(max) => Some(*max),
+			Self::Optional(max) | ArgCount::Required(max) => Some(*max),
 			_ => None,
 		}
 	}
@@ -222,7 +222,7 @@ impl OptionValue
 	{
 		match self
 		{
-			OptionValue::Absent => true,
+			Self::Absent => true,
 			_ => false,
 		}
 	}
@@ -231,7 +231,7 @@ impl OptionValue
 	{
 		match self
 		{
-			OptionValue::Present | OptionValue::Value(..) | OptionValue::Values(..) => true,
+			Self::Present | Self::Value(..) | Self::Values(..) => true,
 			_ => false,
 		}
 	}
@@ -240,8 +240,8 @@ impl OptionValue
 	{
 		match self
 		{
-			OptionValue::Value(..) => true,
-			OptionValue::Values(..) => true,
+			Self::Value(..) => true,
+			Self::Values(..) => true,
 			_ => false,
 		}
 	}
@@ -250,7 +250,7 @@ impl OptionValue
 	{
 		match self
 		{
-			OptionValue::Value(v) => Some(v),
+			Self::Value(v) => Some(v),
 			_ => None,
 		}
 	}
@@ -259,8 +259,8 @@ impl OptionValue
 	{
 		match self
 		{
-			OptionValue::Value(v) => Some(from_ref(v)),
-			OptionValue::Values(v) => Some(v.as_ref()),
+			Self::Value(v) => Some(from_ref(v)),
+			Self::Values(v) => Some(v.as_ref()),
 			_ => None,
 		}
 	}
@@ -498,11 +498,11 @@ impl fmt::Display for OptionError
 	{
 		match self
 		{
-			OptionError::NoSuchShort(short) => write!(f, "invalid argument \"-{short}\""),
-			OptionError::NoSuchLong(long) => write!(f, "invalid argument \"--{long}\""),
-			OptionError::ValueForbidden(opt) => write!(f, "argument {opt} has no value"),
-			OptionError::ValueRequired(opt) => write!(f, "argument {opt} requires a value"),
-			OptionError::TooMany(opt) =>
+			Self::NoSuchShort(short) => write!(f, "invalid argument \"-{short}\""),
+			Self::NoSuchLong(long) => write!(f, "invalid argument \"--{long}\""),
+			Self::ValueForbidden(opt) => write!(f, "argument {opt} has no value"),
+			Self::ValueRequired(opt) => write!(f, "argument {opt} requires a value"),
+			Self::TooMany(opt) =>
 			{
 				if let Some(max) = opt.count.get_max_count() {write!(f, "too many {opt} (max {max})")}
 				else {write!(f, "duplicate argument {opt}")}

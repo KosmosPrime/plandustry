@@ -221,10 +221,10 @@ impl Rotation
 	{
 		match self
 		{
-			Rotation::Right => if horizontally {Rotation::Left} else {Rotation::Right},
-			Rotation::Up => if vertically {Rotation::Down} else {Rotation::Up},
-			Rotation::Left => if horizontally {Rotation::Right} else {Rotation::Left},
-			Rotation::Down => if vertically {Rotation::Up} else {Rotation::Down},
+			Self::Right => if horizontally {Self::Left} else {Self::Right},
+			Self::Up => if vertically {Self::Down} else {Self::Up},
+			Self::Left => if horizontally {Self::Right} else {Self::Left},
+			Self::Down => if vertically {Self::Up} else {Self::Down},
 		}
 	}
 	
@@ -237,10 +237,10 @@ impl Rotation
 	{
 		match self
 		{
-			Rotation::Right => if clockwise {Rotation::Up} else {Rotation::Down},
-			Rotation::Up => if clockwise {Rotation::Left} else {Rotation::Right},
-			Rotation::Left => if clockwise {Rotation::Down} else {Rotation::Up},
-			Rotation::Down => if clockwise {Rotation::Right} else {Rotation::Left},
+			Self::Right => if clockwise {Self::Up} else {Self::Down},
+			Self::Up => if clockwise {Self::Left} else {Self::Right},
+			Self::Left => if clockwise {Self::Down} else {Self::Up},
+			Self::Down => if clockwise {Self::Right} else {Self::Left},
 		}
 	}
 	
@@ -253,10 +253,10 @@ impl Rotation
 	{
 		match self
 		{
-			Rotation::Right => Rotation::Left,
-			Rotation::Up => Rotation::Down,
-			Rotation::Left => Rotation::Right,
-			Rotation::Down => Rotation::Up,
+			Self::Right => Self::Left,
+			Self::Up => Self::Down,
+			Self::Left => Self::Right,
+			Self::Down => Self::Up,
 		}
 	}
 	
@@ -272,10 +272,10 @@ impl From<u8> for Rotation
 	{
 		match val & 3
 		{
-			0 => Rotation::Right,
-			1 => Rotation::Up,
-			2 => Rotation::Left,
-			_ => Rotation::Down,
+			0 => Self::Right,
+			1 => Self::Up,
+			2 => Self::Left,
+			_ => Self::Down,
 		}
 	}
 }

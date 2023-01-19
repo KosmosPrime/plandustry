@@ -33,12 +33,12 @@ macro_rules!numeric_enum
 			type Error = $error;
 			
 			#[allow(non_upper_case_globals)]
-			fn try_from(value: $numeric) -> Result<$tname, $error>
+			fn try_from(value: $numeric) -> Result<Self, $error>
 			{
 				$(const $name: $numeric = $tname::$name as $numeric;)+
 				match value
 				{
-					$($name => Ok($tname::$name),)+
+					$($name => Ok(Self::$name),)+
 					_ => Err($error(value)),
 				}
 			}
@@ -77,7 +77,7 @@ macro_rules!content_enum
 			{
 				match self
 				{
-					$($tname::$name => $vname,)*
+					$(Self::$name => $vname,)*
 				}
 			}
 		}
@@ -136,12 +136,12 @@ impl Type
 	{
 		match self
 		{
-			Type::Item => gen_by_id!(crate::item::Type, id),
-			Type::Block => gen_by_id!(crate::block::content::Type, id),
-			Type::Fluid => gen_by_id!(crate::fluid::Type, id),
-			Type::Modifier => gen_by_id!(crate::modifier::Type, id),
-			Type::Unit => gen_by_id!(crate::unit::Type, id),
-			Type::Team => gen_by_id!(crate::team::Team, id),
+			Self::Item => gen_by_id!(crate::item::Type, id),
+			Self::Block => gen_by_id!(crate::block::content::Type, id),
+			Self::Fluid => gen_by_id!(crate::fluid::Type, id),
+			Self::Modifier => gen_by_id!(crate::modifier::Type, id),
+			Self::Unit => gen_by_id!(crate::unit::Type, id),
+			Self::Team => gen_by_id!(crate::team::Team, id),
 			_ => Ok(Box::new(Generic(*self, id))),
 		}
 	}

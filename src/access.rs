@@ -20,7 +20,7 @@ impl<'a, T: AsRef<B>, B> Access<'a, T, B>
 	{
 		match self
 		{
-			Access::Borrowed(..) => true,
+			Self::Borrowed(..) => true,
 			_ => false,
 		}
 	}
@@ -29,7 +29,7 @@ impl<'a, T: AsRef<B>, B> Access<'a, T, B>
 	{
 		match self
 		{
-			Access::Owned(..) => true,
+			Self::Owned(..) => true,
 			_ => false,
 		}
 	}
@@ -57,8 +57,8 @@ impl<'a, T: AsRef<B>, B: ?Sized> Borrow<B> for Access<'a, T, B>
 	{
 		match self
 		{
-			Access::Borrowed(r) => *r,
-			Access::Owned(v) => v.as_ref(),
+			Self::Borrowed(r) => *r,
+			Self::Owned(v) => v.as_ref(),
 		}
 	}
 }
@@ -79,8 +79,8 @@ impl<'a, T: AsRef<B>, B: ?Sized> Deref for Access<'a, T, B>
 	{
 		match self
 		{
-			Access::Borrowed(r) => *r,
-			Access::Owned(v) => v.as_ref(),
+			Self::Borrowed(r) => *r,
+			Self::Owned(v) => v.as_ref(),
 		}
 	}
 }

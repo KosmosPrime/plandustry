@@ -38,27 +38,27 @@ impl DynData
 	{
 		match self
 		{
-			DynData::Empty => DynType::Empty,
-			DynData::Int(..) => DynType::Int,
-			DynData::Long(..) => DynType::Long,
-			DynData::Float(..) => DynType::Float,
-			DynData::String(..) => DynType::String,
-			DynData::Content(..) => DynType::Content,
-			DynData::IntArray(..) => DynType::IntArray,
-			DynData::Point2(..) => DynType::Point2,
-			DynData::Point2Array(..) => DynType::Point2Array,
-			DynData::TechNode(..) => DynType::TechNode,
-			DynData::Boolean(..) => DynType::Boolean,
-			DynData::Double(..) => DynType::Double,
-			DynData::Building(..) => DynType::Building,
-			DynData::LogicField(..) => DynType::LogicField,
-			DynData::ByteArray(..) => DynType::ByteArray,
-			DynData::UnitCommand(..) => DynType::UnitCommand,
-			DynData::BoolArray(..) => DynType::BoolArray,
-			DynData::Unit(..) => DynType::Unit,
-			DynData::Vec2Array(..) => DynType::Vec2Array,
-			DynData::Vec2(..) => DynType::Vec2,
-			DynData::Team(..) => DynType::Team,
+			Self::Empty => DynType::Empty,
+			Self::Int(..) => DynType::Int,
+			Self::Long(..) => DynType::Long,
+			Self::Float(..) => DynType::Float,
+			Self::String(..) => DynType::String,
+			Self::Content(..) => DynType::Content,
+			Self::IntArray(..) => DynType::IntArray,
+			Self::Point2(..) => DynType::Point2,
+			Self::Point2Array(..) => DynType::Point2Array,
+			Self::TechNode(..) => DynType::TechNode,
+			Self::Boolean(..) => DynType::Boolean,
+			Self::Double(..) => DynType::Double,
+			Self::Building(..) => DynType::Building,
+			Self::LogicField(..) => DynType::LogicField,
+			Self::ByteArray(..) => DynType::ByteArray,
+			Self::UnitCommand(..) => DynType::UnitCommand,
+			Self::BoolArray(..) => DynType::BoolArray,
+			Self::Unit(..) => DynType::Unit,
+			Self::Vec2Array(..) => DynType::Vec2Array,
+			Self::Vec2(..) => DynType::Vec2,
+			Self::Team(..) => DynType::Team,
 		}
 	}
 }
@@ -397,7 +397,7 @@ impl From<data::ReadError> for ReadError
 {
 	fn from(err: data::ReadError) -> Self
 	{
-		ReadError::Underlying(err)
+		Self::Underlying(err)
 	}
 }
 
@@ -407,15 +407,15 @@ impl fmt::Display for ReadError
 	{
 		match self
 		{
-			ReadError::Underlying(e) => e.fmt(f),
-			ReadError::Type(id) => write!(f, "invalid dynamic data type ({id})"),
-			ReadError::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
-			ReadError::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
-			ReadError::LogicField(id) => write!(f, "invalid logic field ({id})"),
-			ReadError::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-			ReadError::UnitCommand(id) => write!(f, "invalid unit command ({id})"),
-			ReadError::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
-			ReadError::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
+			Self::Underlying(e) => e.fmt(f),
+			Self::Type(id) => write!(f, "invalid dynamic data type ({id})"),
+			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
+			Self::LogicField(id) => write!(f, "invalid logic field ({id})"),
+			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
+			Self::UnitCommand(id) => write!(f, "invalid unit command ({id})"),
+			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
+			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 		}
 	}
 }
@@ -426,7 +426,7 @@ impl Error for ReadError
 	{
 		match self
 		{
-			ReadError::Underlying(e) => Some(e),
+			Self::Underlying(e) => Some(e),
 			_ => None,
 		}
 	}
@@ -447,7 +447,7 @@ impl From<data::WriteError> for WriteError
 {
 	fn from(err: data::WriteError) -> Self
 	{
-		WriteError::Underlying(err)
+		Self::Underlying(err)
 	}
 }
 
@@ -457,12 +457,12 @@ impl fmt::Display for WriteError
 	{
 		match self
 		{
-			WriteError::Underlying(e) => e.fmt(f),
-			WriteError::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
-			WriteError::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
-			WriteError::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-			WriteError::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
-			WriteError::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
+			Self::Underlying(e) => e.fmt(f),
+			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
+			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
+			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
+			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 		}
 	}
 }
@@ -473,7 +473,7 @@ impl Error for WriteError
 	{
 		match self
 		{
-			WriteError::Underlying(e) => Some(e),
+			Self::Underlying(e) => Some(e),
 			_ => None,
 		}
 	}
