@@ -1,6 +1,22 @@
+use std::error::Error;
+
 macro_rules!numeric_enum
 {
 	($vis:vis enum $tname:ident for $numeric:ty | $error:ident {$($name:ident $(= $val:literal)?),* $(,)?}) =>
+	{
+		crate::content::numeric_enum!($vis enum $tname for $numeric | $error* {$($name $(= $val)?),*});
+		
+		impl std::fmt::Display for $error
+		{
+			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+			{
+				write!(f, "No variant of {} for value {}", stringify!($tname), self.0)
+			}
+		}
+		
+		impl std::error::Error for $error {}
+	};
+	($vis:vis enum $tname:ident for $numeric:ty | $error:ident* {$($name:ident $(= $val:literal)?),* $(,)?}) =>
 	{
 		#[repr($numeric)]
 		#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -43,7 +59,7 @@ macro_rules!content_enum
 {
 	($vis:vis enum $tname:ident / $ctype:ident for u16 | $error:ident {$($name:ident $(= $val:literal)? => $vname:expr),* $(,)?}) =>
 	{
-		$crate::content::numeric_enum!($vis enum $tname for u16 | $error {$($name $(= $val)?),*});
+		$crate::content::numeric_enum!($vis enum $tname for u16 | $error* {$($name $(= $val)?),*});
 		
 		impl $crate::content::Content for $tname
 		{
@@ -65,6 +81,16 @@ macro_rules!content_enum
 				}
 			}
 		}
+		
+		impl std::fmt::Display for $error
+		{
+			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+			{
+				write!(f, "No content of type {} for value {}", stringify!($ctype), self.0)
+			}
+		}
+		
+		impl std::error::Error for $error {}
 	};
 }
 pub(crate) use content_enum;
@@ -99,14 +125,14 @@ macro_rules!gen_by_id
 		match <$target>::try_from($id)
 		{
 			Ok(v) => Ok(Box::new(v)),
-			Err(..) => Err($id),
+			Err(e) => Err(Box::new(e)),
 		}
 	};
 }
 
 impl Type
 {
-	pub fn get(&self, id: u16) -> Result<Box<dyn Content>, u16>
+	pub fn get(&self, id: u16) -> Result<Box<dyn Content>, Box<dyn Error>>
 	{
 		match self
 		{

@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt;
 
 use crate::content::{Content, Type};
@@ -72,6 +73,16 @@ impl fmt::Display for Team
 		}
 	}
 }
+
+impl fmt::Display for TryFromU16Error
+{
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
+	{
+		write!(f, "No content of type Team for value {}", self.0)
+	}
+}
+
+impl Error for TryFromU16Error {}
 
 const TEAM_NAMES: &str = include_str!("../res/team_names.txt");
 
