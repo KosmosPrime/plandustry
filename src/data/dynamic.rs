@@ -174,10 +174,10 @@ impl Serializer<DynData> for DynSerializer
 			13 =>
 			{
 				let id = buff.read_u8()?;
-				match LogicField::of(id)
+				match LogicField::try_from(id)
 				{
-					None => Err(ReadError::LogicField(id)),
-					Some(f) => Ok(DynData::LogicField(f)),
+					Ok(f) => Ok(DynData::LogicField(f)),
+					Err(..) => Err(ReadError::LogicField(id)),
 				}
 			},
 			14 =>
