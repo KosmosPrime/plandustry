@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::fmt;
+
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::logic::LogicField;
 use crate::team::Team;
@@ -439,6 +442,37 @@ impl From<data::ReadError> for ReadError
 	}
 }
 
+impl fmt::Display for ReadError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			ReadError::Underlying(e) => e.fmt(f),
+			ReadError::Type(id) => write!(f, "Invalid dynamic data type ({id})"),
+			ReadError::IntArrayLen(len) => write!(f, "Integer array too long ({len})"),
+			ReadError::Point2ArrayLen(len) => write!(f, "Point2 array too long ({len})"),
+			ReadError::LogicField(id) => write!(f, "Invalid logic field ({id})"),
+			ReadError::ByteArrayLen(len) => write!(f, "Byte array too long ({len})"),
+			ReadError::UnitCommand(id) => write!(f, "Invalid unit command ({id})"),
+			ReadError::BoolArrayLen(len) => write!(f, "Boolean array too long ({len})"),
+			ReadError::Vec2ArrayLen(len) => write!(f, "Vec2 array too long ({len})"),
+		}
+	}
+}
+
+impl Error for ReadError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			ReadError::Underlying(e) => Some(e),
+			_ => None,
+		}
+	}
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WriteError
 {
@@ -455,6 +489,34 @@ impl From<data::WriteError> for WriteError
 	fn from(err: data::WriteError) -> Self
 	{
 		WriteError::Underlying(err)
+	}
+}
+
+impl fmt::Display for WriteError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			WriteError::Underlying(e) => e.fmt(f),
+			WriteError::IntArrayLen(len) => write!(f, "Integer array too long ({len})"),
+			WriteError::Point2ArrayLen(len) => write!(f, "Point2 array too long ({len})"),
+			WriteError::ByteArrayLen(len) => write!(f, "Byte array too long ({len})"),
+			WriteError::BoolArrayLen(len) => write!(f, "Boolean array too long ({len})"),
+			WriteError::Vec2ArrayLen(len) => write!(f, "Vec2 array too long ({len})"),
+		}
+	}
+}
+
+impl Error for WriteError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			WriteError::Underlying(e) => Some(e),
+			_ => None,
+		}
 	}
 }
 

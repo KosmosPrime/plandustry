@@ -1,3 +1,5 @@
+use std::error::Error;
+use std::fmt;
 use std::str::Utf8Error;
 
 pub mod base64;
@@ -103,6 +105,30 @@ impl From<Utf8Error> for ReadError
 	fn from(err: Utf8Error) -> Self
 	{
 		ReadError::Utf8(err)
+	}
+}
+
+impl fmt::Display for ReadError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			ReadError::Underflow{need, have} => write!(f, "Buffer underflow (expected {need} but got {have})"),
+			ReadError::Utf8(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for ReadError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			ReadError::Utf8(e) => Some(e),
+			_ => None,
+		}
 	}
 }
 
@@ -228,6 +254,20 @@ pub enum WriteError
 	Overflow{need: usize, have: usize},
 	TooLong{len: usize},
 }
+
+impl fmt::Display for WriteError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			WriteError::Overflow{need, have} => write!(f, "Buffer overflow (expected {need} but got {have})"),
+			WriteError::TooLong{len} => write!(f, "String too long ({len} bytes of {})", u16::MAX),
+		}
+	}
+}
+
+impl Error for WriteError {}
 
 impl<'d> From<&'d mut [u8]> for DataWrite<'d>
 {

@@ -46,7 +46,7 @@ pub enum DeserializeError
 
 impl DeserializeError
 {
-	pub fn filter<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
+	pub fn forward<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
 	{
 		match result
 		{
@@ -88,7 +88,7 @@ pub enum SerializeError
 
 impl SerializeError
 {
-	pub fn filter<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
+	pub fn forward<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
 	{
 		match result
 		{
@@ -166,6 +166,15 @@ impl Block
 	pub fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		self.logic.serialize_state(state)
+	}
+}
+
+impl fmt::Debug for Block
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		let name: &str = &self.name;
+		write!(f, "Block {{ name: {:?} }}", name)
 	}
 }
 
@@ -266,11 +275,11 @@ impl<'l> BlockRegistry<'l>
 		Self{blocks: HashMap::new()}
 	}
 	
-	pub fn register(&mut self, block: &'l Block) -> Result<&'l Block, &'l Block>
+	pub fn register(&mut self, block: &'l Block) -> Result<&'l Block, RegisterError<'l>>
 	{
 		match self.blocks.entry(&block.name)
 		{
-			Entry::Occupied(e) => Err(e.get()),
+			Entry::Occupied(e) => Err(RegisterError(e.get())),
 			Entry::Vacant(e) => Ok(*e.insert(block)),
 		}
 	}
@@ -281,6 +290,9 @@ impl<'l> BlockRegistry<'l>
 	}
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct RegisterError<'l>(pub &'l Block);
+
 impl<'l> AsRef<HashMap<&'l str, &'l Block>> for BlockRegistry<'l>
 {
 	fn as_ref(&self) -> &HashMap<&'l str, &'l Block>
@@ -288,6 +300,16 @@ impl<'l> AsRef<HashMap<&'l str, &'l Block>> for BlockRegistry<'l>
 		&self.blocks
 	}
 }
+
+impl<'l> fmt::Display for RegisterError<'l>
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		write!(f, "Block {:?} already exists", self.0.get_name())
+	}
+}
+
+impl<'l> Error for RegisterError<'l> {}
 
 macro_rules!make_register
 {

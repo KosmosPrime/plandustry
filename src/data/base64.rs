@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt;
 
 const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -185,6 +186,8 @@ impl fmt::Display for DecodeError
 	}
 }
 
+impl Error for DecodeError {}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum EncodeError
 {
@@ -201,6 +204,8 @@ impl fmt::Display for EncodeError
 		}
 	}
 }
+
+impl Error for EncodeError {}
 
 #[cfg(test)]
 mod test

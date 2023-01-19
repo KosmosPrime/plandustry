@@ -454,6 +454,8 @@ impl fmt::Display for NewError
 	}
 }
 
+impl Error for NewError {}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PosError
 {
@@ -470,6 +472,8 @@ impl fmt::Display for PosError
 		write!(f, "Position {x} / {y} out of bounds {w} / {h}", x = self.x, y = self.y, w = self.w, h = self.h)
 	}
 }
+
+impl Error for PosError {}
 
 #[derive(Debug)]
 pub enum PlaceError
@@ -975,7 +979,7 @@ impl fmt::Display for ReadError
 	{
 		match self
 		{
-			ReadError::Read(..) => write!(f, "Failed to read data from buffer"),
+			ReadError::Read(e) => e.fmt(f),
 			ReadError::Header(hdr) => write!(f, "Incorrect header ({hdr:08X})"),
 			ReadError::Version(ver) => write!(f, "Unsupported version ({ver})"),
 			ReadError::Decompress(e) => e.fmt(f),
@@ -985,8 +989,23 @@ impl fmt::Display for ReadError
 			ReadError::NoSuchBlock(name) => write!(f, "Unknown block {name:?}"),
 			ReadError::BlockCount(cnt) => write!(f, "Invalid total block count ({cnt})"),
 			ReadError::BlockIndex(idx, cnt) => write!(f, "Invalid block index ({idx} / {cnt})"),
-			ReadError::BlockState(..) => write!(f, "Failed to read block state"),
+			ReadError::BlockState(e) => e.fmt(f),
 			ReadError::Placement(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for ReadError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			ReadError::Read(e) => Some(e),
+			ReadError::Decompress(e) => Some(e),
+			ReadError::BlockState(e) => Some(e),
+			ReadError::Placement(e) => Some(e),
+			_ => None,
 		}
 	}
 }
@@ -1054,6 +1073,20 @@ impl fmt::Display for WriteError
 	}
 }
 
+impl Error for WriteError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			WriteError::Write(e) => Some(e),
+			WriteError::StateSerialize(e) => Some(e),
+			WriteError::Compress(e) => Some(e),
+			_ => None,
+		}
+	}
+}
+
 impl<'l> SchematicSerializer<'l>
 {
 	pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic<'l>, R64Error>
@@ -1116,6 +1149,18 @@ impl fmt::Display for R64Error
 	}
 }
 
+impl Error for R64Error
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			R64Error::Base64(e) => Some(e),
+			R64Error::Content(e) => Some(e),
+		}
+	}
+}
+
 #[derive(Debug)]
 pub enum W64Error
 {
@@ -1147,6 +1192,18 @@ impl fmt::Display for W64Error
 		{
 			W64Error::Base64(e) => e.fmt(f),
 			W64Error::Content(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for W64Error
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			W64Error::Base64(e) => Some(e),
+			W64Error::Content(e) => Some(e),
 		}
 	}
 }

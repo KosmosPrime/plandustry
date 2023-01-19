@@ -1,11 +1,12 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::error;
 use std::fmt;
 use std::slice::from_ref;
 
 pub trait ArgHandler
 {
-	type Error;
+	type Error: error::Error + 'static;
 	
 	fn on_literal(&mut self, name: &str) -> Result<(), Self::Error>;
 	
@@ -15,13 +16,13 @@ pub trait ArgHandler
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Error<E>
+pub enum Error<E: error::Error + 'static>
 {
 	Handler{pos: usize, val: E},
 	EmptyName{pos: usize},
 }
 
-impl<E: fmt::Display> fmt::Display for Error<E>
+impl<E: error::Error + 'static> fmt::Display for Error<E>
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
 	{
@@ -29,6 +30,18 @@ impl<E: fmt::Display> fmt::Display for Error<E>
 		{
 			Error::Handler{pos, val} => write!(f, "{val} (at #{pos})"),
 			Error::EmptyName{pos} => write!(f, "Malformed argument (at #{pos})"),
+		}
+	}
+}
+
+impl<E: error::Error + 'static> error::Error for Error<E>
+{
+	fn source(&self) -> Option<&(dyn error::Error + 'static)>
+	{
+		match self
+		{
+			Error::Handler{pos: _, val} => Some(val),
+			_ => None,
 		}
 	}
 }
@@ -269,13 +282,13 @@ impl OptionHandler
 		Self{options: Vec::new(), short_map: HashMap::new(), long_map: HashMap::new(), literals: Vec::new()}
 	}
 	
-	pub fn add(&mut self, opt: ArgOption) -> Result<OptionRef, (ArgOption, &ArgOption)>
+	pub fn add(&mut self, opt: ArgOption) -> Result<OptionRef, AddArgError>
 	{
 		match opt.short
 		{
 			Some(c) => match self.short_map.get(&c)
 			{
-				Some(&i) => return Err((opt, &self.options[i].0)),
+				Some(&i) => return Err(AddArgError{to_add: opt, existing: &self.options[i].0}),
 				_ => (),
 			},
 			_ => (),
@@ -284,7 +297,7 @@ impl OptionHandler
 		{
 			Some(ref s) => match self.long_map.get(&**s)
 			{
-				Some(&i) => return Err((opt, &self.options[i].0)),
+				Some(&i) => return Err(AddArgError{to_add: opt, existing: &self.options[i].0}),
 				_ => (),
 			},
 			_ => (),
@@ -423,6 +436,23 @@ impl OptionHandler
 #[derive(Clone, Copy, Debug)]
 pub struct OptionRef(usize);
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AddArgError<'l>
+{
+	pub to_add: ArgOption,
+	pub existing: &'l ArgOption,
+}
+
+impl<'l> fmt::Display for AddArgError<'l>
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		write!(f, "Duplicate argument {} (already have {})", self.to_add, self.existing)
+	}
+}
+
+impl<'l> error::Error for AddArgError<'l> {}
+
 impl ArgHandler for OptionHandler
 {
 	type Error = OptionError;
@@ -480,3 +510,5 @@ impl fmt::Display for OptionError
 		}
 	}
 }
+
+impl error::Error for OptionError {}

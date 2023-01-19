@@ -319,7 +319,7 @@ impl fmt::Display for ProcessorDeserializeError
 	{
 		match self
 		{
-			Self::Read(..) => write!(f, "Failed to read data from buffer"),
+			Self::Read(e) => e.fmt(f),
 			Self::Decompress(e) => e.fmt(f),
 			Self::DecompressStall => write!(f, "Decompressor stalled before completion"),
 			Self::FromUtf8(e) => e.fmt(f),
@@ -386,7 +386,7 @@ impl fmt::Display for ProcessorSerializeError
 	{
 		match self
 		{
-			Self::Write(..) => write!(f, "Failed to write data to buffer"),
+			Self::Write(e) => e.fmt(f),
 			Self::Compress(e) => e.fmt(f),
 			Self::CompressEof(remain) => write!(f, "Compression overflow with {remain} bytes of input remaining"),
 			Self::CompressStall => write!(f, "Compressor stalled before completion"),
