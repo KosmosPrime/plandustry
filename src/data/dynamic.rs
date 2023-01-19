@@ -485,43 +485,6 @@ mod test
 	use super::*;
 	use crate::team::{CRUX, DERELICT, SHARDED};
 	
-	fn compare_vec2(lhs: (f32, f32), rhs: (f32, f32)) -> bool
-	{
-		// these probably have no reason to be non-normal values but thight bounds are nice for consistency
-		f32::to_bits(lhs.0) == f32::to_bits(rhs.0) && f32::to_bits(lhs.1) == f32::to_bits(rhs.1)
-	}
-	
-	fn compare(lhs: &DynData, rhs: &DynData) -> bool
-	{
-		match (lhs, rhs)
-		{
-			(DynData::Empty, DynData::Empty) => true,
-			(DynData::Int(l), DynData::Int(r)) => l == r,
-			(DynData::Long(l), DynData::Long(r)) => l == r,
-			// normally this would be bad, but we want to get the f32 back as it was written
-			(DynData::Float(l), DynData::Float(r)) => f32::to_bits(*l) == f32::to_bits(*r),
-			(DynData::String(l), DynData::String(r)) => l == r,
-			(DynData::Content(l0, l1), DynData::Content(r0, r1)) => l0 == r0 && l1 == r1,
-			(DynData::IntArray(l), DynData::IntArray(r)) => l == r,
-			(DynData::Point2(lx, ly), DynData::Point2(rx, ry)) => lx == rx && ly == ry,
-			(DynData::Point2Array(l), DynData::Point2Array(r)) => l == r,
-			(DynData::TechNode(l0, l1), DynData::TechNode(r0, r1)) => l0 == r0 && l1 == r1,
-			(DynData::Boolean(l), DynData::Boolean(r)) => l == r,
-			// normally this would be bad, but we want to get the f32 back as it was written
-			(DynData::Double(l), DynData::Double(r)) => f64::to_bits(*l) == f64::to_bits(*r),
-			(DynData::Building(l), DynData::Building(r)) => l == r,
-			(DynData::LogicField(l), DynData::LogicField(r)) => l == r,
-			(DynData::ByteArray(l), DynData::ByteArray(r)) => l == r,
-			(DynData::UnitCommand(l), DynData::UnitCommand(r)) => l == r,
-			(DynData::BoolArray(l), DynData::BoolArray(r)) => l == r,
-			(DynData::Unit(l), DynData::Unit(r)) => l == r,
-			(DynData::Vec2Array(l), DynData::Vec2Array(r)) => l.iter().zip(r.iter()).all(|(&(lx, ly), &(rx, ry))| compare_vec2((lx, ly), (rx, ry))),
-			(DynData::Vec2(lx, ly), DynData::Vec2(rx, ry)) => compare_vec2((*lx, *ly), (*rx, *ry)),
-			(DynData::Team(l), DynData::Team(r)) => l == r,
-			_ => false,
-		}
-	}
-	
 	macro_rules!_zero
 	{
 		($tt:tt) => {0usize};
@@ -549,7 +512,7 @@ mod test
 				{
 					match DynSerializer.deserialize(&mut reader)
 					{
-						Ok(read) => assert!(compare(original, &read), "serialization of {original:?} became {read:?}"),
+						Ok(read) => assert_eq!(*original, read, "serialization of {original:?} became {read:?}"),
 						e => assert!(false, "could not re-read {original:?} (at {i}), got {e:?}"),
 					}
 					let expect = end - reader.data.len();
