@@ -11,7 +11,7 @@ use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, 
 use crate::block::{self, Block, BlockRegistry, Rotation};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::data::base64;
-use crate::data::dynamic::{self, DynSerializer, DynData};
+use crate::data::dynamic::{self, DynData, DynSerializer};
 
 pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
@@ -798,7 +798,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l>
 			let block = block_table[idx as usize];
 			let config = if version < 1
 			{
-				block.data_from_i32(rbuff.read_i32()?, pos)
+				block.data_from_i32(rbuff.read_i32()?, pos)?
 			}
 			else {DynSerializer.deserialize(&mut rbuff)?};
 			let rot = Rotation::from(rbuff.read_u8()?);
@@ -937,6 +937,7 @@ pub enum ReadError
 	NoSuchBlock(String),
 	BlockCount(i32),
 	BlockIndex(i8, usize),
+	BlockConfig(block::DataConvertError),
 	BlockState(dynamic::ReadError),
 	Placement(PlaceError),
 }
@@ -965,6 +966,14 @@ impl From<dynamic::ReadError> for ReadError
 	}
 }
 
+impl From<block::DataConvertError> for ReadError
+{
+	fn from(value: block::DataConvertError) -> Self
+	{
+		Self::BlockConfig(value)
+	}
+}
+
 impl From<PlaceError> for ReadError
 {
 	fn from(value: PlaceError) -> Self
@@ -989,6 +998,7 @@ impl fmt::Display for ReadError
 			ReadError::NoSuchBlock(name) => write!(f, "unknown block {name:?}"),
 			ReadError::BlockCount(cnt) => write!(f, "invalid total block count ({cnt})"),
 			ReadError::BlockIndex(idx, cnt) => write!(f, "invalid block index ({idx} / {cnt})"),
+			ReadError::BlockConfig(e) => e.fmt(f),
 			ReadError::BlockState(e) => e.fmt(f),
 			ReadError::Placement(e) => e.fmt(f),
 		}
@@ -1003,6 +1013,7 @@ impl Error for ReadError
 		{
 			ReadError::Read(e) => Some(e),
 			ReadError::Decompress(e) => Some(e),
+			ReadError::BlockConfig(e) => Some(e),
 			ReadError::BlockState(e) => Some(e),
 			ReadError::Placement(e) => Some(e),
 			_ => None,

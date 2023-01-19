@@ -6,7 +6,7 @@ use std::string::FromUtf8Error;
 
 use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress, FlushDecompress, Status};
 
-use crate::block::{BlockLogic, DeserializeError, make_register, SerializeError};
+use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
 use crate::data::{self, DataRead, DataWrite, GridPos};
 use crate::data::dynamic::{DynData, DynType};
@@ -43,9 +43,9 @@ impl BlockLogic for MessageLogic
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
 	{
-		DynData::Empty
+		Ok(DynData::Empty)
 	}
 	
 	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
@@ -88,9 +88,9 @@ impl BlockLogic for SwitchLogic
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
 	{
-		DynData::Empty
+		Ok(DynData::Empty)
 	}
 	
 	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
@@ -136,9 +136,9 @@ impl BlockLogic for ProcessorLogic
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
 	{
-		DynData::Empty
+		Ok(DynData::Empty)
 	}
 	
 	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>

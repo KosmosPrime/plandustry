@@ -1,6 +1,6 @@
 use std::any::{Any, type_name};
 
-use crate::block::{BlockLogic, DeserializeError, SerializeError};
+use crate::block::{BlockLogic, DataConvertError, DeserializeError, SerializeError};
 use crate::data::GridPos;
 use crate::data::dynamic::DynData;
 
@@ -59,9 +59,9 @@ impl BlockLogic for SimpleBlock
 		self.symmetric
 	}
 	
-	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
 	{
-		DynData::Empty
+		Ok(DynData::Empty)
 	}
 	
 	fn deserialize_state(&self, _: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>

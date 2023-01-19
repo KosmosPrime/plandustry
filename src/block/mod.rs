@@ -28,13 +28,44 @@ pub trait BlockLogic
 	
 	fn is_symmetric(&self) -> bool;
 	
-	fn data_from_i32(&self, config: i32, pos: GridPos) -> DynData;
+	fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError>;
 	
 	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>;
 	
 	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>;
 	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>;
+}
+
+#[derive(Debug)]
+pub struct DataConvertError(pub Box<dyn Error>);
+
+impl DataConvertError
+{
+	pub fn forward<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self>
+	{
+		match result
+		{
+			Ok(v) => Ok(v),
+			Err(e) => Err(Self(Box::new(e))),
+		}
+	}
+}
+
+impl fmt::Display for DataConvertError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		self.0.fmt(f)
+	}
+}
+
+impl Error for DataConvertError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		Some(self.0.as_ref())
+	}
 }
 
 #[derive(Debug)]
@@ -148,7 +179,7 @@ impl Block
 		self.logic.is_symmetric()
 	}
 	
-	pub fn data_from_i32(&self, config: i32, pos: GridPos) -> DynData
+	pub fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError>
 	{
 		self.logic.data_from_i32(config, pos)
 	}

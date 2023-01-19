@@ -2,7 +2,7 @@ use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
-use crate::block::{BlockLogic, DeserializeError, make_register, SerializeError};
+use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
@@ -69,9 +69,9 @@ impl BlockLogic for ConnectorBlock
 		true
 	}
 	
-	fn data_from_i32(&self, _: i32, _: GridPos) -> DynData
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
 	{
-		DynData::Empty
+		Ok(DynData::Empty)
 	}
 	
 	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
