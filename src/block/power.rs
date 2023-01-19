@@ -122,7 +122,7 @@ impl fmt::Display for ConnectorDeserializeError
 	{
 		match self
 		{
-			Self::LinkCount{have, max} => write!(f, "Too many links ({have} but only {max} supported)"),
+			Self::LinkCount{have, max} => write!(f, "too many links ({have} but only {max} supported)"),
 		}
 	}
 }

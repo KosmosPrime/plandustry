@@ -62,7 +62,7 @@ impl fmt::Display for DeserializeError
 	{
 		match self
 		{
-			Self::InvalidType{have, expect} => write!(f, "Expected type {expect:?} but got {have:?}"),
+			Self::InvalidType{have, expect} => write!(f, "expected type {expect:?} but got {have:?}"),
 			Self::Custom(e) => e.fmt(f),
 		}
 	}
@@ -305,7 +305,7 @@ impl<'l> fmt::Display for RegisterError<'l>
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
 	{
-		write!(f, "Block {:?} already exists", self.0.get_name())
+		write!(f, "block {:?} already exists", self.0.get_name())
 	}
 }
 

@@ -78,7 +78,7 @@ impl fmt::Display for TryFromU16Error
 {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
 	{
-		write!(f, "No content of type Team for value {}", self.0)
+		write!(f, "no content of type Team for value {}", self.0)
 	}
 }
 

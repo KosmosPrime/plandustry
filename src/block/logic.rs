@@ -321,11 +321,11 @@ impl fmt::Display for ProcessorDeserializeError
 		{
 			Self::Read(e) => e.fmt(f),
 			Self::Decompress(e) => e.fmt(f),
-			Self::DecompressStall => write!(f, "Decompressor stalled before completion"),
+			Self::DecompressStall => write!(f, "decompressor stalled before completion"),
 			Self::FromUtf8(e) => e.fmt(f),
-			Self::Version(ver) => write!(f, "Unsupported version ({ver})"),
-			Self::CodeLength(len) => write!(f, "Invalid code length ({len})"),
-			Self::LinkCount(cnt) => write!(f, "Invalid link count ({cnt})"),
+			Self::Version(ver) => write!(f, "unsupported version ({ver})"),
+			Self::CodeLength(len) => write!(f, "invalid code length ({len})"),
+			Self::LinkCount(cnt) => write!(f, "invalid link count ({cnt})"),
 		}
 	}
 }
@@ -388,8 +388,8 @@ impl fmt::Display for ProcessorSerializeError
 		{
 			Self::Write(e) => e.fmt(f),
 			Self::Compress(e) => e.fmt(f),
-			Self::CompressEof(remain) => write!(f, "Compression overflow with {remain} bytes of input remaining"),
-			Self::CompressStall => write!(f, "Compressor stalled before completion"),
+			Self::CompressEof(remain) => write!(f, "compression overflow with {remain} bytes of input remaining"),
+			Self::CompressStall => write!(f, "compressor stalled before completion"),
 		}
 	}
 }
@@ -530,7 +530,7 @@ impl fmt::Display for CodeError
 	{
 		match self
 		{
-			Self::TooLong(len) => write!(f, "Code too long ({len} bytes)"),
+			Self::TooLong(len) => write!(f, "code too long ({len} bytes)"),
 		}
 	}
 }
@@ -551,9 +551,9 @@ impl fmt::Display for CreateError
 	{
 		match self
 		{
-			Self::NameLength(len) => write!(f, "Link name too long ({len} bytes)"),
-			Self::DuplicateName(name) => write!(f, "There already is a link named {name}"),
-			Self::DuplicatePos{name, x, y} => write!(f, "Link {name} already points to {x} / {y}"),
+			Self::NameLength(len) => write!(f, "link name too long ({len} bytes)"),
+			Self::DuplicateName(name) => write!(f, "there already is a link named {name}"),
+			Self::DuplicatePos{name, x, y} => write!(f, "link {name} already points to {x} / {y}"),
 		}
 	}
 }

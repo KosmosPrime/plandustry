@@ -10,7 +10,7 @@ macro_rules!numeric_enum
 		{
 			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
 			{
-				write!(f, "No variant of {} for value {}", stringify!($tname), self.0)
+				write!(f, "no variant of {} for value {}", stringify!($tname), self.0)
 			}
 		}
 		
@@ -86,7 +86,7 @@ macro_rules!content_enum
 		{
 			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result
 			{
-				write!(f, "No content of type {} for value {}", stringify!($ctype), self.0)
+				write!(f, "no content of type {} for value {}", stringify!($ctype), self.0)
 			}
 		}
 		

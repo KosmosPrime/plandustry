@@ -449,14 +449,14 @@ impl fmt::Display for ReadError
 		match self
 		{
 			ReadError::Underlying(e) => e.fmt(f),
-			ReadError::Type(id) => write!(f, "Invalid dynamic data type ({id})"),
-			ReadError::IntArrayLen(len) => write!(f, "Integer array too long ({len})"),
-			ReadError::Point2ArrayLen(len) => write!(f, "Point2 array too long ({len})"),
-			ReadError::LogicField(id) => write!(f, "Invalid logic field ({id})"),
-			ReadError::ByteArrayLen(len) => write!(f, "Byte array too long ({len})"),
-			ReadError::UnitCommand(id) => write!(f, "Invalid unit command ({id})"),
-			ReadError::BoolArrayLen(len) => write!(f, "Boolean array too long ({len})"),
-			ReadError::Vec2ArrayLen(len) => write!(f, "Vec2 array too long ({len})"),
+			ReadError::Type(id) => write!(f, "invalid dynamic data type ({id})"),
+			ReadError::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			ReadError::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
+			ReadError::LogicField(id) => write!(f, "invalid logic field ({id})"),
+			ReadError::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
+			ReadError::UnitCommand(id) => write!(f, "invalid unit command ({id})"),
+			ReadError::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
+			ReadError::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 		}
 	}
 }
@@ -499,11 +499,11 @@ impl fmt::Display for WriteError
 		match self
 		{
 			WriteError::Underlying(e) => e.fmt(f),
-			WriteError::IntArrayLen(len) => write!(f, "Integer array too long ({len})"),
-			WriteError::Point2ArrayLen(len) => write!(f, "Point2 array too long ({len})"),
-			WriteError::ByteArrayLen(len) => write!(f, "Byte array too long ({len})"),
-			WriteError::BoolArrayLen(len) => write!(f, "Boolean array too long ({len})"),
-			WriteError::Vec2ArrayLen(len) => write!(f, "Vec2 array too long ({len})"),
+			WriteError::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			WriteError::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
+			WriteError::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
+			WriteError::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
+			WriteError::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 		}
 	}
 }

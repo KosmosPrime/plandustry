@@ -178,10 +178,10 @@ impl fmt::Display for DecodeError
 	{
 		match self
 		{
-			DecodeError::Malformed{at, value} => write!(f, "Malformed base64 character {value:?} (at {at})"),
-			DecodeError::Overflow{need, have} => write!(f, "Decoder overflow (need {need}, but only have {have})"),
-			DecodeError::Truncated => write!(f, "Truncated base64 input stream"),
-			DecodeError::TrailingData{at} => write!(f, "Trailing data in base64 stream (at {at})"),
+			DecodeError::Malformed{at, value} => write!(f, "malformed base64 character {value:?} (at {at})"),
+			DecodeError::Overflow{need, have} => write!(f, "decoder overflow (need {need}, but only have {have})"),
+			DecodeError::Truncated => write!(f, "truncated base64 input stream"),
+			DecodeError::TrailingData{at} => write!(f, "trailing data in base64 stream (at {at})"),
 		}
 	}
 }
@@ -200,7 +200,7 @@ impl fmt::Display for EncodeError
 	{
 		match self
 		{
-			EncodeError::Overflow{need, have} => write!(f, "Encoder overflow (need {need}, but only have {have})"),
+			EncodeError::Overflow{need, have} => write!(f, "encoder overflow (need {need}, but only have {have})"),
 		}
 	}
 }

@@ -114,7 +114,7 @@ impl fmt::Display for ReadError
 	{
 		match self
 		{
-			ReadError::Underflow{need, have} => write!(f, "Buffer underflow (expected {need} but got {have})"),
+			ReadError::Underflow{need, have} => write!(f, "buffer underflow (expected {need} but got {have})"),
 			ReadError::Utf8(e) => e.fmt(f),
 		}
 	}
@@ -261,8 +261,8 @@ impl fmt::Display for WriteError
 	{
 		match self
 		{
-			WriteError::Overflow{need, have} => write!(f, "Buffer overflow (expected {need} but got {have})"),
-			WriteError::TooLong{len} => write!(f, "String too long ({len} bytes of {})", u16::MAX),
+			WriteError::Overflow{need, have} => write!(f, "buffer overflow (expected {need} but got {have})"),
+			WriteError::TooLong{len} => write!(f, "string too long ({len} bytes of {})", u16::MAX),
 		}
 	}
 }

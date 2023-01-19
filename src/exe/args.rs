@@ -29,7 +29,7 @@ impl<E: error::Error + 'static> fmt::Display for Error<E>
 		match self
 		{
 			Error::Handler{pos, val} => write!(f, "{val} (at #{pos})"),
-			Error::EmptyName{pos} => write!(f, "Malformed argument (at #{pos})"),
+			Error::EmptyName{pos} => write!(f, "malformed argument (at #{pos})"),
 		}
 	}
 }
@@ -447,7 +447,7 @@ impl<'l> fmt::Display for AddArgError<'l>
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
 	{
-		write!(f, "Duplicate argument {} (already have {})", self.to_add, self.existing)
+		write!(f, "duplicate argument {} (already have {})", self.to_add, self.existing)
 	}
 }
 
@@ -498,14 +498,14 @@ impl fmt::Display for OptionError
 	{
 		match self
 		{
-			OptionError::NoSuchShort(short) => write!(f, "Invalid argument \"-{short}\""),
-			OptionError::NoSuchLong(long) => write!(f, "Invalid argument \"--{long}\""),
-			OptionError::ValueForbidden(opt) => write!(f, "Argument {opt} has no value"),
-			OptionError::ValueRequired(opt) => write!(f, "Argument {opt} requires a value"),
+			OptionError::NoSuchShort(short) => write!(f, "invalid argument \"-{short}\""),
+			OptionError::NoSuchLong(long) => write!(f, "invalid argument \"--{long}\""),
+			OptionError::ValueForbidden(opt) => write!(f, "argument {opt} has no value"),
+			OptionError::ValueRequired(opt) => write!(f, "argument {opt} requires a value"),
 			OptionError::TooMany(opt) =>
 			{
-				if let Some(max) = opt.count.get_max_count() {write!(f, "Too many {opt} (max {max})")}
-				else {write!(f, "Duplicate argument {opt}")}
+				if let Some(max) = opt.count.get_max_count() {write!(f, "too many {opt} (max {max})")}
+				else {write!(f, "duplicate argument {opt}")}
 			},
 		}
 	}

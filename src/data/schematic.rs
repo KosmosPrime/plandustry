@@ -448,8 +448,8 @@ impl fmt::Display for NewError
 	{
 		match self
 		{
-			NewError::Width(w) => write!(f, "Invalid schematic width ({w})"),
-			NewError::Height(h) => write!(f, "Invalid schematic height ({h})"),
+			NewError::Width(w) => write!(f, "invalid schematic width ({w})"),
+			NewError::Height(h) => write!(f, "invalid schematic height ({h})"),
 		}
 	}
 }
@@ -469,7 +469,7 @@ impl fmt::Display for PosError
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
 	{
-		write!(f, "Position {x} / {y} out of bounds {w} / {h}", x = self.x, y = self.y, w = self.w, h = self.h)
+		write!(f, "position {x} / {y} out of bounds {w} / {h}", x = self.x, y = self.y, w = self.w, h = self.h)
 	}
 }
 
@@ -497,8 +497,8 @@ impl fmt::Display for PlaceError
 	{
 		match self
 		{
-			PlaceError::Bounds{x, y, sz, w, h} => write!(f, "Block placement {x} / {y} (size {sz}) within {w} / {h}"),
-			PlaceError::Overlap{x, y} => write!(f, "Overlapping an existing block at {x} / {y}"),
+			PlaceError::Bounds{x, y, sz, w, h} => write!(f, "block placement {x} / {y} (size {sz}) within {w} / {h}"),
+			PlaceError::Overlap{x, y} => write!(f, "overlapping an existing block at {x} / {y}"),
 			PlaceError::Deserialize(e) => e.fmt(f),
 		}
 	}
@@ -980,15 +980,15 @@ impl fmt::Display for ReadError
 		match self
 		{
 			ReadError::Read(e) => e.fmt(f),
-			ReadError::Header(hdr) => write!(f, "Incorrect header ({hdr:08X})"),
-			ReadError::Version(ver) => write!(f, "Unsupported version ({ver})"),
+			ReadError::Header(hdr) => write!(f, "incorrect header ({hdr:08X})"),
+			ReadError::Version(ver) => write!(f, "unsupported version ({ver})"),
 			ReadError::Decompress(e) => e.fmt(f),
-			ReadError::DecompressStall => write!(f, "Decompressor stalled before completion"),
-			ReadError::Dimensions(w, h) => write!(f, "Invalid schematic dimensions ({w} * {h})"),
-			ReadError::TableSize(cnt) => write!(f, "Invalid block table size ({cnt})"),
-			ReadError::NoSuchBlock(name) => write!(f, "Unknown block {name:?}"),
-			ReadError::BlockCount(cnt) => write!(f, "Invalid total block count ({cnt})"),
-			ReadError::BlockIndex(idx, cnt) => write!(f, "Invalid block index ({idx} / {cnt})"),
+			ReadError::DecompressStall => write!(f, "decompressor stalled before completion"),
+			ReadError::Dimensions(w, h) => write!(f, "invalid schematic dimensions ({w} * {h})"),
+			ReadError::TableSize(cnt) => write!(f, "invalid block table size ({cnt})"),
+			ReadError::NoSuchBlock(name) => write!(f, "unknown block {name:?}"),
+			ReadError::BlockCount(cnt) => write!(f, "invalid total block count ({cnt})"),
+			ReadError::BlockIndex(idx, cnt) => write!(f, "invalid block index ({idx} / {cnt})"),
 			ReadError::BlockState(e) => e.fmt(f),
 			ReadError::Placement(e) => e.fmt(f),
 		}
@@ -1061,14 +1061,14 @@ impl fmt::Display for WriteError
 	{
 		match self
 		{
-			WriteError::Write(..) => write!(f, "Failed to write data to buffer"),
-			WriteError::TagCount(cnt) => write!(f, "Invalid tag count ({cnt})"),
-			WriteError::TableSize(cnt) => write!(f, "Invalid block table size ({cnt})"),
+			WriteError::Write(..) => write!(f, "failed to write data to buffer"),
+			WriteError::TagCount(cnt) => write!(f, "invalid tag count ({cnt})"),
+			WriteError::TableSize(cnt) => write!(f, "invalid block table size ({cnt})"),
 			WriteError::StateSerialize(e) => e.fmt(f),
-			WriteError::BlockState(..) => write!(f, "Failed to write block state"),
+			WriteError::BlockState(..) => write!(f, "failed to write block state"),
 			WriteError::Compress(e) => e.fmt(f),
-			WriteError::CompressEof(remain) => write!(f, "Compression overflow with {remain} bytes of input remaining"),
-			WriteError::CompressStall => write!(f, "Compressor stalled before completion"),
+			WriteError::CompressEof(remain) => write!(f, "compression overflow with {remain} bytes of input remaining"),
+			WriteError::CompressStall => write!(f, "compressor stalled before completion"),
 		}
 	}
 }
