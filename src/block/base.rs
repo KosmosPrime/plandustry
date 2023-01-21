@@ -1,5 +1,6 @@
 use crate::block::make_register;
 use crate::block::simple::SimpleBlock;
+use crate::block::transport::ItemBlock;
 
 make_register!
 (
@@ -14,7 +15,7 @@ make_register!
 	CORE_NUCLEUS: "core-nucleus" => SimpleBlock::new(5, true);
 	CONTAINER: "container" => SimpleBlock::new(2, true);
 	VAULT: "vault" => SimpleBlock::new(3, true);
-	UNLOADER: "unloader" => SimpleBlock::new(1, true); // TODO config: item
+	UNLOADER: "unloader" => ItemBlock::new(1, true);
 	ILLUMINATOR: "illuminator" => SimpleBlock::new(1, true); // TODO config: color
 	LAUNCH_PAD: "launch-pad" => SimpleBlock::new(3, true);
 );
