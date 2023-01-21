@@ -12,6 +12,7 @@ use crate::block::{self, Block, BlockRegistry, Rotation};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData, DynSerializer};
+use crate::registry::RegistryEntry;
 
 pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;

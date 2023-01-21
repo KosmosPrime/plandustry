@@ -1,13 +1,12 @@
 use std::any::Any;
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
 use std::error::Error;
 use std::fmt;
 
 use crate::access::BoxAccess;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
+use crate::registry::RegistryEntry;
 
 pub mod base;
 pub mod content;
@@ -164,11 +163,6 @@ impl Block
 		Self{name, logic}
 	}
 	
-	pub fn get_name(&self) -> &str
-	{
-		&self.name
-	}
-	
 	pub fn get_size(&self) -> u8
 	{
 		self.logic.get_size()
@@ -206,6 +200,14 @@ impl fmt::Debug for Block
 	{
 		let name: &str = &self.name;
 		write!(f, "Block {{ name: {:?} }}", name)
+	}
+}
+
+impl RegistryEntry for Block
+{
+	fn get_name(&self) -> &str
+	{
+		&self.name
 	}
 }
 
@@ -294,53 +296,8 @@ impl From<Rotation> for u8
 	}
 }
 
-pub struct BlockRegistry<'l>
-{
-	blocks: HashMap<&'l str, &'l Block>,
-}
-
-impl<'l> BlockRegistry<'l>
-{
-	pub fn new() -> Self
-	{
-		Self{blocks: HashMap::new()}
-	}
-	
-	pub fn register(&mut self, block: &'l Block) -> Result<&'l Block, RegisterError<'l>>
-	{
-		match self.blocks.entry(&block.name)
-		{
-			Entry::Occupied(e) => Err(RegisterError(e.get())),
-			Entry::Vacant(e) => Ok(*e.insert(block)),
-		}
-	}
-	
-	pub fn get(&self, name: &str) -> Option<&'l Block>
-	{
-		self.blocks.get(name).map(|&r| r)
-	}
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct RegisterError<'l>(pub &'l Block);
-
-impl<'l> AsRef<HashMap<&'l str, &'l Block>> for BlockRegistry<'l>
-{
-	fn as_ref(&self) -> &HashMap<&'l str, &'l Block>
-	{
-		&self.blocks
-	}
-}
-
-impl<'l> fmt::Display for RegisterError<'l>
-{
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-	{
-		write!(f, "block {:?} already exists", self.0.get_name())
-	}
-}
-
-impl<'l> Error for RegisterError<'l> {}
+pub type BlockRegistry<'l> = crate::registry::Registry<'l, Block>;
+pub type RegisterError<'l> = crate::registry::RegisterError<'l, Block>;
 
 macro_rules!make_register
 {
