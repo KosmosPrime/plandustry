@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
+use crate::block::transport::BridgeBlock;
 use crate::content;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
@@ -21,8 +22,8 @@ make_register!
 	LIQUID_CONTAINER: "liquid-container" => SimpleBlock::new(2, true);
 	LIQUID_TANK: "liquid-tank" => SimpleBlock::new(3, true);
 	LIQUID_JUNCTION: "liquid-junction" => SimpleBlock::new(1, true);
-	BRIDGE_CONDUIT: "bridge-conduit" => SimpleBlock::new(1, true); // TODO config: destination
-	PHASE_CONDUIT: "phase-conduit" => SimpleBlock::new(1, true); // TODO config: destination
+	BRIDGE_CONDUIT: "bridge-conduit" => BridgeBlock::new(1, true, 4, true);
+	PHASE_CONDUIT: "phase-conduit" => BridgeBlock::new(1, true, 12, true);
 	// sandbox only
 	LIQUID_SOURCE: "liquid-source" => FluidBlock::new(1, true);
 	LIQUID_VOID: "liquid-void" => SimpleBlock::new(1, true);
