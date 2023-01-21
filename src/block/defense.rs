@@ -1,5 +1,9 @@
-use crate::block::make_register;
-use crate::block::simple::SimpleBlock;
+use std::any::Any;
+
+use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
+use crate::block::simple::{SimpleBlock, state_impl};
+use crate::data::GridPos;
+use crate::data::dynamic::{DynData, DynType};
 
 make_register!
 (
@@ -15,8 +19,8 @@ make_register!
 	PHASE_WALL_LARGE: "phase-wall-large" => SimpleBlock::new(2, true);
 	SURGE_WALL: "surge-wall" => SimpleBlock::new(1, true);
 	SURGE_WALL_LARGE: "surge-wall-large" => SimpleBlock::new(2, true);
-	DOOR: "door" => SimpleBlock::new(1, true); // TODO config: opened
-	DOOR_LARGE: "door-large" => SimpleBlock::new(2, true); // TODO config: opened
+	DOOR: "door" => DoorBlock::new(1, true);
+	DOOR_LARGE: "door-large" => DoorBlock::new(2, true);
 	// sandbox only
 	SCRAP_WALL: "scrap-wall" => SimpleBlock::new(1, true);
 	SCRAP_WALL_LARGE: "scrap-wall-large" => SimpleBlock::new(2, true);
@@ -24,3 +28,62 @@ make_register!
 	SCRAP_WALL_GIGANTIC: "scrap-wall-gigantic" => SimpleBlock::new(4, true);
 	THRUSTER: "thruster" => SimpleBlock::new(4, false);
 );
+
+pub struct DoorBlock
+{
+	size: u8,
+	symmetric: bool,
+}
+
+impl DoorBlock
+{
+	pub const fn new(size: u8, symmetric: bool) -> Self
+	{
+		if size == 0
+		{
+			panic!("invalid size");
+		}
+		Self{size, symmetric}
+	}
+	
+	state_impl!(pub bool);
+}
+
+impl BlockLogic for DoorBlock
+{
+	fn get_size(&self) -> u8
+	{
+		self.size
+	}
+	
+	fn is_symmetric(&self) -> bool
+	{
+		self.symmetric
+	}
+	
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
+	{
+		Ok(DynData::Boolean(false))
+	}
+	
+	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
+	{
+		match data
+		{
+			DynData::Boolean(opened) => Ok(Some(Self::create_state(opened))),
+			_ => Err(DeserializeError::InvalidType{have: data.get_type(), expect: DynType::Boolean}),
+		}
+	}
+	
+	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>
+	{
+		let state = Self::get_state(state);
+		Box::new(Self::create_state(*state))
+	}
+	
+	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
+	{
+		let state = Self::get_state(state);
+		Ok(DynData::Boolean(*state))
+	}
+}
