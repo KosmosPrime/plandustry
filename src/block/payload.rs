@@ -2,8 +2,9 @@ use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
-use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
+use crate::block::{self, BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
 use crate::block::simple::{SimpleBlock, state_impl};
+use crate::content;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
 use crate::unit;
@@ -26,7 +27,7 @@ make_register!
 	PAYLOAD_CONVEYOR: "payload-conveyor" => SimpleBlock::new(3, false);
 	PAYLOAD_ROUTER: "payload-router" => SimpleBlock::new(3, false);
 	// sandbox only
-	PAYLOAD_SOURCE: "payload-source" => SimpleBlock::new(5, false); // TODO config: block/unit
+	PAYLOAD_SOURCE: "payload-source" => PayloadBlock::new(5, false);
 	PAYLOAD_VOID: "payload-void" => SimpleBlock::new(5, true);
 );
 
@@ -155,3 +156,147 @@ impl fmt::Display for AssemblerSerializeError
 }
 
 impl Error for AssemblerSerializeError {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Payload
+{
+	Empty,
+	Block(block::content::Type),
+	Unit(unit::Type),
+}
+
+pub struct PayloadBlock
+{
+	size: u8,
+	symmetric: bool,
+}
+
+impl PayloadBlock
+{
+	pub const fn new(size: u8, symmetric: bool) -> Self
+	{
+		if size == 0
+		{
+			panic!("invalid size");
+		}
+		Self{size, symmetric}
+	}
+	
+	state_impl!(pub Payload);
+}
+
+impl BlockLogic for PayloadBlock
+{
+	fn get_size(&self) -> u8
+	{
+		self.size
+	}
+	
+	fn is_symmetric(&self) -> bool
+	{
+		self.symmetric
+	}
+	
+	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
+	{
+		Ok(DynData::Empty)
+	}
+	
+	fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>
+	{
+		match data
+		{
+			DynData::Empty => Ok(Some(Self::create_state(Payload::Empty))),
+			DynData::Content(content::Type::Block, id) =>
+			{
+				let block = PayloadDeserializeError::forward(block::content::Type::try_from(id))?;
+				Ok(Some(Self::create_state(Payload::Block(block))))
+			},
+			DynData::Content(content::Type::Unit, id) =>
+			{
+				let unit = PayloadDeserializeError::forward(unit::Type::try_from(id))?;
+				Ok(Some(Self::create_state(Payload::Unit(unit))))
+			},
+			DynData::Content(have, ..) => Err(DeserializeError::Custom(Box::new(PayloadDeserializeError::ContentType(have)))),
+			_ => Err(DeserializeError::InvalidType{have: data.get_type(), expect: DynType::Content}),
+		}
+	}
+	
+	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>
+	{
+		let state = Self::get_state(state);
+		Box::new(Self::create_state(*state))
+	}
+	
+	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
+	{
+		match Self::get_state(state)
+		{
+			Payload::Empty => Ok(DynData::Empty),
+			Payload::Block(block) => Ok(DynData::Content(content::Type::Block, (*block).into())),
+			Payload::Unit(unit) => Ok(DynData::Content(content::Type::Unit, (*unit).into())),
+		}
+	}
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PayloadDeserializeError
+{
+	ContentType(content::Type),
+	BlockNotFound(block::content::TryFromU16Error),
+	UnitNotFound(unit::TryFromU16Error),
+}
+
+impl PayloadDeserializeError
+{
+	pub fn forward<T, E: Into<Self>>(result: Result<T, E>) -> Result<T, DeserializeError>
+	{
+		match result
+		{
+			Ok(v) => Ok(v),
+			Err(e) => Err(DeserializeError::Custom(Box::new(e.into()))),
+		}
+	}
+}
+
+impl From<block::content::TryFromU16Error> for PayloadDeserializeError
+{
+	fn from(err: block::content::TryFromU16Error) -> Self
+	{
+		Self::BlockNotFound(err)
+	}
+}
+
+impl From<unit::TryFromU16Error> for PayloadDeserializeError
+{
+	fn from(err: unit::TryFromU16Error) -> Self
+	{
+		Self::UnitNotFound(err)
+	}
+}
+
+impl fmt::Display for PayloadDeserializeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::ContentType(have) => write!(f, "expected content {:?} or {:?} but got {have:?}", content::Type::Block, content::Type::Unit),
+			Self::BlockNotFound(e) => e.fmt(f),
+			Self::UnitNotFound(e) => e.fmt(f),
+		}
+	}
+}
+
+impl Error for PayloadDeserializeError
+{
+	fn source(&self) -> Option<&(dyn Error + 'static)>
+	{
+		match self
+		{
+			Self::BlockNotFound(e) => Some(e),
+			Self::UnitNotFound(e) => Some(e),
+			_ => None,
+		}
+	}
+}
