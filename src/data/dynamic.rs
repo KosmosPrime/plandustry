@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::fmt;
 
+use crate::content;
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::data::command::{self, UnitCommand};
 use crate::logic::LogicField;
@@ -14,11 +15,11 @@ pub enum DynData
 	Long(i64),
 	Float(f32),
 	String(Option<String>),
-	Content(u8, u16),
+	Content(content::Type, u16),
 	IntArray(Vec<i32>),
 	Point2(i32, i32),
 	Point2Array(Vec<(i16, i16)>),
-	TechNode(u8, u16),
+	TechNode(content::Type, u16),
 	Boolean(bool),
 	Double(f64),
 	Building(GridPos),
@@ -93,7 +94,7 @@ impl Serializer<DynData> for DynSerializer
 				}
 				else {Ok(DynData::String(None))}
 			},
-			5 => Ok(DynData::Content(buff.read_u8()?, buff.read_u16()?)),
+			5 => Ok(DynData::Content(content::Type::try_from(buff.read_u8()?)?, buff.read_u16()?)),
 			6 =>
 			{
 				let len = buff.read_i16()?;
@@ -126,7 +127,7 @@ impl Serializer<DynData> for DynSerializer
 				}
 				Ok(DynData::Point2Array(result))
 			},
-			9 => Ok(DynData::TechNode(buff.read_u8()?, buff.read_u16()?)),
+			9 => Ok(DynData::TechNode(content::Type::try_from(buff.read_u8()?)?, buff.read_u16()?)),
 			10 => Ok(DynData::Boolean(buff.read_bool()?)),
 			11 => Ok(DynData::Double(buff.read_f64()?)),
 			12 => Ok(DynData::Building(GridPos::from(buff.read_u32()?))),
@@ -240,7 +241,7 @@ impl Serializer<DynData> for DynSerializer
 			DynData::Content(ty, id) =>
 			{
 				buff.write_u8(5)?;
-				buff.write_u8(*ty)?;
+				buff.write_u8((*ty).into())?;
 				buff.write_u16(*id)?;
 				Ok(())
 			},
@@ -282,7 +283,7 @@ impl Serializer<DynData> for DynSerializer
 			DynData::TechNode(ty, id) =>
 			{
 				buff.write_u8(9)?;
-				buff.write_u8(*ty)?;
+				buff.write_u8((*ty).into())?;
 				buff.write_u16(*id)?;
 				Ok(())
 			},
@@ -384,6 +385,7 @@ pub enum ReadError
 {
 	Underlying(data::ReadError),
 	Type(u8),
+	ContentType(content::TryFromU8Error),
 	IntArrayLen(i16),
 	Point2ArrayLen(i8),
 	LogicField(u8),
@@ -401,6 +403,22 @@ impl From<data::ReadError> for ReadError
 	}
 }
 
+impl From<content::TryFromU8Error> for ReadError
+{
+	fn from(err: content::TryFromU8Error) -> Self
+	{
+		Self::ContentType(err)
+	}
+}
+
+impl From<command::TryFromU8Error> for ReadError
+{
+	fn from(err: command::TryFromU8Error) -> Self
+	{
+		Self::UnitCommand(err)
+	}
+}
+
 impl fmt::Display for ReadError
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
@@ -409,11 +427,12 @@ impl fmt::Display for ReadError
 		{
 			Self::Underlying(e) => e.fmt(f),
 			Self::Type(id) => write!(f, "invalid dynamic data type ({id})"),
+			Self::ContentType(e) => e.fmt(f),
 			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
 			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
 			Self::LogicField(id) => write!(f, "invalid logic field ({id})"),
 			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-			Self::UnitCommand(id) => write!(f, "invalid unit command ({id})"),
+			Self::UnitCommand(e) => e.fmt(f),
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 		}
@@ -528,11 +547,11 @@ mod test
 	make_dyn_test!(reparse_long, DynData::Long(11295882949812), DynData::Long(-5222358074010407789));
 	make_dyn_test!(reparse_float, DynData::Float(3.14159265), DynData::Float(f32::INFINITY), DynData::Float(f32::EPSILON), DynData::Float(f32::NAN));
 	make_dyn_test!(reparse_string, DynData::String(None), DynData::String(Some("hello \u{10FE03}".to_string())), DynData::String(Some("".to_string())));
-	make_dyn_test!(reparse_content, DynData::Content(0, 12345), DynData::Content(13, 25431));
+	make_dyn_test!(reparse_content, DynData::Content(content::Type::Item, 12345), DynData::Content(content::Type::Planet, 25431));
 	make_dyn_test!(reparse_int_array, DynData::IntArray(vec![581923, 2147483647, -1047563850]), DynData::IntArray(vec![1902864703]));
 	make_dyn_test!(reparse_point2, DynData::Point2(17, 0), DynData::Point2(234, -345), DynData::Point2(-2147483648, -1));
 	make_dyn_test!(reparse_point2_array, DynData::Point2Array(vec![(44, 55), (-33, 66), (-22, -77)]), DynData::Point2Array(vec![(22, -88)]));
-	make_dyn_test!(reparse_technode, DynData::TechNode(0, 12345), DynData::TechNode(13, 25431));
+	make_dyn_test!(reparse_technode, DynData::TechNode(content::Type::Item, 12345), DynData::TechNode(content::Type::Planet, 25431));
 	make_dyn_test!(reparse_boolean, DynData::Boolean(false), DynData::Boolean(true), DynData::Boolean(false));
 	make_dyn_test!(reparse_double, DynData::Double(2.718281828459045), DynData::Double(-f64::INFINITY), DynData::Double(f64::NAN));
 	make_dyn_test!(reparse_building, DynData::Building(GridPos(10, 0)), DynData::Building(GridPos(4444, 0xFE98)));
