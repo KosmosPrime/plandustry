@@ -223,17 +223,19 @@ impl BlockLogic for BridgeBlock
 			{
 				if self.ortho
 				{
+					// the game uses (-worldX, -worldY) to indicate no target
+					// likely because the absolute target being (0, 0) means it's unlinked
 					if dx != 0
 					{
 						if dy != 0
 						{
-							return Err(DeserializeError::Custom(Box::new(BridgeDeserializeError::NonOrthogonal(dx, dy))));
+							return Ok(Some(Self::create_state(None)));
 						}
 						else
 						{
 							if dx > self.range as i32 || dx < -(self.range as i32)
 							{
-								return Err(DeserializeError::Custom(Box::new(BridgeDeserializeError::TooFar{dx, dy, max: self.range})));
+								return Ok(Some(Self::create_state(None)));
 							}
 						}
 					}
@@ -241,7 +243,7 @@ impl BlockLogic for BridgeBlock
 					{
 						if dy > self.range as i32 || dy < -(self.range as i32)
 						{
-							return Err(DeserializeError::Custom(Box::new(BridgeDeserializeError::TooFar{dx, dy, max: self.range})));
+							return Ok(Some(Self::create_state(None)));
 						}
 					}
 				}
@@ -284,24 +286,3 @@ impl fmt::Display for BridgeConvertError
 }
 
 impl Error for BridgeConvertError {}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum BridgeDeserializeError
-{
-	TooFar{dx: i32, dy: i32, max: u16},
-	NonOrthogonal(i32, i32),
-}
-
-impl fmt::Display for BridgeDeserializeError
-{
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-	{
-		match self
-		{
-			Self::TooFar{dx, dy, max} => write!(f, "bridge target ({dx} / {dy}) too far (max {max})"),
-			Self::NonOrthogonal(dx, dy) => write!(f, "bridge can only move orthogonally (got {dx} / {dy})"),
-		}
-	}
-}
-
-impl Error for BridgeDeserializeError {}
