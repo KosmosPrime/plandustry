@@ -1,5 +1,7 @@
 use crate::content::content_enum;
 
+pub mod storage;
+
 content_enum!
 {
 	pub enum Type / Item for u16 | TryFromU16Error
