@@ -12,6 +12,7 @@ use crate::block::{self, Block, BlockRegistry, Rotation};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData, DynSerializer};
+use crate::item::storage::Storage as ItemStorage;
 use crate::registry::RegistryEntry;
 
 pub const MAX_DIMENSION: u16 = 128;
@@ -433,6 +434,21 @@ impl<'l> Schematic<'l>
 	pub fn block_iter<'s>(&'s self) -> Iter<'s, Placement>
 	{
 		self.blocks.iter()
+	}
+	
+	pub fn compute_total_cost(&self) -> (ItemStorage, bool)
+	{
+		let mut cost = ItemStorage::new();
+		let mut sandbox = false;
+		for &Placement{block, ..} in self.blocks.iter()
+		{
+			if let Some(curr) = block.get_build_cost()
+			{
+				cost.add_all(curr, u32::MAX);
+			}
+			else {sandbox = true;}
+		}
+		(cost, sandbox)
 	}
 }
 

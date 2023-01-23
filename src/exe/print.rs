@@ -158,5 +158,14 @@ fn print_schematic(s: &Schematic)
 	{
 		if !labels.is_empty() && labels != "[]" {println!("Tags: {:?}", labels);}
 	}
+	let (cost, sandbox) = s.compute_total_cost();
+	if !cost.is_empty()
+	{
+		println!("Build cost: {cost}{}", if sandbox {" (Sandbox only)"} else {""});
+	}
+	else if sandbox
+	{
+		println!("Can only be built in the Sandbox");
+	}
 	println!("\n{s}");
 }
