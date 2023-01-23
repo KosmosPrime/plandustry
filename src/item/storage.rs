@@ -322,6 +322,21 @@ impl PartialEq for Storage
 	}
 }
 
+impl fmt::Display for Storage
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		let mut first = true;
+		for (ty, cnt) in self.iter_nonzero()
+		{
+			if first {first = false;}
+			else {f.write_str(", ")?;}
+			write!(f, "{cnt} {ty}")?;
+		}
+		Ok(())
+	}
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TryAddError
 {
