@@ -7,27 +7,42 @@ use std::string::FromUtf8Error;
 use flate2::{Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress, FlushDecompress, Status};
 
 use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
-use crate::block::simple::{SimpleBlock, state_impl};
+use crate::block::simple::{BuildCost, cost, SimpleBlock, state_impl};
 use crate::data::{self, DataRead, DataWrite, GridPos};
 use crate::data::dynamic::{DynData, DynType};
+use crate::item::storage::Storage;
 
 make_register!
 (
-	MESSAGE: "message" => MessageLogic;
-	SWITCH: "switch" => SwitchLogic;
-	MICRO_PROCESSOR: "micro-processor" => ProcessorLogic{size: 1};
-	LOGIC_PROCESSOR: "logic-processor" => ProcessorLogic{size: 2};
-	HYPER_PROCESSOR: "hyper-processor" => ProcessorLogic{size: 3};
-	MEMORY_CELL: "memory-cell" => SimpleBlock::new(1, true);
-	MEMORY_BANK: "memory-bank" => SimpleBlock::new(2, true);
-	LOGIC_DISPLAY: "logic-display" => SimpleBlock::new(3, true);
-	LARGE_LOGIC_DISPLAY: "large-logic-display" => SimpleBlock::new(6, true);
+	MESSAGE: "message" => MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
+	SWITCH: "switch" => SwitchLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
+	MICRO_PROCESSOR: "micro-processor" => ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));
+	LOGIC_PROCESSOR: "logic-processor" => ProcessorLogic::new(2, true, cost!(Lead: 320, Graphite: 60, Thorium: 50, Silicon: 80));
+	HYPER_PROCESSOR: "hyper-processor" => ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
+	MEMORY_CELL: "memory-cell" => SimpleBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
+	MEMORY_BANK: "memory-bank" => SimpleBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
+	LOGIC_DISPLAY: "logic-display" => SimpleBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
+	LARGE_LOGIC_DISPLAY: "large-logic-display" => SimpleBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
 );
 
-pub struct MessageLogic;
+pub struct MessageLogic
+{
+	size: u8,
+	symmetric: bool,
+	build_cost: BuildCost,
+}
 
 impl MessageLogic
 {
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self
+	{
+		if size == 0
+		{
+			panic!("invalid size");
+		}
+		Self{size, symmetric, build_cost}
+	}
+	
 	state_impl!(pub String);
 }
 
@@ -35,12 +50,26 @@ impl BlockLogic for MessageLogic
 {
 	fn get_size(&self) -> u8
 	{
-		1
+		self.size
 	}
 	
 	fn is_symmetric(&self) -> bool
 	{
-		true
+		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
@@ -69,10 +98,24 @@ impl BlockLogic for MessageLogic
 	}
 }
 
-pub struct SwitchLogic;
+pub struct SwitchLogic
+{
+	size: u8,
+	symmetric: bool,
+	build_cost: BuildCost,
+}
 
 impl SwitchLogic
 {
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self
+	{
+		if size == 0
+		{
+			panic!("invalid size");
+		}
+		Self{size, symmetric, build_cost}
+	}
+	
 	state_impl!(pub bool);
 }
 
@@ -80,12 +123,26 @@ impl BlockLogic for SwitchLogic
 {
 	fn get_size(&self) -> u8
 	{
-		1
+		self.size
 	}
 	
 	fn is_symmetric(&self) -> bool
 	{
-		true
+		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>
@@ -117,10 +174,21 @@ impl BlockLogic for SwitchLogic
 pub struct ProcessorLogic
 {
 	size: u8,
+	symmetric: bool,
+	build_cost: BuildCost,
 }
 
 impl ProcessorLogic
 {
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self
+	{
+		if size == 0
+		{
+			panic!("invalid size");
+		}
+		Self{size, symmetric, build_cost}
+	}
+	
 	state_impl!(pub ProcessorState);
 }
 
@@ -133,7 +201,21 @@ impl BlockLogic for ProcessorLogic
 	
 	fn is_symmetric(&self) -> bool
 	{
-		true
+		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError>

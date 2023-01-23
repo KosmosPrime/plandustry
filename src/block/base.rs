@@ -1,27 +1,28 @@
 use std::any::Any;
 
 use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
-use crate::block::simple::{SimpleBlock, state_impl};
+use crate::block::simple::{BuildCost, cost, SimpleBlock, state_impl};
 use crate::block::transport::ItemBlock;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
+use crate::item::storage::Storage;
 
 make_register!
 (
-	MENDER: "mender" => SimpleBlock::new(1, true);
-	MEND_PROJECTOR: "mend-projector" => SimpleBlock::new(2, true);
-	OVERDRIVE_PROJECTOR: "overdrive-projector" => SimpleBlock::new(2, true);
-	OVERDRIVE_DOME: "overdrive-dome" => SimpleBlock::new(3, true);
-	FORCE_PROJECTOR: "force-projector" => SimpleBlock::new(3, true);
-	SHOCK_MINE: "shock-mine" => SimpleBlock::new(1, true);
-	CORE_SHARD: "core-shard" => SimpleBlock::new(3, true);
-	CORE_FOUNDATION: "core-foundation" => SimpleBlock::new(4, true);
-	CORE_NUCLEUS: "core-nucleus" => SimpleBlock::new(5, true);
-	CONTAINER: "container" => SimpleBlock::new(2, true);
-	VAULT: "vault" => SimpleBlock::new(3, true);
-	UNLOADER: "unloader" => ItemBlock::new(1, true);
-	ILLUMINATOR: "illuminator" => LampBlock::new(1, true);
-	LAUNCH_PAD: "launch-pad" => SimpleBlock::new(3, true);
+	MENDER: "mender" => SimpleBlock::new(1, true, cost!(Copper: 25, Lead: 30));
+	MEND_PROJECTOR: "mend-projector" => SimpleBlock::new(2, true, cost!(Copper: 50, Lead: 100, Titanium: 25, Silicon: 40));
+	OVERDRIVE_PROJECTOR: "overdrive-projector" => SimpleBlock::new(2, true, cost!(Lead: 100, Titanium: 75, Silicon: 75, Plastanium: 30));
+	OVERDRIVE_DOME: "overdrive-dome" => SimpleBlock::new(3, true, cost!(Lead: 200, Titanium: 130, Silicon: 130, Plastanium: 80, SurgeAlloy: 120));
+	FORCE_PROJECTOR: "force-projector" => SimpleBlock::new(3, true, cost!(Lead: 100, Titanium: 75, Silicon: 125));
+	SHOCK_MINE: "shock-mine" => SimpleBlock::new(1, true, cost!(Lead: 25, Silicon: 12));
+	CORE_SHARD: "core-shard" => SimpleBlock::new(3, true, cost!(Copper: 1000, Lead: 800));
+	CORE_FOUNDATION: "core-foundation" => SimpleBlock::new(4, true, cost!(Copper: 3000, Lead: 3000, Silicon: 2000));
+	CORE_NUCLEUS: "core-nucleus" => SimpleBlock::new(5, true, cost!(Copper: 8000, Lead: 8000, Thorium: 4000, Silicon: 5000));
+	CONTAINER: "container" => SimpleBlock::new(2, true, cost!(Titanium: 100));
+	VAULT: "vault" => SimpleBlock::new(3, true, cost!(Titanium: 250, Thorium: 125));
+	UNLOADER: "unloader" => ItemBlock::new(1, true, cost!(Titanium: 25, Silicon: 30));
+	ILLUMINATOR: "illuminator" => LampBlock::new(1, true, cost!(Lead: 8, Graphite: 12, Silicon: 8));
+	LAUNCH_PAD: "launch-pad" => SimpleBlock::new(3, true, cost!(Copper: 350, Lead: 200, Titanium: 150, Silicon: 140));
 );
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -47,17 +48,18 @@ pub struct LampBlock
 {
 	size: u8,
 	symmetric: bool,
+	build_cost: BuildCost,
 }
 
 impl LampBlock
 {
-	pub const fn new(size: u8, symmetric: bool) -> Self
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self
 	{
 		if size == 0
 		{
 			panic!("invalid size");
 		}
-		Self{size, symmetric}
+		Self{size, symmetric, build_cost}
 	}
 	
 	state_impl!(pub RGBA);
@@ -73,6 +75,20 @@ impl BlockLogic for LampBlock
 	fn is_symmetric(&self) -> bool
 	{
 		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, config: i32, _: GridPos) -> Result<DynData, DataConvertError>

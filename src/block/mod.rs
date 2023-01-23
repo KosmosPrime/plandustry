@@ -6,6 +6,7 @@ use std::fmt;
 use crate::access::BoxAccess;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
+use crate::item::storage::Storage as ItemStorage;
 use crate::registry::RegistryEntry;
 
 pub mod base;
@@ -26,6 +27,8 @@ pub trait BlockLogic
 	fn get_size(&self) -> u8;
 	
 	fn is_symmetric(&self) -> bool;
+	
+	fn create_build_cost(&self) -> Option<ItemStorage>;
 	
 	fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError>;
 	

@@ -3,48 +3,50 @@ use std::error::Error;
 use std::fmt;
 
 use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
-use crate::block::simple::{SimpleBlock, state_impl};
+use crate::block::simple::{BuildCost, cost, SimpleBlock, state_impl};
 use crate::content;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
 use crate::item;
+use crate::item::storage::Storage;
 
 make_register!
 (
-	CONVEYOR: "conveyor" => SimpleBlock::new(1, false);
-	TITANIUM_CONVEYOR: "titanium-conveyor" => SimpleBlock::new(1, false);
-	PLASTANIUM_CONVEYOR: "plastanium-conveyor" => SimpleBlock::new(1, false);
-	ARMORED_CONVEYOR: "armored-conveyor" => SimpleBlock::new(1, false);
-	JUNCTION: "junction" => SimpleBlock::new(1, true);
-	BRIDGE_CONVEYOR: "bridge-conveyor" => BridgeBlock::new(1, false, 4, true);
-	PHASE_CONVEYOR: "phase-conveyor" => BridgeBlock::new(1, false, 12, true);
-	SORTER: "sorter" => ItemBlock::new(1, true);
-	INVERTED_SORTER: "inverted-sorter" => ItemBlock::new(1, true);
-	ROUTER: "router" => SimpleBlock::new(1, true);
-	DISTRIBUTOR: "distributor" => SimpleBlock::new(2, true);
-	OVERFLOW_GATE: "overflow-gate" => SimpleBlock::new(1, true);
-	UNDERFLOW_GATE: "underflow-gate" => SimpleBlock::new(1, true);
-	MASS_DRIVER: "mass-driver" => BridgeBlock::new(3, true, 55, false);
+	CONVEYOR: "conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1));
+	TITANIUM_CONVEYOR: "titanium-conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
+	PLASTANIUM_CONVEYOR: "plastanium-conveyor" => SimpleBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
+	ARMORED_CONVEYOR: "armored-conveyor" => SimpleBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
+	JUNCTION: "junction" => SimpleBlock::new(1, true, cost!(Copper: 2));
+	BRIDGE_CONVEYOR: "bridge-conveyor" => BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
+	PHASE_CONVEYOR: "phase-conveyor" => BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
+	SORTER: "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
+	INVERTED_SORTER: "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
+	ROUTER: "router" => SimpleBlock::new(1, true, cost!(Copper: 3));
+	DISTRIBUTOR: "distributor" => SimpleBlock::new(2, true, cost!(Copper: 4, Lead: 4));
+	OVERFLOW_GATE: "overflow-gate" => SimpleBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+	UNDERFLOW_GATE: "underflow-gate" => SimpleBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+	MASS_DRIVER: "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
 	// sandbox only
-	ITEM_SOURCE: "item-source" => ItemBlock::new(1, true);
-	ITEM_VOID: "item-void" => SimpleBlock::new(1, true);
+	ITEM_SOURCE: "item-source" => ItemBlock::new(1, true, &[]);
+	ITEM_VOID: "item-void" => SimpleBlock::new(1, true, &[]);
 );
 
 pub struct ItemBlock
 {
 	size: u8,
 	symmetric: bool,
+	build_cost: BuildCost,
 }
 
 impl ItemBlock
 {
-	pub const fn new(size: u8, symmetric: bool) -> Self
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self
 	{
 		if size == 0
 		{
 			panic!("invalid size");
 		}
-		Self{size, symmetric}
+		Self{size, symmetric, build_cost}
 	}
 	
 	state_impl!(pub Option<item::Type>);
@@ -60,6 +62,20 @@ impl BlockLogic for ItemBlock
 	fn is_symmetric(&self) -> bool
 	{
 		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, config: i32, _: GridPos) -> Result<DynData, DataConvertError>
@@ -166,6 +182,7 @@ pub struct BridgeBlock
 {
 	size: u8,
 	symmetric: bool,
+	build_cost: BuildCost,
 	range: u16,
 	ortho: bool,
 }
@@ -174,7 +191,7 @@ type Point2 = (i32, i32);
 
 impl BridgeBlock
 {
-	pub const fn new(size: u8, symmetric: bool, range: u16, ortho: bool) -> Self
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost, range: u16, ortho: bool) -> Self
 	{
 		if size == 0
 		{
@@ -184,7 +201,7 @@ impl BridgeBlock
 		{
 			panic!("invalid range");
 		}
-		Self{size, symmetric, range, ortho}
+		Self{size, symmetric, build_cost, range, ortho}
 	}
 	
 	state_impl!(pub Option<Point2>);
@@ -200,6 +217,20 @@ impl BlockLogic for BridgeBlock
 	fn is_symmetric(&self) -> bool
 	{
 		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError>

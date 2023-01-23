@@ -3,47 +3,49 @@ use std::error::Error;
 use std::fmt;
 
 use crate::block::{BlockLogic, DataConvertError, DeserializeError, make_register, SerializeError};
-use crate::block::simple::{SimpleBlock, state_impl};
+use crate::block::simple::{BuildCost, cost, SimpleBlock, state_impl};
 use crate::block::transport::BridgeBlock;
 use crate::content;
 use crate::data::GridPos;
 use crate::data::dynamic::{DynData, DynType};
 use crate::fluid;
+use crate::item::storage::Storage;
 
 make_register!
 (
-	MECHANICAL_PUMP: "mechanical-pump" => SimpleBlock::new(1, true);
-	ROTARY_PUMP: "rotary-pump" => SimpleBlock::new(2, true);
-	IMPULSE_PUMP: "impulse-pump" => SimpleBlock::new(3, true);
-	CONDUIT: "conduit" => SimpleBlock::new(1, false);
-	PULSE_CONDUIT: "pulse-conduit" => SimpleBlock::new(1, false);
-	PLATED_CONDUIT: "plated-conduit" => SimpleBlock::new(1, false);
-	LIQUID_ROUTER: "liquid-router" => SimpleBlock::new(1, true);
-	LIQUID_CONTAINER: "liquid-container" => SimpleBlock::new(2, true);
-	LIQUID_TANK: "liquid-tank" => SimpleBlock::new(3, true);
-	LIQUID_JUNCTION: "liquid-junction" => SimpleBlock::new(1, true);
-	BRIDGE_CONDUIT: "bridge-conduit" => BridgeBlock::new(1, true, 4, true);
-	PHASE_CONDUIT: "phase-conduit" => BridgeBlock::new(1, true, 12, true);
+	MECHANICAL_PUMP: "mechanical-pump" => SimpleBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
+	ROTARY_PUMP: "rotary-pump" => SimpleBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
+	IMPULSE_PUMP: "impulse-pump" => SimpleBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
+	CONDUIT: "conduit" => SimpleBlock::new(1, false, cost!(Metaglass: 1));
+	PULSE_CONDUIT: "pulse-conduit" => SimpleBlock::new(1, false, cost!(Metaglass: 1, Titanium: 2));
+	PLATED_CONDUIT: "plated-conduit" => SimpleBlock::new(1, false, cost!(Metaglass: 1, Thorium: 2, Plastanium: 1));
+	LIQUID_ROUTER: "liquid-router" => SimpleBlock::new(1, true, cost!(Metaglass: 2, Graphite: 4));
+	LIQUID_CONTAINER: "liquid-container" => SimpleBlock::new(2, true, cost!(Metaglass: 15, Titanium: 10));
+	LIQUID_TANK: "liquid-tank" => SimpleBlock::new(3, true, cost!(Metaglass: 40, Titanium: 30));
+	LIQUID_JUNCTION: "liquid-junction" => SimpleBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
+	BRIDGE_CONDUIT: "bridge-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4), 4, true);
+	PHASE_CONDUIT: "phase-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 20, Titanium: 10, Silicon: 7, PhaseFabric: 5), 12, true);
 	// sandbox only
-	LIQUID_SOURCE: "liquid-source" => FluidBlock::new(1, true);
-	LIQUID_VOID: "liquid-void" => SimpleBlock::new(1, true);
+	LIQUID_SOURCE: "liquid-source" => FluidBlock::new(1, true, &[]);
+	LIQUID_VOID: "liquid-void" => SimpleBlock::new(1, true, &[]);
 );
 
 pub struct FluidBlock
 {
 	size: u8,
 	symmetric: bool,
+	build_cost: BuildCost,
 }
 
 impl FluidBlock
 {
-	pub const fn new(size: u8, symmetric: bool) -> Self
+	pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self
 	{
 		if size == 0
 		{
 			panic!("invalid size");
 		}
-		Self{size, symmetric}
+		Self{size, symmetric, build_cost}
 	}
 	
 	state_impl!(pub Option<fluid::Type>);
@@ -59,6 +61,20 @@ impl BlockLogic for FluidBlock
 	fn is_symmetric(&self) -> bool
 	{
 		self.symmetric
+	}
+	
+	fn create_build_cost(&self) -> Option<Storage>
+	{
+		if !self.build_cost.is_empty()
+		{
+			let mut storage = Storage::new();
+			for (ty, cnt) in self.build_cost
+			{
+				storage.add(*ty, *cnt, u32::MAX);
+			}
+			Some(storage)
+		}
+		else {None}
 	}
 	
 	fn data_from_i32(&self, config: i32, _: GridPos) -> Result<DynData, DataConvertError>
