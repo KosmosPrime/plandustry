@@ -6,6 +6,7 @@ use std::fs;
 use crate::block::build_registry;
 use crate::data::{DataRead, Serializer};
 use crate::data::schematic::{Schematic, SchematicSerializer};
+use crate::exe::print_err;
 use crate::exe::args::{self, ArgCount, ArgOption, OptionHandler};
 
 pub fn main(mut args: Args, arg_off: usize)
@@ -15,7 +16,7 @@ pub fn main(mut args: Args, arg_off: usize)
 	let opt_interact = handler.add(ArgOption::new(Some('i'), Some(Cow::Borrowed("interactive")), ArgCount::Forbidden)).unwrap();
 	if let Err(e) = args::parse(&mut args, &mut handler, arg_off)
 	{
-		println!("Command error: {e}");
+		print_err!(e, "Command error");
 		return;
 	}
 	
@@ -51,7 +52,7 @@ pub fn main(mut args: Args, arg_off: usize)
 								if need_space {println!();}
 								first = false;
 								need_space = false;
-								println!("Could not read schematic: {e}");
+								print_err!(e, "Could not read schematic from {path}");
 							},
 						}
 					},
@@ -61,7 +62,7 @@ pub fn main(mut args: Args, arg_off: usize)
 						if need_space {println!();}
 						first = false;
 						need_space = false;
-						println!("Could not read file {path:?}: {e}");
+						print_err!(e, "Could not read file {path:?}");
 					},
 				}
 			}
@@ -87,7 +88,7 @@ pub fn main(mut args: Args, arg_off: usize)
 				if need_space {println!();}
 				first = false;
 				need_space = false;
-				println!("Could not read schematic: {e}");
+				print_err!(e, "Could not read schematic");
 			},
 		}
 	}
@@ -129,14 +130,14 @@ pub fn main(mut args: Args, arg_off: usize)
 						{
 							if need_space {println!();}
 							need_space = false;
-							println!("Could not read schematic: {e:?}")
+							print_err!(e, "Could not read schematic");
 						},
 					}
 				},
 				Err(e) =>
 				{
 					if need_space {println!();}
-					println!("Failed to read next line: {e}");
+					print_err!(e, "Failed to read next schematic");
 					break;
 				},
 			}

@@ -3,6 +3,31 @@ use std::env::Args;
 pub mod args;
 pub mod print;
 
+macro_rules!print_err
+{
+	($err:expr, $($msg:tt)*) =>
+	{
+		{
+			use std::error::Error;
+			
+			let err = $err;
+			eprint!($($msg)*);
+			eprintln!(": {err}");
+			let mut err_ref = &err as &dyn Error;
+			loop
+			{
+				if let Some(next) = err_ref.source()
+				{
+					eprintln!("\tSource: {next}");
+					err_ref = next;
+				}
+				else {break;}
+			}
+		}
+	};
+}
+pub(crate) use print_err;
+
 pub fn main(mut args: Args)
 {
 	match args.next()

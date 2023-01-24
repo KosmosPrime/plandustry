@@ -425,14 +425,14 @@ impl fmt::Display for ReadError
 	{
 		match self
 		{
-			Self::Underlying(e) => e.fmt(f),
+			Self::Underlying(..) => f.write_str("failed to read from buffer"),
 			Self::Type(id) => write!(f, "invalid dynamic data type ({id})"),
-			Self::ContentType(e) => e.fmt(f),
+			Self::ContentType(..) => f.write_str("content type not found"),
 			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
 			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
 			Self::LogicField(id) => write!(f, "invalid logic field ({id})"),
 			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-			Self::UnitCommand(e) => e.fmt(f),
+			Self::UnitCommand(..) => f.write_str("unit command not found"),
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 		}
@@ -476,7 +476,7 @@ impl fmt::Display for WriteError
 	{
 		match self
 		{
-			Self::Underlying(e) => e.fmt(f),
+			Self::Underlying(..) => f.write_str("failed to write to buffer"),
 			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
 			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
 			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),

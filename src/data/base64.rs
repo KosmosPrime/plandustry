@@ -180,7 +180,7 @@ impl fmt::Display for DecodeError
 		{
 			Self::Malformed{at, value} => write!(f, "malformed base64 character {value:?} (at {at})"),
 			Self::Overflow{need, have} => write!(f, "decoder overflow (need {need}, but only have {have})"),
-			Self::Truncated => write!(f, "truncated base64 input stream"),
+			Self::Truncated => f.write_str("truncated base64 input stream"),
 			Self::TrailingData{at} => write!(f, "trailing data in base64 stream (at {at})"),
 		}
 	}

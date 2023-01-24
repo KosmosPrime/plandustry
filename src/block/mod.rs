@@ -41,7 +41,10 @@ pub trait BlockLogic
 }
 
 #[derive(Debug)]
-pub struct DataConvertError(pub Box<dyn Error>);
+pub enum DataConvertError
+{
+	Custom(Box<dyn Error>),
+}
 
 impl DataConvertError
 {
@@ -50,7 +53,7 @@ impl DataConvertError
 		match result
 		{
 			Ok(v) => Ok(v),
-			Err(e) => Err(Self(Box::new(e))),
+			Err(e) => Err(Self::Custom(Box::new(e))),
 		}
 	}
 }
@@ -59,7 +62,10 @@ impl fmt::Display for DataConvertError
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
 	{
-		self.0.fmt(f)
+		match self
+		{
+			Self::Custom(e) => e.fmt(f),
+		}
 	}
 }
 
@@ -67,7 +73,10 @@ impl Error for DataConvertError
 {
 	fn source(&self) -> Option<&(dyn Error + 'static)>
 	{
-		Some(self.0.as_ref())
+		match self
+		{
+			Self::Custom(e) => e.source(),
+		}
 	}
 }
 
@@ -108,7 +117,7 @@ impl Error for DeserializeError
 	{
 		match self
 		{
-			Self::Custom(e) => Some(e.as_ref()),
+			Self::Custom(e) => e.source(),
 			_ => None,
 		}
 	}
@@ -149,7 +158,7 @@ impl Error for SerializeError
 	{
 		match self
 		{
-			Self::Custom(e) => Some(e.as_ref()),
+			Self::Custom(e) => e.source(),
 		}
 	}
 }

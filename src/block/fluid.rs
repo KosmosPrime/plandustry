@@ -81,7 +81,7 @@ impl BlockLogic for FluidBlock
 	{
 		if config < 0 || config > u16::MAX as i32
 		{
-			return Err(DataConvertError(Box::new(FluidConvertError(config))));
+			return Err(DataConvertError::Custom(Box::new(FluidConvertError(config))));
 		}
 		Ok(DynData::Content(content::Type::Fluid, config as u16))
 	}
@@ -160,7 +160,7 @@ impl fmt::Display for FluidDeserializeError
 		match self
 		{
 			Self::ContentType(have) => write!(f, "expected content {:?} but got {have:?}", content::Type::Fluid),
-			Self::NotFound(e) => e.fmt(f),
+			Self::NotFound(..) => f.write_str("fluid not found"),
 		}
 	}
 }

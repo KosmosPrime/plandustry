@@ -514,9 +514,9 @@ impl fmt::Display for PlaceError
 	{
 		match self
 		{
-			Self::Bounds{x, y, sz, w, h} => write!(f, "block placement {x} / {y} (size {sz}) within {w} / {h}"),
+			Self::Bounds{x, y, sz, w, h} => write!(f, "invalid block placement {x} / {y} (size {sz}) within {w} / {h}"),
 			Self::Overlap{x, y} => write!(f, "overlapping an existing block at {x} / {y}"),
-			Self::Deserialize(e) => e.fmt(f),
+			Self::Deserialize(..) => f.write_str("block state deserialization failed"),
 		}
 	}
 }
@@ -955,7 +955,7 @@ pub enum ReadError
 	BlockCount(i32),
 	BlockIndex(i8, usize),
 	BlockConfig(block::DataConvertError),
-	BlockState(dynamic::ReadError),
+	ReadState(dynamic::ReadError),
 	Placement(PlaceError),
 }
 
@@ -979,7 +979,7 @@ impl From<dynamic::ReadError> for ReadError
 {
 	fn from(value: dynamic::ReadError) -> Self
 	{
-		Self::BlockState(value)
+		Self::ReadState(value)
 	}
 }
 
@@ -1005,19 +1005,19 @@ impl fmt::Display for ReadError
 	{
 		match self
 		{
-			Self::Read(e) => e.fmt(f),
+			Self::Read(..) => f.write_str("failed to read from buffer"),
 			Self::Header(hdr) => write!(f, "incorrect header ({hdr:08X})"),
 			Self::Version(ver) => write!(f, "unsupported version ({ver})"),
-			Self::Decompress(e) => e.fmt(f),
-			Self::DecompressStall => write!(f, "decompressor stalled before completion"),
+			Self::Decompress(..) => f.write_str("zlib decompression failed"),
+			Self::DecompressStall => f.write_str("decompressor stalled before completion"),
 			Self::Dimensions(w, h) => write!(f, "invalid schematic dimensions ({w} * {h})"),
 			Self::TableSize(cnt) => write!(f, "invalid block table size ({cnt})"),
 			Self::NoSuchBlock(name) => write!(f, "unknown block {name:?}"),
 			Self::BlockCount(cnt) => write!(f, "invalid total block count ({cnt})"),
 			Self::BlockIndex(idx, cnt) => write!(f, "invalid block index ({idx} / {cnt})"),
-			Self::BlockConfig(e) => e.fmt(f),
-			Self::BlockState(e) => e.fmt(f),
-			Self::Placement(e) => e.fmt(f),
+			Self::BlockConfig(..) => f.write_str("block config conversion failed"),
+			Self::ReadState(..) => f.write_str("failed to read block data"),
+			Self::Placement(..) => f.write_str("deserialized block could not be placed"),
 		}
 	}
 }
@@ -1031,7 +1031,7 @@ impl Error for ReadError
 			Self::Read(e) => Some(e),
 			Self::Decompress(e) => Some(e),
 			Self::BlockConfig(e) => Some(e),
-			Self::BlockState(e) => Some(e),
+			Self::ReadState(e) => Some(e),
 			Self::Placement(e) => Some(e),
 			_ => None,
 		}
@@ -1045,7 +1045,7 @@ pub enum WriteError
 	TagCount(usize),
 	TableSize(usize),
 	StateSerialize(block::SerializeError),
-	BlockState(dynamic::WriteError),
+	WriteState(dynamic::WriteError),
 	Compress(CompressError),
 	CompressEof(usize),
 	CompressStall,
@@ -1079,7 +1079,7 @@ impl From<dynamic::WriteError> for WriteError
 {
 	fn from(value: dynamic::WriteError) -> Self
 	{
-		Self::BlockState(value)
+		Self::WriteState(value)
 	}
 }
 
@@ -1089,14 +1089,14 @@ impl fmt::Display for WriteError
 	{
 		match self
 		{
-			Self::Write(..) => write!(f, "failed to write data to buffer"),
-			Self::TagCount(cnt) => write!(f, "invalid tag count ({cnt})"),
-			Self::TableSize(cnt) => write!(f, "invalid block table size ({cnt})"),
+			Self::Write(..) => f.write_str("failed to write data to buffer"),
+			Self::TagCount(len) => write!(f, "tag list too long ({len})"),
+			Self::TableSize(len) => write!(f, "block table too long ({len})"),
 			Self::StateSerialize(e) => e.fmt(f),
-			Self::BlockState(..) => write!(f, "failed to write block state"),
-			Self::Compress(e) => e.fmt(f),
+			Self::WriteState(..) => f.write_str("failed to write block data"),
+			Self::Compress(..) => f.write_str("zlib compression failed"),
 			Self::CompressEof(remain) => write!(f, "compression overflow with {remain} bytes of input remaining"),
-			Self::CompressStall => write!(f, "compressor stalled before completion"),
+			Self::CompressStall => f.write_str("compressor stalled before completion"),
 		}
 	}
 }
@@ -1108,7 +1108,7 @@ impl Error for WriteError
 		match self
 		{
 			Self::Write(e) => Some(e),
-			Self::StateSerialize(e) => Some(e),
+			Self::StateSerialize(e) => e.source(),
 			Self::Compress(e) => Some(e),
 			_ => None,
 		}
@@ -1171,7 +1171,7 @@ impl fmt::Display for R64Error
 	{
 		match self
 		{
-			Self::Base64(e) => e.fmt(f),
+			Self::Base64(..) => f.write_str("base-64 decoding failed"),
 			Self::Content(e) => e.fmt(f),
 		}
 	}
@@ -1184,7 +1184,7 @@ impl Error for R64Error
 		match self
 		{
 			Self::Base64(e) => Some(e),
-			Self::Content(e) => Some(e),
+			Self::Content(e) => e.source(),
 		}
 	}
 }
@@ -1218,7 +1218,7 @@ impl fmt::Display for W64Error
 	{
 		match self
 		{
-			Self::Base64(e) => e.fmt(f),
+			Self::Base64(..) => f.write_str("base-64 encoding failed"),
 			Self::Content(e) => e.fmt(f),
 		}
 	}
@@ -1231,7 +1231,7 @@ impl Error for W64Error
 		match self
 		{
 			Self::Base64(e) => Some(e),
-			Self::Content(e) => Some(e),
+			Self::Content(e) => e.source(),
 		}
 	}
 }

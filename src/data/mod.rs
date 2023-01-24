@@ -116,7 +116,7 @@ impl fmt::Display for ReadError
 		match self
 		{
 			Self::Underflow{need, have} => write!(f, "buffer underflow (expected {need} but got {have})"),
-			Self::Utf8(e) => e.fmt(f),
+			Self::Utf8(..) => f.write_str("malformed utf-8 in string"),
 		}
 	}
 }

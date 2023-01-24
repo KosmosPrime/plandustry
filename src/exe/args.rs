@@ -40,7 +40,8 @@ impl<E: error::Error + 'static> error::Error for Error<E>
 	{
 		match self
 		{
-			Self::Handler{pos: _, val} => Some(val),
+			// forward past the inner error because we decorate it in our Display impl
+			Self::Handler{val, ..} => val.source(),
 			_ => None,
 		}
 	}

@@ -315,8 +315,8 @@ impl fmt::Display for PayloadDeserializeError
 		match self
 		{
 			Self::ContentType(have) => write!(f, "expected content {:?} or {:?} but got {have:?}", content::Type::Block, content::Type::Unit),
-			Self::BlockNotFound(e) => e.fmt(f),
-			Self::UnitNotFound(e) => e.fmt(f),
+			Self::BlockNotFound(..) => f.write_str("payload block not found"),
+			Self::UnitNotFound(..) => f.write_str("payload unit not found"),
 		}
 	}
 }

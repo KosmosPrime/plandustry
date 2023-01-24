@@ -401,10 +401,10 @@ impl fmt::Display for ProcessorDeserializeError
 	{
 		match self
 		{
-			Self::Read(e) => e.fmt(f),
-			Self::Decompress(e) => e.fmt(f),
-			Self::DecompressStall => write!(f, "decompressor stalled before completion"),
-			Self::FromUtf8(e) => e.fmt(f),
+			Self::Read(..) => f.write_str("failed to read state data"),
+			Self::Decompress(..) => f.write_str("zlib decompression failed"),
+			Self::DecompressStall => f.write_str("decompressor stalled before completion"),
+			Self::FromUtf8(..) => f.write_str("malformed utf-8 in processor code"),
 			Self::Version(ver) => write!(f, "unsupported version ({ver})"),
 			Self::CodeLength(len) => write!(f, "invalid code length ({len})"),
 			Self::LinkCount(cnt) => write!(f, "invalid link count ({cnt})"),
@@ -468,10 +468,10 @@ impl fmt::Display for ProcessorSerializeError
 	{
 		match self
 		{
-			Self::Write(e) => e.fmt(f),
-			Self::Compress(e) => e.fmt(f),
+			Self::Write(..) => f.write_str("failed to write state data"),
+			Self::Compress(..) => f.write_str("zlib compression failed"),
 			Self::CompressEof(remain) => write!(f, "compression overflow with {remain} bytes of input remaining"),
-			Self::CompressStall => write!(f, "compressor stalled before completion"),
+			Self::CompressStall => f.write_str("compressor stalled before completion"),
 		}
 	}
 }

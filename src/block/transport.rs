@@ -82,7 +82,7 @@ impl BlockLogic for ItemBlock
 	{
 		if config < 0 || config > u16::MAX as i32
 		{
-			return Err(DataConvertError(Box::new(ItemConvertError(config))));
+			return Err(DataConvertError::Custom(Box::new(ItemConvertError(config))));
 		}
 		Ok(DynData::Content(content::Type::Item, config as u16))
 	}
@@ -161,7 +161,7 @@ impl fmt::Display for ItemDeserializeError
 		match self
 		{
 			Self::ContentType(have) => write!(f, "expected content {:?} but got {have:?}", content::Type::Item),
-			Self::NotFound(e) => e.fmt(f),
+			Self::NotFound(..) => f.write_str("target item not found"),
 		}
 	}
 }
@@ -238,7 +238,7 @@ impl BlockLogic for BridgeBlock
 		let (x, y) = ((config >> 16) as i16, config as i16);
 		if x < 0 || y < 0
 		{
-			return Err(DataConvertError(Box::new(BridgeConvertError{x, y})));
+			return Err(DataConvertError::Custom(Box::new(BridgeConvertError{x, y})));
 		}
 		let dx = x as i32 - pos.0 as i32;
 		let dy = y as i32 - pos.1 as i32;
