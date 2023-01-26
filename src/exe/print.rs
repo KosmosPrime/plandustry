@@ -145,7 +145,7 @@ pub fn main(mut args: Args, arg_off: usize)
 	}
 }
 
-fn print_schematic(s: &Schematic)
+pub fn print_schematic(s: &Schematic)
 {
 	if let Some(name) = s.get_tags().get("name")
 	{
