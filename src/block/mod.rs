@@ -258,10 +258,10 @@ impl Rotation
 	{
 		match self
 		{
-			Self::Right => if clockwise {Self::Up} else {Self::Down},
-			Self::Up => if clockwise {Self::Left} else {Self::Right},
-			Self::Left => if clockwise {Self::Down} else {Self::Up},
-			Self::Down => if clockwise {Self::Right} else {Self::Left},
+			Self::Right => if clockwise {Self::Down} else {Self::Up},
+			Self::Up => if clockwise {Self::Right} else {Self::Left},
+			Self::Left => if clockwise {Self::Up} else {Self::Down},
+			Self::Down => if clockwise {Self::Left} else {Self::Right},
 		}
 	}
 	
