@@ -37,6 +37,10 @@ pub trait BlockLogic
 	
 	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>;
 	
+	fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool);
+	
+	fn rotate_state(&self, state: &mut dyn Any, clockwise: bool);
+	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>;
 }
 
@@ -205,6 +209,21 @@ impl Block
 	pub fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>
 	{
 		self.logic.clone_state(state)
+	}
+	
+	pub fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool)
+	{
+		self.logic.mirror_state(state, horizontally, vertically);
+	}
+	
+	pub fn rotate_state(&self, state: &mut dyn Any, clockwise: bool)
+	{
+		self.logic.rotate_state(state, clockwise);
+	}
+	
+	pub fn rotate_180(&mut self, state: &mut dyn Any)
+	{
+		self.logic.mirror_state(state, true, true);
 	}
 	
 	pub fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>

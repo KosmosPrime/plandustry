@@ -104,6 +104,14 @@ impl BlockLogic for ItemBlock
 		Box::new(Self::create_state(*state))
 	}
 	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
+	}
+	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		match Self::get_state(state)
@@ -289,6 +297,33 @@ impl BlockLogic for BridgeBlock
 	{
 		let state = Self::get_state(state);
 		Box::new(Self::create_state(*state))
+	}
+	
+	fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool)
+	{
+		match Self::get_state_mut(state)
+		{
+			None => (),
+			Some((dx, dy)) =>
+			{
+				if horizontally {*dx = -*dx;}
+				if vertically {*dy = -*dy;}
+			},
+		}
+	}
+	
+	fn rotate_state(&self, state: &mut dyn Any, clockwise: bool)
+	{
+		match Self::get_state_mut(state)
+		{
+			None => (),
+			Some((dx, dy)) =>
+			{
+				let (cdx, cdy) = (*dx, *dy);
+				*dx = if clockwise {cdy} else {-cdy};
+				*dy = if clockwise {-cdx} else {cdx};
+			},
+		}
 	}
 	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>

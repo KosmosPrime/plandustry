@@ -125,6 +125,14 @@ impl BlockLogic for AssemblerBlock
 		Box::new(Self::create_state(*state))
 	}
 	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
+	}
+	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		if let Some(state) = Self::get_state(state)
@@ -259,6 +267,14 @@ impl BlockLogic for PayloadBlock
 	{
 		let state = Self::get_state(state);
 		Box::new(Self::create_state(*state))
+	}
+	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
 	}
 	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>

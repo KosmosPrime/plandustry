@@ -386,6 +386,10 @@ impl<'l> Schematic<'l>
 				if horizontally {curr.pos.0 = self.width - 1 - curr.pos.0 - shift;}
 				if vertically {curr.pos.1 = self.height - 1 - curr.pos.1 - shift;}
 				if !curr.block.is_symmetric() {curr.rot.mirror(horizontally, vertically);}
+				if let Some(ref mut state) = curr.state
+				{
+					curr.block.mirror_state(state.as_mut(), horizontally, vertically);
+				}
 			}
 			self.rebuild_lookup();
 		}
@@ -416,6 +420,10 @@ impl<'l> Schematic<'l>
 					curr.pos.1 = x;
 				}
 				if !curr.block.is_symmetric() {curr.rot.rotate(clockwise);}
+				if let Some(ref mut state) = curr.state
+				{
+					curr.block.rotate_state(state.as_mut(), clockwise);
+				}
 			}
 			self.rebuild_lookup();
 		}

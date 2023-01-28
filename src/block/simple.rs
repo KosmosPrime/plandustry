@@ -93,6 +93,16 @@ impl BlockLogic for SimpleBlock
 		panic!("{} has no custom state", type_name::<Self>())
 	}
 	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+		panic!("{} has no custom state", type_name::<Self>());
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
+		panic!("{} has no custom state", type_name::<Self>());
+	}
+	
 	fn serialize_state(&self, _: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		Ok(DynData::Empty)

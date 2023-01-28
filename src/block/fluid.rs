@@ -103,6 +103,14 @@ impl BlockLogic for FluidBlock
 		Box::new(Self::create_state(*state))
 	}
 	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
+	}
+	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		match Self::get_state(state)

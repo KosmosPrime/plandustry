@@ -111,6 +111,25 @@ impl BlockLogic for ConnectorBlock
 		Box::new(Self::get_state(state).clone())
 	}
 	
+	fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool)
+	{
+		for (dx, dy) in Self::get_state_mut(state).iter_mut()
+		{
+			if horizontally {*dx = -*dx;}
+			if vertically {*dy = -*dy;}
+		}
+	}
+	
+	fn rotate_state(&self, state: &mut dyn Any, clockwise: bool)
+	{
+		for (dx, dy) in Self::get_state_mut(state).iter_mut()
+		{
+			let (cdx, cdy) = (*dx, *dy);
+			*dx = if clockwise {cdy} else {-cdy};
+			*dy = if clockwise {-cdx} else {cdx};
+		}
+	}
+	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		Ok(DynData::Point2Array(Self::get_state(state).clone()))

@@ -92,6 +92,14 @@ impl BlockLogic for MessageLogic
 		Box::new(Self::get_state(state).clone())
 	}
 	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
+	}
+	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
 	{
 		Ok(DynData::String(Some(Self::get_state(state).clone())))
@@ -163,6 +171,14 @@ impl BlockLogic for SwitchLogic
 	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>
 	{
 		Box::new(Self::get_state(state).clone())
+	}
+	
+	fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool)
+	{
+	}
+	
+	fn rotate_state(&self, _: &mut dyn Any, _: bool)
+	{
 	}
 	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
@@ -297,6 +313,25 @@ impl BlockLogic for ProcessorLogic
 	fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>
 	{
 		Box::new(Self::get_state(state).clone())
+	}
+	
+	fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool)
+	{
+		for link in Self::get_state_mut(state).links.iter_mut()
+		{
+			if horizontally {link.x = -link.x;}
+			if vertically {link.y = -link.y;}
+		}
+	}
+	
+	fn rotate_state(&self, state: &mut dyn Any, clockwise: bool)
+	{
+		for link in Self::get_state_mut(state).links.iter_mut()
+		{
+			let (cdx, cdy) = link.get_pos();
+			link.x = if clockwise {cdy} else {-cdy};
+			link.y = if clockwise {-cdx} else {cdx};
+		}
 	}
 	
 	fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>
