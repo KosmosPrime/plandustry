@@ -381,8 +381,8 @@ impl<'l> Schematic<'l>
 		{
 			for curr in self.blocks.iter_mut()
 			{
-				// because position is the bottom left corner (which changes during mirroring)
-				let shift = curr.block.get_size() as u16 - 1;
+				// because position is the bottom left of the center (which changes during mirroring)
+				let shift = (curr.block.get_size() as u16 - 1) % 2;
 				if horizontally {curr.pos.0 = self.width - 1 - curr.pos.0 - shift;}
 				if vertically {curr.pos.1 = self.height - 1 - curr.pos.1 - shift;}
 				if !curr.block.is_symmetric() {curr.rot.mirror(horizontally, vertically);}
@@ -407,8 +407,8 @@ impl<'l> Schematic<'l>
 			{
 				let x = curr.pos.0;
 				let y = curr.pos.1;
-				// because position is the bottom left corner (which changes during rotation)
-				let shift = curr.block.get_size() as u16 - 1;
+				// because position is the bottom left of the center (which changes during rotation)
+				let shift = (curr.block.get_size() as u16 - 1) % 2;
 				if clockwise
 				{
 					curr.pos.0 = y;
