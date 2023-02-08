@@ -6,7 +6,7 @@ use std::fs;
 use crate::block::{BlockRegistry, build_registry, Rotation};
 use crate::data::dynamic::DynData;
 use crate::data::{DataRead, Serializer, DataWrite, base64};
-use crate::data::schematic::{Schematic, SchematicSerializer};
+use crate::data::schematic::{ResizeError, Schematic, SchematicSerializer};
 use crate::exe::print::print_schematic;
 use crate::exe::print_err;
 use crate::exe::args::{self, ArgCount, ArgOption, OptionHandler};
@@ -227,7 +227,7 @@ impl<'l> Tokenizer<'l>
 
 enum Command
 {
-	Help, New, Input, Load, Place, Rotate, Mirror, Remove, Print, Dump, Save, Quit
+	Help, New, Input, Load, Place, Rotate, Mirror, Move, Resize, Remove, Print, Dump, Save, Quit
 }
 
 impl Command
@@ -243,6 +243,8 @@ impl Command
 			Self::Place => println!("{:<indent$}Places a block if enough space is available", "\"place\":"),
 			Self::Rotate => println!("{:<indent$}Rotates the schematic (CCW) in increments of 90 degrees", "\"rotate\":"),
 			Self::Mirror => println!("{:<indent$}Mirrors the schematic horizontally or vertically", "\"mirror\":"),
+			Self::Move => println!("{:<indent$}Moves all blocks by a certain offset", "\"move\":"),
+			Self::Resize => println!("{:<indent$}Resizes the schematic and offsets it", "\"resize\":"),
 			Self::Remove => println!("{:<indent$}Removes blocks at a position or within a region", "\"remove\":"),
 			Self::Print => println!("{:<indent$}Prints the schematic in a visual representation", "\"print\":"),
 			Self::Dump => println!("{:<indent$}Prints the schematic as a base-64 encoded string", "\"dump\":"),
@@ -267,6 +269,8 @@ impl Command
 			},
 			Self::Rotate => println!(r#"{:indent$}  Usage: "rotate" <angle>"#, ""),
 			Self::Mirror => println!(r#"{:indent$}  Usage: "mirror" <axis>"#, ""),
+			Self::Move => println!(r#"{:indent$}  Usage: "move" <dx> <dy>"#, ""),
+			Self::Resize => println!(r#"{:indent$}  Usage: "resize" <width> <height> [<dx> <dy>]"#, ""),
 			Self::Remove => println!(r#"{:indent$}  Usage: "remove" <x0> <y0> [<x1> <y1>]"#, ""),
 			Self::Print | Self::Dump => (),
 			Self::Save => println!(r#"{:indent$}  Usage: "save" <save path>"#, ""),
@@ -597,6 +601,111 @@ fn interpret(state: &mut State, cmd: &str)
 			}
 			schematic.mirror(x, y);
 			state.unsaved = true;
+		},
+		Some("move") =>
+		{
+			let Some(ref mut schematic) = state.schematic
+			else
+			{
+				eprintln!(r#"Command "move" requires an active schematic (see "help")"#);
+				return;
+			};
+			let dx = parse_num!(Move, tokens, "dx", i16);
+			let dy = parse_num!(Move, tokens, "dy", i16);
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "move""#);
+				Command::Move.print_usage(0);
+				return;
+			}
+			if dx != 0 && dy != 0
+			{
+				if let Err(e) = schematic.resize(dx, dy, schematic.get_width(), schematic.get_height())
+				{
+					match e
+					{
+						ResizeError::XOffset{dx, old_w, new_w} =>
+						{
+							debug_assert_eq!(old_w, new_w);
+							eprintln!("Invalid horizontal move {dx} not in ]-{old_w}, {new_w}[");
+						},
+						ResizeError::YOffset{dy, old_h, new_h} =>
+						{
+							debug_assert_eq!(old_h, new_h);
+							eprintln!("Invalid vertical move {dy} not in ]-{old_h}, {new_h}[");
+						},
+						ResizeError::Truncated{right, top, left, bottom} =>
+						{
+							eprint!("Move would truncate schematic: ");
+							let mut first = true;
+							if right > 0
+							{
+								eprint!("{}right: {right}", if first {""} else {", "});
+								first = false;
+							}
+							if top > 0
+							{
+								eprint!("{}top: {top}", if first {""} else {", "});
+								first = false;
+							}
+							if left > 0
+							{
+								eprint!("{}left: {left}", if first {""} else {", "});
+								first = false;
+							}
+							if bottom > 0
+							{
+								eprint!("{}bottom: {bottom}", if first {""} else {", "});
+								first = false;
+							}
+							if first {eprintln!("<unknown>");} else {eprintln!();}
+						},
+						_ => print_err!(e, "Unexpected resize error (for {dx} / {dy})")
+					}
+				}
+				else {state.unsaved = true;}
+			}
+		},
+		Some("resize") =>
+		{
+			let Some(ref mut schematic) = state.schematic
+			else
+			{
+				eprintln!(r#"Command "resize" requires an active schematic (see "help")"#);
+				return;
+			};
+			let w = parse_num!(Resize, tokens, "width", u16);
+			if w == 0
+			{
+				eprintln!("Schematic width must be positive");
+				return;
+			}
+			let h = parse_num!(Resize, tokens, "height", u16);
+			if h == 0
+			{
+				eprintln!("Schematic height must be positive");
+				return;
+			}
+			let (dx, dy) = if let arg @ Some(..) = tokens.next()
+			{
+				let dx = parse_num!(Resize, "dx", <i16>::from(arg));
+				let dy = parse_num!(Resize, tokens, "dy", i16);
+				(dx, dy)
+			}
+			else {(0, 0)};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "resize""#);
+				Command::Resize.print_usage(0);
+				return;
+			}
+			if w != schematic.get_width() || h != schematic.get_height() || dx != 0 || dy != 0
+			{
+				if let Err(e) = schematic.resize(dx, dy, w, h)
+				{
+					print_err!(e, "Could not resize schematic");
+				}
+			}
 		},
 		Some("remove") =>
 		{

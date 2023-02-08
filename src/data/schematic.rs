@@ -429,6 +429,56 @@ impl<'l> Schematic<'l>
 		}
 	}
 	
+	pub fn resize(&mut self, dx: i16, dy: i16, w: u16, h: u16) -> Result<(), ResizeError>
+	{
+		if w > MAX_DIMENSION
+		{
+			return Err(ResizeError::TargetWidth(w));
+		}
+		if h > MAX_DIMENSION
+		{
+			return Err(ResizeError::TargetHeight(h));
+		}
+		if dx <= -(w as i16) || dx >= self.width as i16
+		{
+			return Err(ResizeError::XOffset{dx, old_w: self.width, new_w: w});
+		}
+		if dy <= -(h as i16) || dy >= self.height as i16
+		{
+			return Err(ResizeError::YOffset{dy, old_h: self.height, new_h: h});
+		}
+		// check that all blocks fit into the new bounds
+		let mut right = 0u16;
+		let mut top = 0u16;
+		let mut left = 0u16;
+		let mut bottom = 0u16;
+		let right_bound = dx + w as i16 - 1;
+		let top_bound = dy + h as i16 - 1;
+		let left_bound = dx;
+		let bottom_bound = dy;
+		for Placement{pos, block, ..} in self.blocks.iter()
+		{
+			let sz = block.get_size() as u16;
+			let (x0, y0, x1, y1) = (pos.0 - (sz - 1) / 2, pos.1 - (sz - 1) / 2, pos.0 + sz / 2, pos.1 + sz / 2);
+			if (x1 as i16) > right_bound && x1 - right_bound as u16 > right {right = x1 - right_bound as u16;}
+			if (y1 as i16) > top_bound && y1 - top_bound as u16 > top {top = y1 - top_bound as u16;}
+			if (x0 as i16) < left_bound && left_bound as u16 - x0 > left {left = left_bound as u16 - x0;}
+			if (y0 as i16) < bottom_bound && bottom_bound as u16 - y0 > bottom {bottom = bottom_bound as u16 - y0;}
+		}
+		if left > 0 || top > 0 || left > 0 || bottom > 0
+		{
+			return Err(ResizeError::Truncated{right, top, left, bottom});
+		}
+		self.width = w;
+		self.height = h;
+		for Placement{pos, ..} in self.blocks.iter_mut()
+		{
+			pos.0 = (pos.0 as i16 + dx) as u16;
+			pos.1 = (pos.1 as i16 + dy) as u16;
+		}
+		Ok(())
+	}
+	
 	pub fn rotate_180(&mut self)
 	{
 		self.mirror(true, true);
@@ -540,6 +590,60 @@ impl Error for PlaceError
 		}
 	}
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ResizeError
+{
+	TargetWidth(u16),
+	TargetHeight(u16),
+	XOffset{dx: i16, old_w: u16, new_w: u16},
+	YOffset{dy: i16, old_h: u16, new_h: u16},
+	Truncated{right: u16, top: u16, left: u16, bottom: u16},
+}
+
+impl fmt::Display for ResizeError
+{
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+	{
+		match self
+		{
+			Self::TargetWidth(w) => write!(f, "invalid target width ({w})"),
+			Self::TargetHeight(w) => write!(f, "invalid target height ({w})"),
+			Self::XOffset{dx, old_w, new_w} => write!(f, "horizontal offset {dx} not in [-{new_w}, {old_w}]"),
+			Self::YOffset{dy, old_h, new_h} => write!(f, "vertical offset {dy} not in [-{new_h}, {old_h}]"),
+			Self::Truncated{right, top, left, bottom} =>
+			{
+				macro_rules!fmt_dir
+				{
+					($f:ident, $first:ident, $name:expr, $value:expr) =>
+					{
+						if $value != 0
+						{
+							if $first
+							{
+								f.write_str(" (")?;
+								$first = false;
+							}
+							else {f.write_str(", ")?;}
+							write!(f, "{}: {}", $name, $value)?;
+						}
+					};
+				}
+				
+				f.write_str("truncated blocks")?;
+				let mut first = true;
+				fmt_dir!(f, first, "right", *right);
+				fmt_dir!(f, first, "top", *top);
+				fmt_dir!(f, first, "left", *left);
+				fmt_dir!(f, first, "bottom", *bottom);
+				if !first {f.write_char(')')?;}
+				Ok(())
+			},
+		}
+	}
+}
+
+impl Error for ResizeError {}
 
 impl<'l> fmt::Display for Schematic<'l>
 {
