@@ -331,7 +331,7 @@ impl<'l> Schematic<'l>
 		}
 	}
 	
-	pub fn take(&mut self, x: u16, y: u16) -> Result<Option<Placement>, PosError>
+	pub fn take(&mut self, x: u16, y: u16) -> Result<Option<Placement<'l>>, PosError>
 	{
 		if x >= self.width || y >= self.height
 		{
@@ -489,7 +489,7 @@ impl<'l> Schematic<'l>
 		PosIter{x: 0, y: 0, w: self.width, h: self.height}
 	}
 	
-	pub fn block_iter<'s>(&'s self) -> Iter<'s, Placement>
+	pub fn block_iter<'s>(&'s self) -> Iter<'s, Placement<'l>>
 	{
 		self.blocks.iter()
 	}
