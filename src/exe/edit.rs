@@ -5,8 +5,8 @@ use std::fs;
 
 use crate::block::{BlockRegistry, build_registry, Rotation};
 use crate::data::dynamic::DynData;
-use crate::data::{DataRead, Serializer, DataWrite, base64};
-use crate::data::schematic::{ResizeError, Schematic, SchematicSerializer};
+use crate::data::{base64, DataRead, Serializer, DataWrite, GridPos};
+use crate::data::schematic::{Placement, ResizeError, Schematic, SchematicSerializer};
 use crate::exe::print::print_schematic;
 use crate::exe::print_err;
 use crate::exe::args::{self, ArgCount, ArgOption, OptionHandler};
@@ -17,6 +17,7 @@ struct State<'l>
 	reg: &'l BlockRegistry<'l>,
 	schematic: Option<Schematic<'l>>,
 	unsaved: bool,
+	subregion: Option<Schematic<'l>>,
 	quit: bool,
 }
 
@@ -33,7 +34,7 @@ pub fn main(mut args: Args, arg_off: usize)
 	// try to load a schematic from the file argument or as base64
 	let reg = build_registry();
 	let mut ss = SchematicSerializer(&reg);
-	let mut state = State{reg: &reg, schematic: None, unsaved: false, quit: false};
+	let mut state = State{reg: &reg, schematic: None, unsaved: false, subregion: None, quit: false};
 	if let Some(path) = handler.get_value(opt_file).get_value()
 	{
 		match fs::read(path)
@@ -227,7 +228,7 @@ impl<'l> Tokenizer<'l>
 
 enum Command
 {
-	Help, New, Input, Load, Place, Rotate, Mirror, Move, Resize, Remove, Print, Dump, Save, Quit
+	Help, New, Input, Load, Place, Rotate, Mirror, Move, Resize, Remove, Sub, Print, Dump, Save, Quit
 }
 
 impl Command
@@ -246,12 +247,13 @@ impl Command
 			Self::Move => println!("{:<indent$}Moves all blocks by a certain offset", "\"move\":"),
 			Self::Resize => println!("{:<indent$}Resizes the schematic and offsets it", "\"resize\":"),
 			Self::Remove => println!("{:<indent$}Removes blocks at a position or within a region", "\"remove\":"),
+			Self::Sub => println!("{:<indent$}Various commands for editing subregions", "\"sub\":"),
 			Self::Print => println!("{:<indent$}Prints the schematic in a visual representation", "\"print\":"),
 			Self::Dump => println!("{:<indent$}Prints the schematic as a base-64 encoded string", "\"dump\":"),
 			Self::Save => println!("{:<indent$}Saves the schematic to a file", "\"save\":"),
 			Self::Quit => println!("{:<indent$}Offers to save unsaved work and exits the program", "\"quit\":"),
 		}
-		self.print_usage(12);
+		self.print_usage(indent);
 	}
 	
 	fn print_usage(&self, indent: usize)
@@ -272,6 +274,7 @@ impl Command
 			Self::Move => println!(r#"{:indent$}  Usage: "move" <dx> <dy>"#, ""),
 			Self::Resize => println!(r#"{:indent$}  Usage: "resize" <width> <height> [<dx> <dy>]"#, ""),
 			Self::Remove => println!(r#"{:indent$}  Usage: "remove" <x0> <y0> [<x1> <y1>]"#, ""),
+			Self::Sub => println!(r#"{:indent$}  Usage: "sub" ... (see "sub help")"#, ""),
 			Self::Print | Self::Dump => (),
 			Self::Save => println!(r#"{:indent$}  Usage: "save" <save path>"#, ""),
 			Self::Quit => (),
@@ -281,14 +284,14 @@ impl Command
 
 macro_rules!parse_num
 {
-	($cmd:ident, $name:expr, <$type:ty>::from($val:expr)) =>
+	($cmd:path, $name:expr, <$type:ty>::from($val:expr)) =>
 	{
 		match $val
 		{
 			None =>
 			{
 				eprintln!("Missing argument: {}", $name);
-				Command::$cmd.print_usage(0);
+				$cmd.print_usage(0);
 				return;
 			},
 			Some(s) =>
@@ -299,14 +302,14 @@ macro_rules!parse_num
 					Err(e) =>
 					{
 						print_err!(e, "Could not parse {}", $name);
-						Command::$cmd.print_usage(0);
+						$cmd.print_usage(0);
 						return;
 					},
 				}
 			},
 		}
 	};
-	($cmd:ident, $tokens:expr, $name:expr, $type:ty) =>
+	($cmd:path, $tokens:expr, $name:expr, $type:ty) =>
 	{
 		parse_num!($cmd, $name, <$type>::from($tokens.next()))
 	}
@@ -321,18 +324,20 @@ fn interpret(state: &mut State, cmd: &str)
 		Some("help") =>
 		{
 			println!(r#"List of available commands:"#);
-			Command::Help.print_help(12);
-			Command::New.print_help(12);
-			Command::Input.print_help(12);
-			Command::Load.print_help(12);
-			Command::Place.print_help(12);
-			Command::Rotate.print_help(12);
-			Command::Mirror.print_help(12);
-			Command::Remove.print_help(12);
-			Command::Print.print_help(12);
-			Command::Dump.print_help(12);
-			Command::Save.print_help(12);
-			Command::Quit.print_help(12);
+			const INDENT: usize = 12;
+			Command::Help.print_help(INDENT);
+			Command::New.print_help(INDENT);
+			Command::Input.print_help(INDENT);
+			Command::Load.print_help(INDENT);
+			Command::Place.print_help(INDENT);
+			Command::Rotate.print_help(INDENT);
+			Command::Mirror.print_help(INDENT);
+			Command::Remove.print_help(INDENT);
+			Command::Sub.print_help(INDENT);
+			Command::Print.print_help(INDENT);
+			Command::Dump.print_help(INDENT);
+			Command::Save.print_help(INDENT);
+			Command::Quit.print_help(INDENT);
 			println!();
 			println!("Legend: \"literal (excluding quotes)\" <required> [<optional>]");
 			println!("Arguments are delimited by whitespace, unless surrounded with ' or \"");
@@ -347,13 +352,13 @@ fn interpret(state: &mut State, cmd: &str)
 		},
 		Some("new") =>
 		{
-			let width = parse_num!(New, tokens, "width", u16);
+			let width = parse_num!(Command::New, tokens, "width", u16);
 			if width == 0
 			{
 				eprintln!("Schematic width must be positive");
 				return;
 			}
-			let height = parse_num!(New, tokens, "height", u16);
+			let height = parse_num!(Command::New, tokens, "height", u16);
 			if height == 0
 			{
 				eprintln!("Schematic height must be positive");
@@ -450,8 +455,8 @@ fn interpret(state: &mut State, cmd: &str)
 				eprintln!(r#"Command "place" requires an active schematic (see "help")"#);
 				return;
 			};
-			let x = parse_num!(Place, tokens, "x", u16);
-			let y = parse_num!(Place, tokens, "y", u16);
+			let x = parse_num!(Command::Place, tokens, "x", u16);
+			let y = parse_num!(Command::Place, tokens, "y", u16);
 			if x >= schematic.get_width() || y >= schematic.get_height()
 			{
 				eprintln!("Invalid coordinate ({x} / {y}) out of bounds ({} / {})", schematic.get_width(), schematic.get_height());
@@ -535,7 +540,7 @@ fn interpret(state: &mut State, cmd: &str)
 				eprintln!(r#"Command "rotate" requires an active schematic (see "help")"#);
 				return;
 			};
-			let angle = parse_num!(Rotate, tokens, "angle", i32);
+			let angle = parse_num!(Command::Rotate, tokens, "angle", i32);
 			if angle % 90 != 0
 			{
 				eprintln!("Rotation angle must be a multiple of 90 degrees");
@@ -610,8 +615,8 @@ fn interpret(state: &mut State, cmd: &str)
 				eprintln!(r#"Command "move" requires an active schematic (see "help")"#);
 				return;
 			};
-			let dx = parse_num!(Move, tokens, "dx", i16);
-			let dy = parse_num!(Move, tokens, "dy", i16);
+			let dx = parse_num!(Command::Move, tokens, "dx", i16);
+			let dy = parse_num!(Command::Move, tokens, "dy", i16);
 			if tokens.remainder().is_some()
 			{
 				eprintln!(r#"Too many parameters for "move""#);
@@ -674,13 +679,13 @@ fn interpret(state: &mut State, cmd: &str)
 				eprintln!(r#"Command "resize" requires an active schematic (see "help")"#);
 				return;
 			};
-			let w = parse_num!(Resize, tokens, "width", u16);
+			let w = parse_num!(Command::Resize, tokens, "width", u16);
 			if w == 0
 			{
 				eprintln!("Schematic width must be positive");
 				return;
 			}
-			let h = parse_num!(Resize, tokens, "height", u16);
+			let h = parse_num!(Command::Resize, tokens, "height", u16);
 			if h == 0
 			{
 				eprintln!("Schematic height must be positive");
@@ -688,8 +693,8 @@ fn interpret(state: &mut State, cmd: &str)
 			}
 			let (dx, dy) = if let arg @ Some(..) = tokens.next()
 			{
-				let dx = parse_num!(Resize, "dx", <i16>::from(arg));
-				let dy = parse_num!(Resize, tokens, "dy", i16);
+				let dx = parse_num!(Command::Resize, "dx", <i16>::from(arg));
+				let dy = parse_num!(Command::Resize, tokens, "dy", i16);
 				(dx, dy)
 			}
 			else {(0, 0)};
@@ -715,8 +720,8 @@ fn interpret(state: &mut State, cmd: &str)
 				eprintln!(r#"Command "remove" requires an active schematic (see "help")"#);
 				return;
 			};
-			let x0 = parse_num!(Remove, tokens, "x0", u16);
-			let y0 = parse_num!(Remove, tokens, "y0", u16);
+			let x0 = parse_num!(Command::Remove, tokens, "x0", u16);
+			let y0 = parse_num!(Command::Remove, tokens, "y0", u16);
 			if x0 >= schematic.get_width() || y0 >= schematic.get_height()
 			{
 				eprintln!("Invalid coordinate ({x0} / {y0}) out of bounds ({} / {})", schematic.get_width(), schematic.get_height());
@@ -724,8 +729,8 @@ fn interpret(state: &mut State, cmd: &str)
 			}
 			let (x0, y0, x1, y1) = if let arg @ Some(..) = tokens.next()
 			{
-				let x1 = parse_num!(Remove, "x1", <u16>::from(arg));
-				let y1 = parse_num!(Remove, tokens, "y1", u16);
+				let x1 = parse_num!(Command::Remove, "x1", <u16>::from(arg));
+				let y1 = parse_num!(Command::Remove, tokens, "y1", u16);
 				if x1 >= schematic.get_width() || y1 >= schematic.get_height()
 				{
 					eprintln!("Invalid coordinate ({x1} / {y1}) out of bounds ({} / {})", schematic.get_width(), schematic.get_height());
@@ -768,6 +773,7 @@ fn interpret(state: &mut State, cmd: &str)
 				}
 			}
 		},
+		Some("sub") => interpret_sub(state, &mut tokens),
 		Some("print") =>
 		{
 			let Some(ref schematic) = state.schematic
@@ -846,5 +852,614 @@ fn interpret(state: &mut State, cmd: &str)
 		},
 		Some("quit") => state.quit = true,
 		Some(unknown) => eprintln!("Unknown command {unknown:?}"),
+	}
+}
+
+enum SubCommand
+{
+	Help, Input, Copy, Cut, Paste, Place, Rotate, Mirror, Move, Resize, Remove, Print, Dump
+}
+
+impl SubCommand
+{
+	fn print_help(&self, indent: usize)
+	{
+		match self
+		{
+			Self::Help => println!("{:<indent$}Prints a list of available commands", "\"sub\" \"help\":"),
+			Self::Input => println!("{:<indent$}Loads a new subregion from a base-64 encoded string", "\"sub\" \"input\":"),
+			Self::Copy => println!("{:<indent$}Replaces the current subregion by copying from the schematic", "\"sub\" \"copy\":"),
+			Self::Cut => println!("{:<indent$}Replaces the current subregion by removing from the schematic", "\"sub\" \"cut\":"),
+			Self::Paste => println!("{:<indent$}Places a copy of the current subregion into the schematic", "\"sub\" \"paste\":"),
+			Self::Place => println!("{:<indent$}Places a block if enough space is available", "\"sub\" \"place\":"),
+			Self::Rotate => println!("{:<indent$}Rotates the current subregion (CCW) in increments of 90 degrees", "\"sub\" \"rotate\":"),
+			Self::Mirror => println!("{:<indent$}Mirrors the current subregion horizontally or vertically", "\"sub\" \"mirror\":"),
+			Self::Move => println!("{:<indent$}Moves all blocks by a certain offset", "\"sub\" \"move\":"),
+			Self::Resize => println!("{:<indent$}Resizes the current subregion and offsets it", "\"sub\" \"resize\":"),
+			Self::Remove => println!("{:<indent$}Removes blocks at a position or within a region", "\"sub\" \"remove\":"),
+			Self::Print => println!("{:<indent$}Prints the current subregion in a visual representation", "\"sub\" \"print\":"),
+			Self::Dump => println!("{:<indent$}Prints the current subregion as a base-64 encoded string", "\"sub\" \"dump\":"),
+		}
+		self.print_usage(indent);
+	}
+	
+	fn print_usage(&self, indent: usize)
+	{
+		match self
+		{
+			Self::Help => (),
+			Self::Input => println!(r#"{:indent$}  Usage: "sub" "input" <base64>"#, ""),
+			Self::Copy =>
+			{
+				println!(r#"{:indent$}  Usage: "sub" "copy" <x0> <y0> <x1> <y1> [<strict>]"#, "");
+				println!(r#"{:indent$}  Strictness ignores blocks which are not entirely within the bounds"#, "");
+			},
+			Self::Cut =>
+			{
+				println!(r#"{:indent$}  Usage: "sub" "cut" <x0> <y0> <x1> <y1> [<strict>]"#, "");
+				println!(r#"{:indent$}  Strictness ignores blocks which are not entirely within the bounds"#, "");
+			},
+			Self::Paste => println!(r#"{:indent$}  Usage: "sub" "paste" <x> <y>"#, ""),
+			Self::Place =>
+			{
+				println!(r#"{:indent$}  Usage: "sub" "place" <x> <y> <block name> [<rotation> [<replace>]]"#, "");
+				println!(r#"{:indent$}  Rotation is one of right, up, left, down or compass angles"#, "")
+			},
+			Self::Rotate => println!(r#"{:indent$}  Usage: "sub" "rotate" <angle>"#, ""),
+			Self::Mirror => println!(r#"{:indent$}  Usage: "sub" "mirror" <axis>"#, ""),
+			Self::Move => println!(r#"{:indent$}  Usage: "sub" "move" <dx> <dy>"#, ""),
+			Self::Resize => println!(r#"{:indent$}  Usage: "sub" "resize" <width> <height> [<dx> <dy>]"#, ""),
+			Self::Remove => println!(r#"{:indent$}  Usage: "sub" "remove" <x0> <y0> [<x1> <y1>]"#, ""),
+			Self::Print | Self::Dump => (),
+		}
+	}
+}
+
+fn interpret_sub(state: &mut State, tokens: &mut Tokenizer)
+{
+	match tokens.next()
+	{
+		None => println!(r#"Empty "sub" command, type "sub help" for more info"#),
+		Some("help") =>
+		{
+			const INDENT: usize = 20;
+			println!(r#"List of available commands for \"sub\":"#);
+			SubCommand::Help.print_help(INDENT);
+			SubCommand::Input.print_help(INDENT);
+			SubCommand::Copy.print_help(INDENT);
+			SubCommand::Cut.print_help(INDENT);
+			SubCommand::Paste.print_help(INDENT);
+			SubCommand::Place.print_help(INDENT);
+			SubCommand::Rotate.print_help(INDENT);
+			SubCommand::Mirror.print_help(INDENT);
+			SubCommand::Move.print_help(INDENT);
+			SubCommand::Resize.print_help(INDENT);
+			SubCommand::Remove.print_help(INDENT);
+			SubCommand::Print.print_help(INDENT);
+			SubCommand::Dump.print_help(INDENT);
+			if tokens.remainder().is_some()
+			{
+				eprintln!("Extra arguments are considered an error");
+			}
+		},
+		Some("input") =>
+		{
+			let subregion = match tokens.next()
+			{
+				None =>
+				{
+					eprintln!("Missing argument: base64");
+					SubCommand::Input.print_usage(0);
+					return;
+				},
+				Some(b64) =>
+				{
+					match SchematicSerializer(state.reg).deserialize_base64(b64)
+					{
+						Ok(s) => s,
+						Err(e) =>
+						{
+							print_err!(e, "Could not deserialize schematic");
+							return;
+						},
+					}
+				},
+			};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub input""#);
+				SubCommand::Input.print_usage(0);
+				return;
+			}
+			state.subregion = Some(subregion);
+		},
+		Some(op @ ("copy" | "cut")) =>
+		{
+			let modify_original = op == "cut";
+			let Some(ref mut schematic) = state.schematic
+			else
+			{
+				eprintln!(r#"Command "sub {op}" requires an active schematic (see "help")"#);
+				return;
+			};
+			let x0 = if modify_original {parse_num!(SubCommand::Cut, tokens, "x0", u16)} else {parse_num!(SubCommand::Copy, tokens, "x0", u16)};
+			let y0 = if modify_original {parse_num!(SubCommand::Cut, tokens, "y0", u16)} else {parse_num!(SubCommand::Copy, tokens, "y0", u16)};
+			if x0 >= schematic.get_width() || y0 >= schematic.get_height()
+			{
+				eprintln!("Invalid lower coordinate ({x0} / {y0}) out of bounds ({} / {})", schematic.get_width(), schematic.get_height());
+				return;
+			}
+			let x1 = if modify_original {parse_num!(SubCommand::Cut, tokens, "x1", u16)} else {parse_num!(SubCommand::Copy, tokens, "x1", u16)};
+			let y1 = if modify_original {parse_num!(SubCommand::Cut, tokens, "y1", u16)} else {parse_num!(SubCommand::Copy, tokens, "y1", u16)};
+			if x1 < x0 || y1 < y0
+			{
+				eprintln!("Invalid upper coordinate ({x1} / {y1}) too low (lower bound {x0} / {y0})");
+				return;
+			}
+			if x1 >= schematic.get_width() || y1 >= schematic.get_height()
+			{
+				eprintln!("Invalid upper coordinate ({x1} / {y1}) out of bounds ({} / {})", schematic.get_width(), schematic.get_height());
+				return;
+			}
+			let strict = match tokens.next()
+			{
+				None => false,
+				Some("true") | Some("yes") => true,
+				Some("false") | Some("no") => false,
+				Some(strict) =>
+				{
+					eprintln!("Invalid strictness {strict:?}");
+					return;
+				},
+			};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub {op}""#);
+				SubCommand::Copy.print_usage(0);
+				return;
+			}
+			let mut true_x0 = x0;
+			let mut true_y0 = y0;
+			let mut true_x1 = x1;
+			let mut true_y1 = y1;
+			let mut targets = Vec::new();
+			for p in schematic.block_iter()
+			{
+				let sz = p.get_block().get_size() as u16;
+				let pos0 = (p.get_pos().0 - (sz - 1) / 2, p.get_pos().1 - (sz - 1) / 2);
+				let pos1 = (p.get_pos().0 + sz / 2, p.get_pos().1 + sz / 2);
+				let include = if strict {pos0.0 >= x0 && pos0.1 >= y0 && pos1.0 <= x1 && pos1.1 <= y1}
+				else {pos0.0 <= x1 && pos0.1 <= y1 && pos1.0 >= x0 && pos1.1 >= y0};
+				if include
+				{
+					targets.push(p.get_pos());
+					if !strict
+					{
+						if pos0.0 < true_x0 {true_x0 = pos0.0;}
+						if pos0.1 < true_y0 {true_y0 = pos0.1;}
+						if pos1.0 > true_x1 {true_x1 = pos1.0;}
+						if pos1.1 > true_y1 {true_y1 = pos1.1;}
+					}
+				}
+			}
+			let mut subregion = Schematic::new(true_x1 - true_x0 + 1, true_y1 - true_y0 + 1);
+			if !targets.is_empty()
+			{
+				if modify_original {state.unsaved = true;}
+				for GridPos(x, y) in targets
+				{
+					let mut original: Option<Placement> = None;
+					let place = if modify_original
+					{
+						original = schematic.take(x, y).unwrap();
+						original.as_ref().unwrap()
+					}
+					else {schematic.get(x, y).unwrap().unwrap()};
+					let data = match place.get_state()
+					{
+						None => DynData::Empty,
+						Some(d) => place.get_block().serialize_state(d).unwrap(),
+					};
+					subregion.set(place.get_pos().0 - true_x0, place.get_pos().1 - true_y0, place.get_block(), data, place.get_rotation()).unwrap();
+					drop(original);
+				}
+			}
+			state.subregion = Some(subregion);
+		},
+		Some("paste") =>
+		{
+			let Some(ref mut schematic) = state.schematic
+			else
+			{
+				eprintln!(r#"Command "sub paste" requires an active schematic (see "help")"#);
+				return;
+			};
+			let Some(ref subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub paste" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			let x = parse_num!(SubCommand::Paste, tokens, "x", u16);
+			let y = parse_num!(SubCommand::Paste, tokens, "y", u16);
+			if subregion.get_width() > schematic.get_width() || subregion.get_height() > schematic.get_height()
+			{
+				eprintln!("Subregion ({} / {}) is larger than schematic ({} / {})", subregion.get_width(), subregion.get_height(),
+					schematic.get_width(), schematic.get_height());
+				return;
+			}
+			if x >= schematic.get_width() - subregion.get_width()
+			{
+				let x1 = x + subregion.get_width() - 1;
+				let y1 = y + subregion.get_height() - 1;
+				eprintln!("Invalid coordinate ({x} / {y} to {x1} / {y1}) out of bounds ({} / {})", schematic.get_width(), schematic.get_height());
+				return;
+			}
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub paste""#);
+				SubCommand::Paste.print_usage(0);
+				return;
+			}
+			state.unsaved = true;
+			for p in subregion.block_iter()
+			{
+				let data = match p.get_state()
+				{
+					None => DynData::Empty,
+					Some(d) => p.get_block().serialize_state(d).unwrap(),
+				};
+				schematic.replace(x + p.get_pos().0, y + p.get_pos().1, p.get_block(), data, p.get_rotation(), false).unwrap();
+			}
+		},
+		Some("place") =>
+		{
+			let Some(ref mut subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub place" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			let x = parse_num!(SubCommand::Place, tokens, "x", u16);
+			let y = parse_num!(SubCommand::Place, tokens, "y", u16);
+			if x >= subregion.get_width() || y >= subregion.get_height()
+			{
+				eprintln!("Invalid coordinate ({x} / {y}) out of bounds ({} / {})", subregion.get_width(), subregion.get_height());
+				return;
+			}
+			let block = match tokens.next()
+			{
+				None =>
+				{
+					eprintln!("Missing argument: block name");
+					SubCommand::Place.print_usage(0);
+					return;
+				},
+				Some(name) =>
+				{
+					match state.reg.get(name)
+					{
+						None =>
+						{
+							eprintln!("No such block {name:?}");
+							return;
+						},
+						Some(b) => b,
+					}
+				},
+			};
+			let rot = match tokens.next()
+			{
+				None => None,
+				Some("right") | Some("east") => Some(Rotation::Right),
+				Some("up") | Some("north") => Some(Rotation::Up),
+				Some("left") | Some("west") => Some(Rotation::Left),
+				Some("down") | Some("south") => Some(Rotation::Down),
+				Some(rot) =>
+				{
+					eprintln!("Invalid rotation {rot:?}");
+					return;
+				},
+			};
+			let replace = if rot.is_some()
+			{
+				match tokens.next()
+				{
+					None => None,
+					Some("true") | Some("yes") => Some(true),
+					Some("false") | Some("no") => Some(false),
+					Some(replace) =>
+					{
+						eprintln!("Invalid replacement {replace:?}");
+						return;
+					},
+				}
+			}
+			else {None};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub place""#);
+				SubCommand::Place.print_usage(0);
+				return;
+			}
+			let rot = rot.unwrap_or(Rotation::Right);
+			let result = if replace.unwrap_or(false)
+			{
+				subregion.replace(x, y, block, DynData::Empty, rot, false).err()
+			}
+			else
+			{
+				subregion.set(x, y, block, DynData::Empty, rot).err()
+			};
+			if let Some(e) = result
+			{
+				print_err!(e, "Failed to place block at {x} / {y}");
+				return;
+			}
+		},
+		Some("rotate") =>
+		{
+			let Some(ref mut subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub rotate" requires an active subgregion (see "sub help")"#);
+				return;
+			};
+			let angle = parse_num!(SubCommand::Rotate, tokens, "angle", i32);
+			if angle % 90 != 0
+			{
+				eprintln!("Rotation angle must be a multiple of 90 degrees");
+				return;
+			}
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub rotate""#);
+				SubCommand::Rotate.print_usage(0);
+				return;
+			}
+			match (angle / 90) % 4
+			{
+				0 => (),
+				1 | -3 => subregion.rotate(false),
+				2 | -2 => subregion.rotate_180(),
+				3 | -1 => subregion.rotate(true),
+				a => unreachable!("angle {angle} -> {a}"),
+			}
+		},
+		Some("mirror") =>
+		{
+			let Some(ref mut subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub mirror" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			let (x, y) = match tokens.next()
+			{
+				None =>
+				{
+					eprintln!("Missing argument: axis");
+					SubCommand::Mirror.print_usage(0);
+					return;
+				},
+				Some("x") | Some("h") | Some("horizontal") | Some("horizontally") => (true, false),
+				Some("y") | Some("v") | Some("vertical") | Some("vertically") => (false, true),
+				Some("both") | Some("all") => (true, true),
+				Some(axis) =>
+				{
+					eprintln!("Invalid mirroring axis: {axis:?}");
+					return;
+				},
+			};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub mirror""#);
+				SubCommand::Mirror.print_usage(0);
+				return;
+			}
+			subregion.mirror(x, y);
+		},
+		Some("move") =>
+		{
+			let Some(ref mut subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub move" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			let dx = parse_num!(SubCommand::Move, tokens, "dx", i16);
+			let dy = parse_num!(SubCommand::Move, tokens, "dy", i16);
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub move""#);
+				SubCommand::Move.print_usage(0);
+				return;
+			}
+			if dx != 0 && dy != 0
+			{
+				if let Err(e) = subregion.resize(dx, dy, subregion.get_width(), subregion.get_height())
+				{
+					match e
+					{
+						ResizeError::XOffset{dx, old_w, new_w} =>
+						{
+							debug_assert_eq!(old_w, new_w);
+							eprintln!("Invalid horizontal move {dx} not in ]-{old_w}, {new_w}[");
+						},
+						ResizeError::YOffset{dy, old_h, new_h} =>
+						{
+							debug_assert_eq!(old_h, new_h);
+							eprintln!("Invalid vertical move {dy} not in ]-{old_h}, {new_h}[");
+						},
+						ResizeError::Truncated{right, top, left, bottom} =>
+						{
+							eprint!("Move would truncate subregion: ");
+							let mut first = true;
+							if right > 0
+							{
+								eprint!("{}right: {right}", if first {""} else {", "});
+								first = false;
+							}
+							if top > 0
+							{
+								eprint!("{}top: {top}", if first {""} else {", "});
+								first = false;
+							}
+							if left > 0
+							{
+								eprint!("{}left: {left}", if first {""} else {", "});
+								first = false;
+							}
+							if bottom > 0
+							{
+								eprint!("{}bottom: {bottom}", if first {""} else {", "});
+								first = false;
+							}
+							if first {eprintln!("<unknown>");} else {eprintln!();}
+						},
+						_ => print_err!(e, "Unexpected resize error (for {dx} / {dy})")
+					}
+				}
+			}
+		},
+		Some("resize") =>
+		{
+			let Some(ref mut subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub resize" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			let w = parse_num!(SubCommand::Resize, tokens, "width", u16);
+			if w == 0
+			{
+				eprintln!("Subregion width must be positive");
+				return;
+			}
+			let h = parse_num!(SubCommand::Resize, tokens, "height", u16);
+			if h == 0
+			{
+				eprintln!("Subregion height must be positive");
+				return;
+			}
+			let (dx, dy) = if let arg @ Some(..) = tokens.next()
+			{
+				let dx = parse_num!(SubCommand::Resize, "dx", <i16>::from(arg));
+				let dy = parse_num!(SubCommand::Resize, tokens, "dy", i16);
+				(dx, dy)
+			}
+			else {(0, 0)};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub resize""#);
+				SubCommand::Resize.print_usage(0);
+				return;
+			}
+			if w != subregion.get_width() || h != subregion.get_height() || dx != 0 || dy != 0
+			{
+				if let Err(e) = subregion.resize(dx, dy, w, h)
+				{
+					print_err!(e, "Could not resize subregion");
+				}
+			}
+		},
+		Some("remove") =>
+		{
+			let Some(ref mut subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub remove" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			let x0 = parse_num!(SubCommand::Remove, tokens, "x0", u16);
+			let y0 = parse_num!(SubCommand::Remove, tokens, "y0", u16);
+			if x0 >= subregion.get_width() || y0 >= subregion.get_height()
+			{
+				eprintln!("Invalid coordinate ({x0} / {y0}) out of bounds ({} / {})", subregion.get_width(), subregion.get_height());
+				return;
+			}
+			let (x0, y0, x1, y1) = if let arg @ Some(..) = tokens.next()
+			{
+				let x1 = parse_num!(SubCommand::Remove, "x1", <u16>::from(arg));
+				let y1 = parse_num!(SubCommand::Remove, tokens, "y1", u16);
+				if x1 >= subregion.get_width() || y1 >= subregion.get_height()
+				{
+					eprintln!("Invalid coordinate ({x1} / {y1}) out of bounds ({} / {})", subregion.get_width(), subregion.get_height());
+					return;
+				}
+				(x0.min(x1), y0.min(y1), x0.max(x1), y0.max(y1))
+			}
+			else {(x0, y0, x0, y0)};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub remove""#);
+				SubCommand::Remove.print_usage(0);
+				return;
+			}
+			if x1 > x0 || y1 > y0
+			{
+				let mut cnt = 0u32;
+				for y in y0..=y1
+				{
+					for x in x0..=x1
+					{
+						// position was already checked while parsing
+						if subregion.take(x, y).unwrap().is_some() {cnt += 1;}
+					}
+				}
+				println!("Removed {cnt} blocks in {x0} / {y0} to {x1} / {y1}");
+			}
+			else
+			{
+				// position was already checked while parsing
+				match subregion.take(x0, y0).unwrap()
+				{
+					None => (),
+					Some(p) => println!("Removed block {} from {x0} / {y0}", p.get_block().get_name()),
+				}
+			}
+		},
+		Some("print") =>
+		{
+			let Some(ref subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub print" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub print""#);
+				SubCommand::Print.print_usage(0);
+				return;
+			}
+			print_schematic(subregion);
+		},
+		Some("dump") =>
+		{
+			let Some(ref subregion) = state.subregion
+			else
+			{
+				eprintln!(r#"Command "sub dump" requires an active subregion (see "sub help")"#);
+				return;
+			};
+			if tokens.remainder().is_some()
+			{
+				eprintln!(r#"Too many parameters for "sub dump""#);
+				SubCommand::Dump.print_usage(0);
+				return;
+			}
+			let b64 = match SchematicSerializer(state.reg).serialize_base64(subregion)
+			{
+				Ok(b64) => b64,
+				Err(e) =>
+				{
+					print_err!(e, "Could not serialize subregion");
+					return;
+				},
+			};
+			println!("Subregion: {}", b64);
+		},
+		Some(unknown) => eprintln!("Unknown command \"sub\" {unknown:?}"),
 	}
 }
