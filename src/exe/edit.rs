@@ -3,14 +3,15 @@ use std::env::Args;
 use std::io::{self, Write};
 use std::fs;
 
-use crate::block::{BlockRegistry, build_registry, Rotation};
-use crate::data::dynamic::DynData;
-use crate::data::{base64, DataRead, Serializer, DataWrite, GridPos};
-use crate::data::schematic::{Placement, ResizeError, Schematic, SchematicSerializer};
-use crate::exe::print::print_schematic;
-use crate::exe::print_err;
-use crate::exe::args::{self, ArgCount, ArgOption, OptionHandler};
-use crate::registry::RegistryEntry;
+use plandustry::block::{BlockRegistry, build_registry, Rotation};
+use plandustry::data::dynamic::DynData;
+use plandustry::data::{base64, DataRead, Serializer, DataWrite, GridPos};
+use plandustry::data::schematic::{Placement, ResizeError, Schematic, SchematicSerializer};
+use plandustry::registry::RegistryEntry;
+
+use crate::print::print_schematic;
+use crate::print_err;
+use crate::args::{self, ArgCount, ArgOption, OptionHandler};
 
 struct State<'l>
 {

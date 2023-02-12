@@ -1,5 +1,3 @@
-use std::env::Args;
-
 pub mod args;
 pub mod edit;
 pub mod print;
@@ -29,8 +27,10 @@ macro_rules!print_err
 }
 pub(crate) use print_err;
 
-pub fn main(mut args: Args)
+fn main()
 {
+	let mut args = std::env::args();
+	args.next().unwrap(); // path to executable
 	match args.next()
 	{
 		None => eprintln!("Not enough arguments, valid commands are: edit, print"),

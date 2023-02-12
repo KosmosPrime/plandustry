@@ -3,11 +3,12 @@ use std::env::Args;
 use std::io::{self, Write};
 use std::fs;
 
-use crate::block::build_registry;
-use crate::data::{DataRead, Serializer};
-use crate::data::schematic::{Schematic, SchematicSerializer};
-use crate::exe::print_err;
-use crate::exe::args::{self, ArgCount, ArgOption, OptionHandler};
+use plandustry::block::build_registry;
+use plandustry::data::{DataRead, Serializer};
+use plandustry::data::schematic::{Schematic, SchematicSerializer};
+
+use crate::print_err;
+use crate::args::{self, ArgCount, ArgOption, OptionHandler};
 
 pub fn main(mut args: Args, arg_off: usize)
 {
