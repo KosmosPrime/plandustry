@@ -8,7 +8,7 @@ macro_rules!print_err
 	{
 		{
 			use std::error::Error;
-			
+
 			let err = $err;
 			eprint!($($msg)*);
 			eprintln!(": {err}");
@@ -27,15 +27,13 @@ macro_rules!print_err
 }
 pub(crate) use print_err;
 
-fn main()
-{
-	let mut args = std::env::args();
-	args.next().unwrap(); // path to executable
-	match args.next()
-	{
-		None => eprintln!("Not enough arguments, valid commands are: edit, print"),
-		Some(s) if s == "edit" => edit::main(args, 1),
-		Some(s) if s == "print" => print::main(args, 1),
-		Some(s) => eprintln!("Unknown argument {s}, valid commands are: edit, print"),
-	}
+fn main() {
+    let mut args = std::env::args();
+    args.next().unwrap(); // path to executable
+    match args.next() {
+        None => eprintln!("Not enough arguments, valid commands are: edit, print"),
+        Some(s) if s == "edit" => edit::main(args, 1),
+        Some(s) if s == "print" => print::main(args, 1),
+        Some(s) => eprintln!("Unknown argument {s}, valid commands are: edit, print"),
+    }
 }
