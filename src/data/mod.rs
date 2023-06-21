@@ -30,7 +30,7 @@ macro_rules! make_read {
 }
 
 impl<'d> DataRead<'d> {
-    pub fn new(data: &'d [u8]) -> Self {
+    #[must_use] pub fn new(data: &'d [u8]) -> Self {
         Self { data }
     }
 
@@ -172,7 +172,7 @@ macro_rules! make_write {
 
 impl<'d> DataWrite<'d> {
     pub fn write_bool(&mut self, val: bool) -> Result<(), WriteError> {
-        self.write_u8(val as u8)
+        self.write_u8(u8::from(val))
     }
 
     make_write!(write_u8, u8);
@@ -202,23 +202,20 @@ impl<'d> DataWrite<'d> {
         Ok(())
     }
 
-    pub fn is_owned(&self) -> bool {
-        match self.data {
-            WriteBuff::Vec(..) => true,
-            _ => false,
-        }
+    #[must_use] pub fn is_owned(&self) -> bool {
+        matches!(self.data, WriteBuff::Vec(..))
     }
 
-    pub fn get_written(&self) -> &[u8] {
+    #[must_use] pub fn get_written(&self) -> &[u8] {
         match &self.data {
             WriteBuff::Ref { raw, pos } => &raw[..*pos],
-            WriteBuff::Vec(v) => &v,
+            WriteBuff::Vec(v) => v,
         }
     }
 }
 
-impl DataWrite<'static> {
-    pub fn new() -> Self {
+impl Default for DataWrite<'static> {
+    fn default() -> Self {
         Self {
             data: WriteBuff::Vec(Vec::new()),
         }
@@ -291,7 +288,7 @@ impl From<u32> for GridPos {
 
 impl From<GridPos> for u32 {
     fn from(value: GridPos) -> Self {
-        ((value.0 as u32) << 16) | (value.1 as u32)
+        (u32::from(value.0) << 16) | u32::from(value.1)
     }
 }
 
@@ -308,26 +305,26 @@ mod test {
         assert_eq!(read.read_u16(), Ok(43296));
         assert_eq!(read.read_i16(), Ok(29123));
         assert_eq!(read.read_i16(), Ok(-17559));
-        assert_eq!(read.read_i32(), Ok(1667965152));
-        assert_eq!(read.read_i32(), Ok(-1433832849));
-        assert_eq!(read.read_i64(), Ok(8605851562280493296));
-        assert_eq!(read.read_i64(), Ok(-6942694510468635278));
+        assert_eq!(read.read_i32(), Ok(1_667_965_152));
+        assert_eq!(read.read_i32(), Ok(-1_433_832_849));
+        assert_eq!(read.read_i64(), Ok(8_605_851_562_280_493_296));
+        assert_eq!(read.read_i64(), Ok(-6_942_694_510_468_635_278));
         assert_eq!(read.read_utf(), Ok("the lazy dog."));
     }
 
     #[test]
     fn write() {
-        let mut write = DataWrite::new();
+        let mut write = DataWrite::default();
         assert_eq!(write.write_u8(84), Ok(()));
         assert_eq!(write.write_i8(104), Ok(()));
         assert_eq!(write.write_i8(-61), Ok(()));
         assert_eq!(write.write_u16(43296), Ok(()));
         assert_eq!(write.write_i16(29123), Ok(()));
         assert_eq!(write.write_i16(-17559), Ok(()));
-        assert_eq!(write.write_i32(1667965152), Ok(()));
-        assert_eq!(write.write_i32(-1433832849), Ok(()));
-        assert_eq!(write.write_i64(8605851562280493296), Ok(()));
-        assert_eq!(write.write_i64(-6942694510468635278), Ok(()));
+        assert_eq!(write.write_i32(1_667_965_152), Ok(()));
+        assert_eq!(write.write_i32(-1_433_832_849), Ok(()));
+        assert_eq!(write.write_i64(8_605_851_562_280_493_296), Ok(()));
+        assert_eq!(write.write_i64(-6_942_694_510_468_635_278), Ok(()));
         assert_eq!(write.write_utf("the lazy dog."), Ok(()));
         assert_eq!(
             write.get_written(),

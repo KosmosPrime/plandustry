@@ -22,7 +22,7 @@ struct State<'l> {
 }
 
 pub fn main(mut args: Args, arg_off: usize) {
-    let mut handler = OptionHandler::new();
+    let mut handler = OptionHandler::default();
     let opt_file = handler
         .add(ArgOption::new(
             Some('f'),
@@ -99,7 +99,7 @@ pub fn main(mut args: Args, arg_off: usize) {
 
     // give the user a chance to save their work
     if state.unsaved {
-        let mut data = DataWrite::new();
+        let mut data = DataWrite::default();
         match ss.serialize(&mut data, state.schematic.as_ref().unwrap()) {
             Ok(()) => {
                 let data = data.get_written();
@@ -153,7 +153,7 @@ impl<'l> Tokenizer<'l> {
         self.skip_ws();
         if let Some(curr) = self.0 {
             if curr.len() >= 2 && (curr.as_bytes()[0] == b'"' || curr.as_bytes()[0] == b'\'') {
-                match (&curr[1..]).find(curr.as_bytes()[0] as char) {
+                match (curr[1..]).find(curr.as_bytes()[0] as char) {
                     None => {
                         self.0 = None;
                         Some(&curr[1..])
@@ -319,7 +319,7 @@ macro_rules! parse_num {
                 $cmd.print_usage(0);
                 return;
             }
-            Some(s) => match <$type>::from_str_radix(s, 10) {
+            Some(s) => match s.parse::<$type>() {
                 Ok(v) => v,
                 Err(e) => {
                     print_err!(e, "Could not parse {}", $name);
@@ -508,7 +508,6 @@ fn interpret(state: &mut State, cmd: &str) {
             };
             if let Some(e) = result {
                 print_err!(e, "Failed to place block at {x} / {y}");
-                return;
             }
         }
         Some("rotate") => {
@@ -793,7 +792,7 @@ fn interpret(state: &mut State, cmd: &str) {
                 Command::Save.print_usage(0);
                 return;
             }
-            let mut serial_buff = DataWrite::new();
+            let mut serial_buff = DataWrite::default();
             if let Err(e) = SchematicSerializer(state.reg).serialize(&mut serial_buff, schematic) {
                 print_err!(e, "Could not serialize schematic");
                 return;
@@ -1238,7 +1237,6 @@ fn interpret_sub(state: &mut State, tokens: &mut Tokenizer) {
             };
             if let Some(e) = result {
                 print_err!(e, "Failed to place block at {x} / {y}");
-                return;
             }
         }
         Some("rotate") => {

@@ -43,6 +43,32 @@ pub trait BlockLogic {
     fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>;
 }
 
+// i wish i could derive
+macro_rules! impl_block {
+    () => {
+        fn get_size(&self) -> u8 {
+            self.size
+        }
+
+        fn is_symmetric(&self) -> bool {
+            self.symmetric
+        }
+
+        fn create_build_cost(&self) -> Option<$crate::item::storage::Storage> {
+            if self.build_cost.is_empty() {
+                None
+            } else {
+                let mut storage = Storage::new();
+                for (ty, cnt) in self.build_cost {
+                    storage.add(*ty, *cnt, u32::MAX);
+                }
+                Some(storage)
+            }
+        }
+    };
+}
+pub(crate) use impl_block;
+
 #[derive(Debug)]
 pub enum DataConvertError {
     Custom(Box<dyn Error>),
@@ -145,6 +171,7 @@ pub struct Block {
 }
 
 impl Block {
+    #[must_use]
     pub const fn new(
         name: Cow<'static, str>,
         logic: BoxAccess<'static, dyn BlockLogic + Sync>,
@@ -205,7 +232,7 @@ impl Block {
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name: &str = &self.name;
-        write!(f, "Block {{ name: {:?} }}", name)
+        write!(f, "Block {{ name: {name:?} }}")
     }
 }
 
@@ -224,6 +251,7 @@ pub enum Rotation {
 }
 
 impl Rotation {
+    #[must_use]
     pub fn mirrored(self, horizontally: bool, vertically: bool) -> Self {
         match self {
             Self::Right => {
@@ -261,6 +289,7 @@ impl Rotation {
         *self = self.mirrored(horizontally, vertically);
     }
 
+    #[must_use]
     pub fn rotated(self, clockwise: bool) -> Self {
         match self {
             Self::Right => {
@@ -298,6 +327,7 @@ impl Rotation {
         *self = self.rotated(clockwise);
     }
 
+    #[must_use]
     pub fn rotated_180(self) -> Self {
         match self {
             Self::Right => Self::Left,
@@ -347,7 +377,7 @@ macro_rules! make_register
 				std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic));
 		)+
 
-		pub fn register<'l>(reg: &mut $crate::block::BlockRegistry<'l>) {
+		pub fn register(reg: &mut $crate::block::BlockRegistry<'_>) {
 			$(assert!(reg.register(&[<$field:snake:upper>]).is_ok(), "duplicate block {:?}", $field);)+
 		}
     }
@@ -355,13 +385,14 @@ macro_rules! make_register
 }
 pub(crate) use make_register;
 
+#[must_use]
 pub fn build_registry() -> BlockRegistry<'static> {
-    let mut reg = BlockRegistry::new();
+    let mut reg = BlockRegistry::default();
     register(&mut reg);
     reg
 }
 
-pub fn register<'l>(reg: &mut BlockRegistry<'l>) {
+pub fn register(reg: &mut BlockRegistry<'_>) {
     turret::register(reg);
     extraction::register(reg);
     transport::register(reg);

@@ -10,7 +10,9 @@ use flate2::{
 };
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
-use crate::block::{make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError};
+use crate::block::{
+    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
+};
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::{self, DataRead, DataWrite, GridPos};
 use crate::item::storage::Storage;
@@ -35,10 +37,9 @@ pub struct MessageLogic {
 }
 
 impl MessageLogic {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -50,25 +51,7 @@ impl MessageLogic {
 }
 
 impl BlockLogic for MessageLogic {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)
@@ -105,10 +88,9 @@ pub struct SwitchLogic {
 }
 
 impl SwitchLogic {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -120,25 +102,7 @@ impl SwitchLogic {
 }
 
 impl BlockLogic for SwitchLogic {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)
@@ -156,7 +120,7 @@ impl BlockLogic for SwitchLogic {
     }
 
     fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
-        Box::new(Self::get_state(state).clone())
+        Box::new(*Self::get_state(state))
     }
 
     fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
@@ -175,10 +139,9 @@ pub struct ProcessorLogic {
 }
 
 impl ProcessorLogic {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -190,25 +153,7 @@ impl ProcessorLogic {
 }
 
 impl BlockLogic for ProcessorLogic {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)
@@ -216,7 +161,7 @@ impl BlockLogic for ProcessorLogic {
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
         match data {
-            DynData::Empty => Ok(Some(Self::create_state(ProcessorState::new()))),
+            DynData::Empty => Ok(Some(Self::create_state(ProcessorState::default()))),
             DynData::ByteArray(arr) => {
                 let mut input = arr.as_ref();
                 let mut dec = Decompress::new(true);
@@ -257,7 +202,7 @@ impl BlockLogic for ProcessorLogic {
                 }
 
                 let code_len = ProcessorDeserializeError::forward(buff.read_i32())?;
-                if code_len < 0 || code_len > 500 * 1024 {
+                if !(0..=500 * 1024).contains(&code_len) {
                     return Err(DeserializeError::Custom(Box::new(
                         ProcessorDeserializeError::CodeLength(code_len),
                     )));
@@ -298,7 +243,7 @@ impl BlockLogic for ProcessorLogic {
     }
 
     fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
-        for link in Self::get_state_mut(state).links.iter_mut() {
+        for link in &mut Self::get_state_mut(state).links {
             if horizontally {
                 link.x = -link.x;
             }
@@ -309,7 +254,7 @@ impl BlockLogic for ProcessorLogic {
     }
 
     fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
-        for link in Self::get_state_mut(state).links.iter_mut() {
+        for link in &mut Self::get_state_mut(state).links {
             let (cdx, cdy) = link.get_pos();
             link.x = if clockwise { cdy } else { -cdy };
             link.y = if clockwise { -cdx } else { cdx };
@@ -318,14 +263,14 @@ impl BlockLogic for ProcessorLogic {
 
     fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
         let state = Self::get_state(state);
-        let mut rbuff = DataWrite::new();
+        let mut rbuff = DataWrite::default();
         ProcessorSerializeError::forward(rbuff.write_u8(1))?;
         assert!(state.code.len() < 500 * 1024);
         ProcessorSerializeError::forward(rbuff.write_i32(state.code.len() as i32))?;
         ProcessorSerializeError::forward(rbuff.write_bytes(state.code.as_bytes()))?;
         assert!(state.links.len() < i32::MAX as usize);
         ProcessorSerializeError::forward(rbuff.write_i32(state.links.len() as i32))?;
-        for link in state.links.iter() {
+        for link in &state.links {
             ProcessorSerializeError::forward(rbuff.write_utf(&link.name))?;
             ProcessorSerializeError::forward(rbuff.write_i16(link.x))?;
             ProcessorSerializeError::forward(rbuff.write_i16(link.y))?;
@@ -478,7 +423,7 @@ impl Error for ProcessorSerializeError {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct ProcessorLink {
     name: String,
     x: i16,
@@ -486,10 +431,13 @@ pub struct ProcessorLink {
 }
 
 impl ProcessorLink {
+    #[must_use]
     pub fn new(name: Cow<'_, str>, x: i16, y: i16) -> Self {
-        if name.len() > u16::MAX as usize {
-            panic!("name too long ({})", name.len());
-        }
+        assert!(
+            u16::try_from(name.len()).is_ok(),
+            "name too long ({})",
+            name.len()
+        );
         Self {
             name: name.into_owned(),
             x,
@@ -497,29 +445,25 @@ impl ProcessorLink {
         }
     }
 
+    #[must_use]
     pub fn get_name(&self) -> &str {
         &self.name
     }
 
+    #[must_use]
     pub fn get_pos(&self) -> (i16, i16) {
         (self.x, self.y)
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct ProcessorState {
     code: String,
     links: Vec<ProcessorLink>,
 }
 
 impl ProcessorState {
-    pub fn new() -> Self {
-        Self {
-            code: String::new(),
-            links: Vec::new(),
-        }
-    }
-
+    #[must_use]
     pub fn get_code(&self) -> &str {
         &self.code
     }
@@ -539,6 +483,7 @@ impl ProcessorState {
         Ok(())
     }
 
+    #[must_use]
     pub fn get_links(&self) -> &[ProcessorLink] {
         &self.links
     }
@@ -552,8 +497,8 @@ impl ProcessorState {
         if name.len() > u16::MAX as usize {
             return Err(CreateError::NameLength(name.len()));
         }
-        for curr in self.links.iter() {
-            if &name == &curr.name {
+        for curr in &self.links {
+            if name == curr.name {
                 return Err(CreateError::DuplicateName(name));
             }
             if x == curr.x && y == curr.y {

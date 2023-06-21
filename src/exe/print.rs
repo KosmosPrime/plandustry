@@ -11,7 +11,7 @@ use crate::args::{self, ArgCount, ArgOption, OptionHandler};
 use crate::print_err;
 
 pub fn main(mut args: Args, arg_off: usize) {
-    let mut handler = OptionHandler::new();
+    let mut handler = OptionHandler::default();
     let opt_file = handler
         .add(ArgOption::new(
             Some('f'),

@@ -13,6 +13,7 @@ pub struct OnceCell<T> {
 }
 
 impl<T> OnceCell<T> {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             value: UnsafeCell::new(MaybeUninit::uninit()),
@@ -30,7 +31,7 @@ impl<T> OnceCell<T> {
     pub fn get(&self) -> Option<&T> {
         if self.state.load(Ordering::Acquire) == STATE_READY {
             // SAFETY: won't be overwritten for the lifetime of this reference
-            Some(unsafe { (&*self.value.get()).assume_init_ref() })
+            Some(unsafe { (*self.value.get()).assume_init_ref() })
         } else {
             None
         }
@@ -41,7 +42,7 @@ impl<T> OnceCell<T> {
             match self.state.load(Ordering::Acquire) {
                 STATE_INIT => return None,
                 STATE_LOCKED => (), // continue
-                STATE_READY => return Some(unsafe { (&*self.value.get()).assume_init_ref() }),
+                STATE_READY => return Some(unsafe { (*self.value.get()).assume_init_ref() }),
                 x => unreachable!("invalid state {x}"),
             }
         }
@@ -61,7 +62,7 @@ impl<T> OnceCell<T> {
                     self.state.store(STATE_READY, Ordering::Release);
                     return written;
                 }
-                Err(STATE_READY) => return unsafe { (&*self.value.get()).assume_init_ref() },
+                Err(STATE_READY) => return unsafe { (*self.value.get()).assume_init_ref() },
                 Err(..) => (), // locked or spurious failure
             }
         }
@@ -82,7 +83,7 @@ impl<T> OnceCell<T> {
                 Ok(written)
             }
             // SAFETY: guaranteed to be initialized & protected by acquire ordering
-            Err(STATE_READY) => return Ok(unsafe { (&*self.value.get()).assume_init_ref() }),
+            Err(STATE_READY) => return Ok(unsafe { (*self.value.get()).assume_init_ref() }),
             Err(..) => Err(value), // locked or spurious failure
         }
     }
@@ -126,7 +127,7 @@ impl<T> OnceCell<T> {
         };
         // SAFETY: just in case AtomicU8 has a drop handler
         unsafe {
-            ptr::drop_in_place(&mut self.state as *mut _);
+            ptr::drop_in_place(std::ptr::addr_of_mut!(self.state));
         }
         std::mem::forget(self);
         inner

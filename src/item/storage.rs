@@ -12,6 +12,7 @@ pub struct Storage {
 }
 
 impl Storage {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             base: Vec::new(),
@@ -19,14 +20,17 @@ impl Storage {
         }
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.total == 0
     }
 
+    #[must_use]
     pub fn get_total(&self) -> u64 {
         self.total
     }
 
+    #[must_use]
     pub fn get(&self, ty: item::Type) -> u32 {
         match self.base.get(u16::from(ty) as usize) {
             None => 0,
@@ -40,12 +44,12 @@ impl Storage {
             None => {
                 self.base.resize(idx + 1, 0);
                 self.base[idx] = count;
-                self.total += count as u64;
+                self.total += u64::from(count);
                 0
             }
             Some(curr) => {
                 let prev = *curr;
-                self.total = self.total - prev as u64 + count as u64;
+                self.total = self.total - u64::from(prev) + u64::from(count);
                 *curr = count;
                 prev
             }
@@ -59,14 +63,14 @@ impl Storage {
                 let actual = add.min(max);
                 self.base.resize(idx + 1, 0);
                 self.base[idx] = actual;
-                self.total += add as u64;
+                self.total += u64::from(add);
                 (actual, actual)
             }
             Some(curr) => {
                 if *curr < max {
                     let actual = add.min(max - *curr);
                     *curr += actual;
-                    self.total += actual as u64;
+                    self.total += u64::from(actual);
                     (actual, *curr)
                 } else {
                     (0, *curr)
@@ -87,7 +91,7 @@ impl Storage {
                 if add <= max {
                     self.base.resize(idx + 1, 0);
                     self.base[idx] = add;
-                    self.total += add as u64;
+                    self.total += u64::from(add);
                     Ok((add, add))
                 } else {
                     Err(TryAddError {
@@ -101,7 +105,7 @@ impl Storage {
             Some(curr) => {
                 if *curr <= max && max - *curr <= add {
                     *curr += add;
-                    self.total += add as u64;
+                    self.total += u64::from(add);
                     Ok((add, *curr))
                 } else {
                     Err(TryAddError {
@@ -122,7 +126,7 @@ impl Storage {
                 if *curr > min {
                     let actual = sub.min(*curr - min);
                     *curr -= actual;
-                    self.total -= actual as u64;
+                    self.total -= u64::from(actual);
                     (actual, *curr)
                 } else {
                     (0, *curr)
@@ -148,7 +152,7 @@ impl Storage {
             Some(curr) => {
                 if *curr >= min && *curr - min >= sub {
                     *curr -= sub;
-                    self.total -= sub as u64;
+                    self.total -= u64::from(sub);
                     Ok((sub, *curr))
                 } else {
                     Err(TrySubError {
@@ -177,7 +181,7 @@ impl Storage {
                 if curr < max_each {
                     let actual = (*add).min(max_each - curr);
                     self.base[idx] += actual;
-                    added += actual as u64;
+                    added += u64::from(actual);
                 }
             }
             // process the final element (which we've retrieved first)
@@ -185,7 +189,7 @@ impl Storage {
             if curr < max_each {
                 let actual = (*add_last).min(max_each - curr);
                 self.base[last] += actual;
-                added += actual as u64;
+                added += u64::from(actual);
             }
             // update total
             self.total += added;
@@ -209,7 +213,7 @@ impl Storage {
                     let actual = (*add).min(max_each - curr);
                     self.base[idx] += actual;
                     *add -= actual;
-                    added += actual as u64;
+                    added += u64::from(actual);
                 }
             }
             // process the final element (which we've retrieved first)
@@ -218,7 +222,7 @@ impl Storage {
                 let actual = (*add_last).min(max_each - curr);
                 self.base[last] += actual;
                 *add_last -= actual;
-                added += actual as u64;
+                added += u64::from(actual);
             }
             // update totals
             self.total += added;
@@ -237,7 +241,7 @@ impl Storage {
                     if *curr > min_each {
                         let actual = (*sub).min(*curr - min_each);
                         self.base[idx] -= actual;
-                        subbed += actual as u64;
+                        subbed += u64::from(actual);
                     }
                 } else {
                     break;
@@ -258,12 +262,12 @@ impl Storage {
             let lhs = &mut self.base[..end];
             let rhs = &mut other.base[..end];
             // process items by increasing ID
-            for (l, r) in lhs.into_iter().zip(rhs) {
+            for (l, r) in lhs.iter_mut().zip(rhs) {
                 if *l > min_each && *r > min_each {
                     let actual = (*l - min_each).min(*r - min_each);
                     *l -= actual;
                     *r -= actual;
-                    subbed -= actual as u64;
+                    subbed -= u64::from(actual);
                 }
             }
             // update totals
@@ -273,14 +277,16 @@ impl Storage {
         (subbed, self.total, other.total)
     }
 
-    pub fn iter<'s>(&'s self) -> Iter<'s> {
+    #[must_use]
+    pub fn iter(&self) -> Iter<'_> {
         Iter {
             base: self.base.iter().enumerate(),
             all: true,
         }
     }
 
-    pub fn iter_nonzero<'s>(&'s self) -> Iter<'s> {
+    #[must_use]
+    pub fn iter_nonzero(&self) -> Iter<'_> {
         Iter {
             base: self.base.iter().enumerate(),
             all: false,
@@ -288,7 +294,7 @@ impl Storage {
     }
 
     pub fn clear(&mut self) {
-        self.base.clear()
+        self.base.clear();
     }
 }
 
@@ -375,7 +381,7 @@ impl<'l> Iterator for Iter<'l> {
     type Item = (item::Type, u32);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((idx, cnt)) = self.base.next() {
+        for (idx, cnt) in self.base.by_ref() {
             if *cnt > 0 || self.all {
                 if let Ok(ty) = item::Type::try_from(idx as u16) {
                     return Some((ty, *cnt));

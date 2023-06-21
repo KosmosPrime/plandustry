@@ -15,17 +15,11 @@ pub enum Access<'a, T: AsRef<B>, B: ?Sized> {
 
 impl<'a, T: AsRef<B>, B> Access<'a, T, B> {
     pub const fn is_borrowed(&self) -> bool {
-        match self {
-            Self::Borrowed(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Borrowed(..))
     }
 
     pub const fn is_owned(&self) -> bool {
-        match self {
-            Self::Owned(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Owned(..))
     }
 }
 
@@ -44,7 +38,7 @@ impl<'a, T: AsRef<B>, B: ?Sized> AsRef<B> for Access<'a, T, B> {
 impl<'a, T: AsRef<B>, B: ?Sized> Borrow<B> for Access<'a, T, B> {
     fn borrow(&self) -> &B {
         match self {
-            Self::Borrowed(r) => *r,
+            Self::Borrowed(r) => r,
             Self::Owned(v) => v.as_ref(),
         }
     }
@@ -61,7 +55,7 @@ impl<'a, T: AsRef<B>, B: ?Sized> Deref for Access<'a, T, B> {
 
     fn deref(&self) -> &Self::Target {
         match self {
-            Self::Borrowed(r) => *r,
+            Self::Borrowed(r) => r,
             Self::Owned(v) => v.as_ref(),
         }
     }
@@ -77,7 +71,7 @@ impl<'a, T: AsRef<B>, B: ?Sized + Eq> Eq for Access<'a, T, B> {}
 
 impl<'a, T: AsRef<B>, B: ?Sized + Hash> Hash for Access<'a, T, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        B::hash(self, state)
+        B::hash(self, state);
     }
 }
 

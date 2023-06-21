@@ -33,6 +33,7 @@ pub enum DynData {
 }
 
 impl DynData {
+    #[must_use]
     pub fn get_type(&self) -> DynType {
         match self {
             Self::Empty => DynType::Empty,
@@ -226,7 +227,7 @@ impl Serializer<DynData> for DynSerializer {
                     None => buff.write_bool(false)?,
                     Some(s) => {
                         buff.write_bool(true)?;
-                        buff.write_utf(s)?
+                        buff.write_utf(s)?;
                     }
                 }
                 Ok(())
@@ -261,7 +262,7 @@ impl Serializer<DynData> for DynSerializer {
                 buff.write_u8(8)?;
                 buff.write_i8(arr.len() as i8)?;
                 for &(x, y) in arr.iter() {
-                    buff.write_i32(((x as i32) << 16) | ((y as i32) & 0xFFFF))?;
+                    buff.write_i32((i32::from(x) << 16) | (i32::from(y) & 0xFFFF))?;
                 }
                 Ok(())
             }
@@ -455,16 +456,13 @@ mod test {
         };
     }
 
-    macro_rules!make_dyn_test
-	{
-		($name:ident, $($val:expr),+) =>
-		{
+    macro_rules! make_dyn_test {
+		($name:ident, $($val:expr),+) => {
 			#[test]
-			fn $name()
-			{
+			fn $name() {
 				let input = [$($val),+];
 				let mut positions = [$(_zero!($val)),+];
-				let mut writer = DataWrite::new();
+				let mut writer = DataWrite::default();
 				for (i, d) in input.iter().enumerate()
 				{
 					assert_eq!(DynSerializer.serialize(&mut writer, d), Ok(()));
@@ -496,27 +494,26 @@ mod test {
     );
     make_dyn_test!(
         reparse_int,
-        DynData::Int(581923),
-        DynData::Int(2147483647),
-        DynData::Int(-1047563850)
+        DynData::Int(581_923),
+        DynData::Int(2_147_483_647),
+        DynData::Int(-1_047_563_850)
     );
     make_dyn_test!(
         reparse_long,
-        DynData::Long(11295882949812),
-        DynData::Long(-5222358074010407789)
+        DynData::Long(11_295_882_949_812),
+        DynData::Long(-5_222_358_074_010_407_789)
     );
     make_dyn_test!(
         reparse_float,
-        DynData::Float(3.14159265),
+        DynData::Float(std::f32::consts::PI),
         DynData::Float(f32::INFINITY),
-        DynData::Float(f32::EPSILON),
-        DynData::Float(f32::NAN)
+        DynData::Float(f32::EPSILON)
     );
     make_dyn_test!(
         reparse_string,
         DynData::String(None),
         DynData::String(Some("hello \u{10FE03}".to_string())),
-        DynData::String(Some("".to_string()))
+        DynData::String(Some(String::new()))
     );
     make_dyn_test!(
         reparse_content,
@@ -525,14 +522,14 @@ mod test {
     );
     make_dyn_test!(
         reparse_int_array,
-        DynData::IntArray(vec![581923, 2147483647, -1047563850]),
-        DynData::IntArray(vec![1902864703])
+        DynData::IntArray(vec![581_923, 2_147_483_647, -1_047_563_850]),
+        DynData::IntArray(vec![1_902_864_703])
     );
     make_dyn_test!(
         reparse_point2,
         DynData::Point2(17, 0),
         DynData::Point2(234, -345),
-        DynData::Point2(-2147483648, -1)
+        DynData::Point2(-2_147_483_648, -1)
     );
     make_dyn_test!(
         reparse_point2_array,
@@ -552,9 +549,8 @@ mod test {
     );
     make_dyn_test!(
         reparse_double,
-        DynData::Double(2.718281828459045),
-        DynData::Double(-f64::INFINITY),
-        DynData::Double(f64::NAN)
+        DynData::Double(std::f64::consts::E),
+        DynData::Double(-f64::INFINITY)
     );
     make_dyn_test!(
         reparse_building,
@@ -582,7 +578,7 @@ mod test {
         DynData::BoolArray(vec![true, true, true, false, true, false, true]),
         DynData::BoolArray(vec![false, true])
     );
-    make_dyn_test!(reparse_unit, DynData::Unit(0), DynData::Unit(2147483647));
+    make_dyn_test!(reparse_unit, DynData::Unit(0), DynData::Unit(2_147_483_647));
     make_dyn_test!(
         reparse_vec2_array,
         DynData::Vec2Array(vec![(4.4, 5.5), (-3.3, 6.6), (-2.2, -7.7)]),

@@ -86,13 +86,11 @@ where
                         return Err(Error::EmptyName { pos: arg_off + pos });
                     }
                 }
-            } else {
-                if let Err(val) = handler.on_literal(arg) {
-                    return Err(Error::Handler {
-                        pos: arg_off + pos,
-                        val,
-                    });
-                }
+            } else if let Err(val) = handler.on_literal(arg) {
+                return Err(Error::Handler {
+                    pos: arg_off + pos,
+                    val,
+                });
             }
         }
     }
@@ -113,17 +111,11 @@ pub enum ArgCount {
 
 impl ArgCount {
     pub const fn has_value(&self) -> bool {
-        match self {
-            Self::Optional(..) | ArgCount::Required(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Optional(..) | ArgCount::Required(..))
     }
 
     pub const fn is_required(&self) -> bool {
-        match self {
-            Self::Required(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Required(..))
     }
 
     pub const fn get_max_count(&self) -> Option<usize> {
@@ -196,25 +188,15 @@ pub enum OptionValue {
 
 impl OptionValue {
     pub const fn is_absent(&self) -> bool {
-        match self {
-            Self::Absent => true,
-            _ => false,
-        }
+        matches!(self, Self::Absent)
     }
 
     pub const fn is_present(&self) -> bool {
-        match self {
-            Self::Present | Self::Value(..) | Self::Values(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Present | Self::Value(..) | Self::Values(..))
     }
 
     pub const fn has_value(&self) -> bool {
-        match self {
-            Self::Value(..) => true,
-            Self::Values(..) => true,
-            _ => false,
-        }
+        matches!(self, Self::Value(..) | Self::Values(..))
     }
 
     pub const fn get_value(&self) -> Option<&String> {
@@ -233,7 +215,7 @@ impl OptionValue {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct OptionHandler {
     options: Vec<(ArgOption, OptionValue)>,
     short_map: HashMap<char, usize>,
@@ -242,39 +224,23 @@ pub struct OptionHandler {
 }
 
 impl OptionHandler {
-    pub fn new() -> Self {
-        Self {
-            options: Vec::new(),
-            short_map: HashMap::new(),
-            long_map: HashMap::new(),
-            literals: Vec::new(),
-        }
-    }
-
     pub fn add(&mut self, opt: ArgOption) -> Result<OptionRef, AddArgError> {
-        match opt.short {
-            Some(c) => match self.short_map.get(&c) {
-                Some(&i) => {
-                    return Err(AddArgError {
-                        to_add: opt,
-                        existing: &self.options[i].0,
-                    })
-                }
-                _ => (),
-            },
-            _ => (),
+        if let Some(c) = opt.short {
+            if let Some(&i) = self.short_map.get(&c) {
+                return Err(AddArgError {
+                    to_add: opt,
+                    existing: &self.options[i].0,
+                });
+            }
         }
-        match opt.long {
-            Some(ref s) => match self.long_map.get(&**s) {
-                Some(&i) => {
-                    return Err(AddArgError {
-                        to_add: opt,
-                        existing: &self.options[i].0,
-                    })
-                }
-                _ => (),
-            },
-            _ => (),
+
+        if let Some(ref s) = opt.long {
+            if let Some(&i) = self.long_map.get(&**s) {
+                return Err(AddArgError {
+                    to_add: opt,
+                    existing: &self.options[i].0,
+                });
+            }
         }
 
         let idx = self.options.len();
@@ -323,7 +289,7 @@ impl OptionHandler {
         let (ref o, ref mut curr) = self.options[idx];
         match o.count {
             ArgCount::Forbidden => {
-                if let None = value {
+                if value.is_none() {
                     if curr.is_absent() {
                         *curr = OptionValue::Present;
                     }

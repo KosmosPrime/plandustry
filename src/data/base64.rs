@@ -103,16 +103,12 @@ pub fn decode(input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
         }
         return Err(DecodeError::Truncated);
     }
-    let pad_len = if input.len() > 0 {
-        if input[input.len() - 1] != PADDING {
-            0
-        } else if input[input.len() - 2] != PADDING {
-            1
-        } else {
-            2
-        }
-    } else {
+    let pad_len = if input.is_empty() || input[input.len() - 1] != PADDING {
         0
+    } else if input[input.len() - 2] != PADDING {
+        1
+    } else {
+        2
     };
     let expect_len = input.len() / 4 * 3 - pad_len;
     if output.len() < expect_len {
@@ -121,7 +117,9 @@ pub fn decode(input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
             have: output.len(),
         });
     }
-    if !input.is_empty() {
+    if input.is_empty() {
+        Ok(0)
+    } else {
         let mut in_pos = 0usize;
         let mut out_pos = 0usize;
         while in_pos < input.len() - 4 {
@@ -172,8 +170,6 @@ pub fn decode(input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
             "missed output ({out_pos}, expected {expect_len})"
         );
         Ok(out_pos)
-    } else {
-        Ok(0)
     }
 }
 
@@ -229,7 +225,7 @@ mod test {
             assert_ne!(c0, PADDING, "padding character in data charset at {i}");
             if i > 0 {
                 for (j, &c1) in CHARS[..i].iter().enumerate() {
-                    assert_ne!(c1, c0, "duplicate data character at {j} and {i}")
+                    assert_ne!(c1, c0, "duplicate data character at {j} and {i}");
                 }
             }
         }

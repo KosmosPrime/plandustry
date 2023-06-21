@@ -4,7 +4,7 @@ use std::fmt;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
-    self, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
+    self, impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
 };
 use crate::content;
 use crate::data::dynamic::{DynData, DynType};
@@ -43,21 +43,16 @@ pub struct AssemblerBlock {
 }
 
 impl AssemblerBlock {
+    #[must_use]
     pub const fn new(
         size: u8,
         symmetric: bool,
         build_cost: BuildCost,
         valid: &'static [unit::Type],
     ) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
-        if valid.is_empty() {
-            panic!("no valid units");
-        }
-        if valid.len() > i32::MAX as usize {
-            panic!("too many valid units");
-        }
+        assert!(size != 0, "invalid size");
+        assert!(!valid.is_empty(), "no valid units");
+        assert!(valid.len() <= i32::MAX as usize, "too many valid units");
         Self {
             size,
             symmetric,
@@ -70,25 +65,7 @@ impl AssemblerBlock {
 }
 
 impl BlockLogic for AssemblerBlock {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Int(-1))
@@ -186,10 +163,9 @@ pub struct PayloadBlock {
 }
 
 impl PayloadBlock {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -201,25 +177,7 @@ impl PayloadBlock {
 }
 
 impl BlockLogic for PayloadBlock {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)

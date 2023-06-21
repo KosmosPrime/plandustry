@@ -3,15 +3,16 @@ use std::error::Error;
 use std::fmt;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
-use crate::block::{make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError};
+use crate::block::{
+    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
+};
 use crate::content;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::GridPos;
 use crate::item;
 use crate::item::storage::Storage;
 
-make_register!
-(
+make_register! {
     "conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1));
     "titanium-conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
     "plastanium-conveyor" => SimpleBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
@@ -29,7 +30,7 @@ make_register!
     // sandbox only
     "item-source" => ItemBlock::new(1, true, &[]);
     "item-void" => SimpleBlock::new(1, true, &[]);
-);
+}
 
 pub struct ItemBlock {
     size: u8,
@@ -38,10 +39,9 @@ pub struct ItemBlock {
 }
 
 impl ItemBlock {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -53,28 +53,10 @@ impl ItemBlock {
 }
 
 impl BlockLogic for ItemBlock {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, config: i32, _: GridPos) -> Result<DynData, DataConvertError> {
-        if config < 0 || config > u16::MAX as i32 {
+        if config < 0 || config > i32::from(u16::MAX) {
             return Err(DataConvertError::Custom(Box::new(ItemConvertError(config))));
         }
         Ok(DynData::Content(content::Type::Item, config as u16))
@@ -178,6 +160,7 @@ pub struct BridgeBlock {
 type Point2 = (i32, i32);
 
 impl BridgeBlock {
+    #[must_use]
     pub const fn new(
         size: u8,
         symmetric: bool,
@@ -185,12 +168,8 @@ impl BridgeBlock {
         range: u16,
         ortho: bool,
     ) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
-        if range == 0 {
-            panic!("invalid range");
-        }
+        assert!(size != 0, "invalid size");
+        assert!(range != 0, "invalid range");
         Self {
             size,
             symmetric,
@@ -204,25 +183,7 @@ impl BridgeBlock {
 }
 
 impl BlockLogic for BridgeBlock {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError> {
         let (x, y) = ((config >> 16) as i16, config as i16);
@@ -232,8 +193,8 @@ impl BlockLogic for BridgeBlock {
                 y,
             })));
         }
-        let dx = x as i32 - pos.0 as i32;
-        let dy = y as i32 - pos.1 as i32;
+        let dx = i32::from(x) - i32::from(pos.0);
+        let dy = i32::from(y) - i32::from(pos.1);
         Ok(DynData::Point2(dx, dy))
     }
 
@@ -244,18 +205,11 @@ impl BlockLogic for BridgeBlock {
                 if self.ortho {
                     // the game uses (-worldX, -worldY) to indicate no target
                     // likely because the absolute target being (0, 0) means it's unlinked
-                    if dx != 0 {
-                        if dy != 0 {
-                            return Ok(Some(Self::create_state(None)));
-                        } else {
-                            if dx > self.range as i32 || dx < -(self.range as i32) {
-                                return Ok(Some(Self::create_state(None)));
-                            }
-                        }
-                    } else {
-                        if dy > self.range as i32 || dy < -(self.range as i32) {
-                            return Ok(Some(Self::create_state(None)));
-                        }
+                    if dx != 0 && dy != 0 {
+                        return Ok(Some(Self::create_state(None)));
+                    }
+                    if dx > i32::from(self.range) || dx < -i32::from(self.range) {
+                        return Ok(Some(Self::create_state(None)));
                     }
                 }
                 // can't check range otherwise, it depends on the target's size

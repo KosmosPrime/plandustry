@@ -2,7 +2,9 @@ use std::any::Any;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::transport::ItemBlock;
-use crate::block::{make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError};
+use crate::block::{
+    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
+};
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::GridPos;
 use crate::item::storage::Storage;
@@ -40,10 +42,10 @@ impl From<u32> for RGBA {
 
 impl From<RGBA> for u32 {
     fn from(value: RGBA) -> Self {
-        ((value.0 as u32) << 24)
-            | ((value.1 as u32) << 16)
-            | ((value.2 as u32) << 8)
-            | (value.3 as u32)
+        (u32::from(value.0) << 24)
+            | (u32::from(value.1) << 16)
+            | (u32::from(value.2) << 8)
+            | u32::from(value.3)
     }
 }
 
@@ -54,10 +56,9 @@ pub struct LampBlock {
 }
 
 impl LampBlock {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -69,25 +70,7 @@ impl LampBlock {
 }
 
 impl BlockLogic for LampBlock {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, config: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Int(config))

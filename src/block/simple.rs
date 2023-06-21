@@ -1,6 +1,6 @@
 use std::any::{type_name, Any};
 
-use crate::block::{BlockLogic, DataConvertError, DeserializeError, SerializeError};
+use crate::block::{impl_block, BlockLogic, DataConvertError, DeserializeError, SerializeError};
 use crate::data::dynamic::DynData;
 use crate::data::GridPos;
 use crate::item;
@@ -10,13 +10,13 @@ macro_rules!state_impl
 {
 	($vis:vis $type:ty) =>
 	{
-		$vis fn get_state<'l>(state: &'l dyn Any) -> &'l $type
+		$vis fn get_state(state: &dyn Any) -> &$type
 			where Self: Sized
 		{
 			state.downcast_ref::<$type>().unwrap()
 		}
 
-		$vis fn get_state_mut<'l>(state: &'l mut dyn Any) -> &'l mut $type
+		$vis fn get_state_mut(state: &mut dyn Any) -> &mut $type
 			where Self: Sized
 		{
 			state.downcast_mut::<$type>().unwrap()
@@ -40,10 +40,9 @@ pub struct SimpleBlock {
 }
 
 impl SimpleBlock {
+    #[must_use]
     pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        if size == 0 {
-            panic!("invalid size");
-        }
+        assert!(size != 0, "invalid size");
         Self {
             size,
             symmetric,
@@ -53,25 +52,7 @@ impl SimpleBlock {
 }
 
 impl BlockLogic for SimpleBlock {
-    fn get_size(&self) -> u8 {
-        self.size
-    }
-
-    fn is_symmetric(&self) -> bool {
-        self.symmetric
-    }
-
-    fn create_build_cost(&self) -> Option<Storage> {
-        if !self.build_cost.is_empty() {
-            let mut storage = Storage::new();
-            for (ty, cnt) in self.build_cost {
-                storage.add(*ty, *cnt, u32::MAX);
-            }
-            Some(storage)
-        } else {
-            None
-        }
-    }
+    impl_block!();
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)
@@ -98,10 +79,8 @@ impl BlockLogic for SimpleBlock {
     }
 }
 
-macro_rules!cost
-{
-	($($item:ident: $cnt:literal),+) =>
-	{
+macro_rules! cost {
+	($($item:ident: $cnt:literal),+) => {
 		&[$((crate::item::Type::$item, $cnt)),*]
 	};
 }

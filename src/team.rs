@@ -7,11 +7,11 @@ use crate::content::{Content, Type};
 pub struct Team(u8);
 
 impl Team {
-    pub fn of(id: u8) -> Self {
+    #[must_use] pub fn of(id: u8) -> Self {
         Self(id)
     }
 
-    pub fn is_base(&self) -> bool {
+    #[must_use] pub fn is_base(&self) -> bool {
         self.0 < 6
     }
 }
@@ -26,7 +26,7 @@ impl TryFrom<u16> for Team {
     type Error = TryFromU16Error;
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
-        if value <= u8::MAX as u16 {
+        if u8::try_from(value).is_ok() {
             Ok(Team(value as u8))
         } else {
             Err(TryFromU16Error(value))
@@ -45,7 +45,7 @@ impl From<Team> for u8 {
 
 impl From<Team> for u16 {
     fn from(value: Team) -> Self {
-        value.0 as u16
+        u16::from(value.0)
     }
 }
 
@@ -79,7 +79,7 @@ impl Content for Team {
     }
 
     fn get_id(&self) -> u16 {
-        self.0 as u16
+        u16::from(self.0)
     }
 
     fn get_name(&self) -> &'static str {
@@ -93,7 +93,7 @@ impl Content for Team {
             // dark magic: offsets manually computed, then rely on the format "...|team#{i}|..."
             i @ 6..=9 => {
                 // length: 7 ("team#" (5) + 1 digit + "|" (1))
-                let s = 0 + ((i - 6) as usize) * 7;
+                let s = ((i - 6) as usize) * 7;
                 &TEAM_NAMES[s..s + 6] // exclude the trailing "|"
             }
             i @ 10..=99 => {

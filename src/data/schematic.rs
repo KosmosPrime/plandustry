@@ -29,14 +29,17 @@ pub struct Placement<'l> {
 }
 
 impl<'l> Placement<'l> {
+    #[must_use]
     pub fn get_pos(&self) -> GridPos {
         self.pos
     }
 
+    #[must_use]
     pub fn get_block(&self) -> &'l Block {
         self.block
     }
 
+    #[must_use]
     pub fn get_state(&self) -> Option<&dyn Any> {
         match self.state {
             None => None,
@@ -59,6 +62,7 @@ impl<'l> Placement<'l> {
         Ok(std::mem::replace(&mut self.state, state))
     }
 
+    #[must_use]
     pub fn get_rotation(&self) -> Rotation {
         self.rot
     }
@@ -93,6 +97,7 @@ pub struct Schematic<'l> {
 }
 
 impl<'l> Schematic<'l> {
+    #[must_use]
     pub fn new(width: u16, height: u16) -> Self {
         match Self::try_new(width, height) {
             Ok(s) => s,
@@ -121,14 +126,17 @@ impl<'l> Schematic<'l> {
         })
     }
 
+    #[must_use]
     pub fn get_width(&self) -> u16 {
         self.width
     }
 
+    #[must_use]
     pub fn get_height(&self) -> u16 {
         self.height
     }
 
+    #[must_use]
     pub fn get_tags(&self) -> &HashMap<String, String> {
         &self.tags
     }
@@ -137,16 +145,19 @@ impl<'l> Schematic<'l> {
         &mut self.tags
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
 
+    #[must_use]
     pub fn get_block_count(&self) -> usize {
         self.blocks.len()
     }
 
+    #[must_use]
     pub fn is_region_empty(&self, x: u16, y: u16, w: u16, h: u16) -> bool {
-        if self.blocks.len() == 0 {
+        if self.blocks.is_empty() {
             return true;
         }
         if x >= self.width || y >= self.height || w == 0 || h == 0 {
@@ -188,7 +199,7 @@ impl<'l> Schematic<'l> {
                 h: self.height,
             });
         }
-        if self.blocks.len() == 0 {
+        if self.blocks.is_empty() {
             return Ok(None);
         }
         let pos = (x as usize) + (y as usize) * (self.width as usize);
@@ -207,7 +218,7 @@ impl<'l> Schematic<'l> {
                 h: self.height,
             });
         }
-        if self.blocks.len() == 0 {
+        if self.blocks.is_empty() {
             return Ok(None);
         }
         let pos = (x as usize) + (y as usize) * (self.width as usize);
@@ -240,12 +251,12 @@ impl<'l> Schematic<'l> {
     }
 
     fn fill_lookup(&mut self, x: usize, y: usize, sz: usize, val: Option<usize>) {
-        if self.lookup.len() == 0 {
+        if self.lookup.is_empty() {
             self.lookup
                 .resize((self.width as usize) * (self.height as usize), None);
         }
         if sz > 1 {
-            let off = ((sz - 1) / 2) as usize;
+            let off = (sz - 1) / 2;
             let (x0, y0) = (x - off, y - off);
             for dy in 0..sz {
                 for dx in 0..sz {
@@ -265,7 +276,7 @@ impl<'l> Schematic<'l> {
         data: DynData,
         rot: Rotation,
     ) -> Result<&Placement<'l>, PlaceError> {
-        let sz = block.get_size() as u16;
+        let sz = u16::from(block.get_size());
         let off = (sz - 1) / 2;
         if x < off || y < off {
             return Err(PlaceError::Bounds {
@@ -310,7 +321,7 @@ impl<'l> Schematic<'l> {
         rot: Rotation,
         collect: bool,
     ) -> Result<Option<Vec<Placement<'l>>>, PlaceError> {
-        let sz = block.get_size() as u16;
+        let sz = u16::from(block.get_size());
         let off = (sz - 1) / 2;
         if x < off || y < off {
             return Err(PlaceError::Bounds {
@@ -403,20 +414,20 @@ impl<'l> Schematic<'l> {
                 h: self.height,
             });
         }
-        if self.blocks.len() > 0 {
+        if self.blocks.is_empty() {
+            Ok(None)
+        } else {
             let pos = (x as usize) + (y as usize) * (self.width as usize);
             match self.lookup[pos] {
                 None => Ok(None),
                 Some(idx) => Ok(Some(self.swap_remove(idx))),
             }
-        } else {
-            Ok(None)
         }
     }
 
     fn rebuild_lookup(&mut self) {
         self.lookup.clear();
-        if self.blocks.len() > 0 {
+        if !self.blocks.is_empty() {
             self.lookup
                 .resize((self.width as usize) * (self.height as usize), None);
             for (i, curr) in self.blocks.iter().enumerate() {
@@ -438,9 +449,9 @@ impl<'l> Schematic<'l> {
 
     pub fn mirror(&mut self, horizontally: bool, vertically: bool) {
         if !self.blocks.is_empty() && (horizontally || vertically) {
-            for curr in self.blocks.iter_mut() {
+            for curr in &mut self.blocks {
                 // because position is the bottom left of the center (which changes during mirroring)
-                let shift = (curr.block.get_size() as u16 - 1) % 2;
+                let shift = (u16::from(curr.block.get_size()) - 1) % 2;
                 if horizontally {
                     curr.pos.0 = self.width - 1 - curr.pos.0 - shift;
                 }
@@ -465,11 +476,11 @@ impl<'l> Schematic<'l> {
         self.width = h;
         self.height = w;
         if !self.blocks.is_empty() {
-            for curr in self.blocks.iter_mut() {
+            for curr in &mut self.blocks {
                 let x = curr.pos.0;
                 let y = curr.pos.1;
                 // because position is the bottom left of the center (which changes during rotation)
-                let shift = (curr.block.get_size() as u16 - 1) % 2;
+                let shift = (u16::from(curr.block.get_size()) - 1) % 2;
                 if clockwise {
                     curr.pos.0 = y;
                     curr.pos.1 = w - 1 - x - shift;
@@ -518,8 +529,8 @@ impl<'l> Schematic<'l> {
         let top_bound = dy + h as i16 - 1;
         let left_bound = dx;
         let bottom_bound = dy;
-        for Placement { pos, block, .. } in self.blocks.iter() {
-            let sz = block.get_size() as u16;
+        for Placement { pos, block, .. } in &self.blocks {
+            let sz = u16::from(block.get_size());
             let (x0, y0, x1, y1) = (
                 pos.0 - (sz - 1) / 2,
                 pos.1 - (sz - 1) / 2,
@@ -539,7 +550,7 @@ impl<'l> Schematic<'l> {
                 bottom = bottom_bound as u16 - y0;
             }
         }
-        if left > 0 || top > 0 || left > 0 || bottom > 0 {
+        if left > 0 || top > 0 || right > 0 || bottom > 0 {
             return Err(ResizeError::Truncated {
                 right,
                 top,
@@ -549,7 +560,7 @@ impl<'l> Schematic<'l> {
         }
         self.width = w;
         self.height = h;
-        for Placement { pos, .. } in self.blocks.iter_mut() {
+        for Placement { pos, .. } in &mut self.blocks {
             pos.0 = (pos.0 as i16 + dx) as u16;
             pos.1 = (pos.1 as i16 + dy) as u16;
         }
@@ -560,6 +571,7 @@ impl<'l> Schematic<'l> {
         self.mirror(true, true);
     }
 
+    #[must_use]
     pub fn pos_iter(&self) -> PosIter {
         PosIter {
             x: 0,
@@ -573,10 +585,11 @@ impl<'l> Schematic<'l> {
         self.blocks.iter()
     }
 
+    #[must_use]
     pub fn compute_total_cost(&self) -> (ItemStorage, bool) {
         let mut cost = ItemStorage::new();
         let mut sandbox = false;
-        for &Placement { block, .. } in self.blocks.iter() {
+        for &Placement { block, .. } in &self.blocks {
             if let Some(curr) = block.get_build_cost() {
                 cost.add_all(curr, u32::MAX);
             } else {
@@ -753,7 +766,7 @@ impl<'l> fmt::Display for Schematic<'l> {
 
         // find unique letters for each block, more common blocks pick first
         let mut name_cnt = HashMap::<&str, u16>::new();
-        for p in self.blocks.iter() {
+        for p in &self.blocks {
             match name_cnt.entry(p.block.get_name()) {
                 Entry::Occupied(mut e) => *e.get_mut() += 1,
                 Entry::Vacant(e) => {
@@ -770,7 +783,7 @@ impl<'l> fmt::Display for Schematic<'l> {
             0x70u8, 0x00u8, 0x00u8, 0x40u8, 0x90u8,
         ];
         let mut types = HashMap::<&str, char>::new();
-        for &(name, _) in name_cnt.iter() {
+        for &(name, _) in &name_cnt {
             let mut found = false;
             for c in name.chars() {
                 if c > ' ' && c <= '~' {
@@ -807,7 +820,9 @@ impl<'l> fmt::Display for Schematic<'l> {
         }
 
         // coordinates start in the bottom left, so y starts at self.height - 1
-        if self.blocks.len() > 0 {
+        if self.blocks.is_empty() {
+            write!(f, "<empty {} * {}>", self.width, self.height)?;
+        } else {
             for y in (0..self.height as usize).rev() {
                 let mut x = 0usize;
                 while x < self.width as usize {
@@ -902,8 +917,6 @@ impl<'l> fmt::Display for Schematic<'l> {
                 let v = *types.get(k).unwrap();
                 write!(f, "\n({v}) {k}")?;
             }
-        } else {
-            write!(f, "<empty {} * {}>", self.width, self.height)?;
         }
         Ok(())
     }
@@ -1007,7 +1020,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         buff.write_u32(SCHEMATIC_HEADER)?;
         buff.write_u8(1)?;
 
-        let mut rbuff = DataWrite::new();
+        let mut rbuff = DataWrite::default();
         // don't have to check dimensions because they're already limited to MAX_DIMENSION
         rbuff.write_i16(data.width as i16)?;
         rbuff.write_i16(data.height as i16)?;
@@ -1015,20 +1028,17 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
             return Err(WriteError::TagCount(data.tags.len()));
         }
         rbuff.write_u8(data.tags.len() as u8)?;
-        for (k, v) in data.tags.iter() {
+        for (k, v) in &data.tags {
             rbuff.write_utf(k)?;
             rbuff.write_utf(v)?;
         }
         // use string keys here to avoid issues with different block refs with the same name
         let mut block_map = HashMap::<&str, u32>::new();
         let mut block_table = Vec::<&str>::new();
-        for curr in data.blocks.iter() {
-            match block_map.entry(curr.block.get_name()) {
-                Entry::Vacant(e) => {
-                    e.insert(block_table.len() as u32);
-                    block_table.push(curr.block.get_name());
-                }
-                _ => (),
+        for curr in &data.blocks {
+            if let Entry::Vacant(e) = block_map.entry(curr.block.get_name()) {
+                e.insert(block_table.len() as u32);
+                block_table.push(curr.block.get_name());
             }
         }
         if block_table.len() > i8::MAX as usize {
@@ -1036,13 +1046,13 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         }
         // else: implies contents are also valid i8 (they're strictly less than the map length)
         rbuff.write_i8(block_table.len() as i8)?;
-        for &name in block_table.iter() {
+        for &name in &block_table {
             rbuff.write_utf(name)?;
         }
         // don't have to check data.blocks.len() because dimensions don't allow exceeding MAX_BLOCKS
         rbuff.write_i32(data.blocks.len() as i32)?;
         let mut num = 0;
-        for curr in data.blocks.iter() {
+        for curr in &data.blocks {
             rbuff.write_i8(block_map[curr.block.get_name()] as i8)?;
             rbuff.write_u32(u32::from(curr.pos))?;
             let data = match curr.state {
@@ -1056,10 +1066,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         assert_eq!(num, data.blocks.len());
 
         // compress into the provided buffer
-        let raw = match rbuff.data {
-            data::WriteBuff::Vec(v) => v,
-            _ => unreachable!("write buffer not owned"),
-        };
+        let data::WriteBuff::Vec(raw) = rbuff.data else { unreachable!("write buffer not owned") };
         let mut comp = Compress::new(Compression::default(), true);
         // compress the immediate buffer into a temp buffer to copy it to buff? no thanks
         match buff.data {
@@ -1261,11 +1268,11 @@ impl<'l> SchematicSerializer<'l> {
     }
 
     pub fn serialize_base64(&mut self, data: &Schematic<'l>) -> Result<String, W64Error> {
-        let mut buff = DataWrite::new();
+        let mut buff = DataWrite::default();
         self.serialize(&mut buff, data)?;
         let buff = buff.get_written();
         // round up because of padding
-        let required = 4 * (buff.len() / 3 + if buff.len() % 3 != 0 { 1 } else { 0 });
+        let required = 4 * (buff.len() / 3 + usize::from(buff.len() % 3 != 0));
         let mut text = Vec::<u8>::new();
         text.resize(required, 0);
         let n_out = base64::encode(buff, text.as_mut())?;

@@ -12,22 +12,24 @@ pub struct Registry<'l, E: RegistryEntry + fmt::Debug + 'static> {
     by_name: HashMap<&'l str, &'l E>,
 }
 
-impl<'l, E: RegistryEntry + fmt::Debug + 'static> Registry<'l, E> {
-    pub fn new() -> Self {
+impl<'l, E: RegistryEntry + fmt::Debug + 'static> Default for Registry<'l, E> {
+    fn default() -> Self {
         Self {
             by_name: HashMap::new(),
         }
     }
+}
 
+impl<'l, E: RegistryEntry + fmt::Debug + 'static> Registry<'l, E> {
     pub fn register(&mut self, val: &'l E) -> Result<&'l E, RegisterError<'l, E>> {
-        match self.by_name.entry(&val.get_name()) {
+        match self.by_name.entry(val.get_name()) {
             Entry::Occupied(e) => Err(RegisterError(e.get())),
             Entry::Vacant(e) => Ok(e.insert(val)),
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&'l E> {
-        self.by_name.get(name).map(|&r| r)
+    #[must_use] pub fn get(&self, name: &str) -> Option<&'l E> {
+        self.by_name.get(name).copied()
     }
 }
 
