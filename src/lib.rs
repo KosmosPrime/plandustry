@@ -9,4 +9,3 @@ pub mod modifier;
 pub mod registry;
 pub mod team;
 pub mod unit;
-pub mod utils;

@@ -8,7 +8,6 @@ use crate::data::dynamic::{DynData, DynType};
 use crate::data::GridPos;
 use crate::item::storage::Storage as ItemStorage;
 use crate::registry::RegistryEntry;
-use crate::utils::OnceCell;
 
 pub mod base;
 pub mod content;
@@ -167,7 +166,6 @@ impl Error for SerializeError {
 pub struct Block {
     name: Cow<'static, str>,
     logic: BoxAccess<'static, dyn BlockLogic + Sync>,
-    build_cost: OnceCell<Option<ItemStorage>>,
 }
 
 impl Block {
@@ -176,11 +174,7 @@ impl Block {
         name: Cow<'static, str>,
         logic: BoxAccess<'static, dyn BlockLogic + Sync>,
     ) -> Self {
-        Self {
-            name,
-            logic,
-            build_cost: OnceCell::new(),
-        }
+        Self { name, logic }
     }
 
     pub fn get_size(&self) -> u8 {
@@ -191,10 +185,8 @@ impl Block {
         self.logic.is_symmetric()
     }
 
-    pub fn get_build_cost(&self) -> Option<&ItemStorage> {
-        self.build_cost
-            .get_or_init(|| self.logic.as_ref().create_build_cost())
-            .as_ref()
+    pub fn get_build_cost(&self) -> Option<ItemStorage> {
+        self.logic.as_ref().create_build_cost()
     }
 
     pub fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError> {

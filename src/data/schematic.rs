@@ -591,7 +591,7 @@ impl<'l> Schematic<'l> {
         let mut sandbox = false;
         for &Placement { block, .. } in &self.blocks {
             if let Some(curr) = block.get_build_cost() {
-                cost.add_all(curr, u32::MAX);
+                cost.add_all(&curr, u32::MAX);
             } else {
                 sandbox = true;
             }
