@@ -1,8 +1,7 @@
 use crate::content::content_enum;
 
 content_enum! {
-    pub enum Type / Modifier for u16 | TryFromU16Error
-    {
+    pub enum Type / Modifier for u16 | TryFromU16Error {
         "none",
         "burning",
         "freezing",

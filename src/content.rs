@@ -65,12 +65,19 @@ macro_rules! content_enum {
 			}
 		}
 
-		impl std::fmt::Display for $error
-		{
+		impl std::fmt::Display for $error {
 			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 				write!(f, "no content of type {} for value {}", stringify!($ctype), self.0)
 			}
 		}
+
+		impl std::fmt::Display for $tname {
+			fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+      	match self {
+					$(Self::[<$val:camel>] => f.write_str(strconv::kebab2title!($val)),)*
+				}
+			}
+	}
 
 		impl std::error::Error for $error {}
 	}
