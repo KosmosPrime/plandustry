@@ -1,5 +1,4 @@
 pub mod args;
-pub mod edit;
 pub mod print;
 
 macro_rules!print_err
@@ -32,7 +31,6 @@ fn main() {
     args.next().unwrap(); // path to executable
     match args.next() {
         None => eprintln!("Not enough arguments, valid commands are: edit, print"),
-        Some(s) if s == "edit" => edit::main(args, 1),
         Some(s) if s == "print" => print::main(args, 1),
         Some(s) => eprintln!("Unknown argument {s}, valid commands are: edit, print"),
     }

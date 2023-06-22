@@ -10,8 +10,7 @@ use crate::data::dynamic::{DynData, DynType};
 use crate::data::GridPos;
 use crate::item::storage::Storage;
 
-make_register!
-(
+make_register! {
     "power-node" => ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
     "power-node-large" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
     "surge-tower" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
@@ -28,11 +27,19 @@ make_register!
     "thorium-reactor" => SimpleBlock::new(3, true, cost!(Lead: 300, Metaglass: 50, Graphite: 150, Thorium: 150, Silicon: 200));
     "impact-reactor" => SimpleBlock::new(4, true,
         cost!(Lead: 500, Metaglass: 250, Graphite: 400, Thorium: 100, Silicon: 300, SurgeAlloy: 250));
+    "beam-node" => ConnectorBlock::new(1, true, cost!(Beryllium: 8), 4);
+    "beam-tower" => ConnectorBlock::new(3, true, cost!(Beryllium: 30, Oxide: 10, Silicon: 10), 12);
+    "turbine-condenser" => SimpleBlock::new(3, true, cost!(Beryllium: 60));
+    "chemical-combustion-chamber" => SimpleBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
+    "pyrolosis-generator" => SimpleBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
+    "flux-reactor" => SimpleBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
+    "neoplasia-reactor" => SimpleBlock::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
+    // editor only
+    "beam-link" => ConnectorBlock::new(3, true, &[], 12);
     // sandbox only
     "power-source" => ConnectorBlock::new(1, true, &[], 100);
     "power-void" => SimpleBlock::new(1, true, &[]);
-);
-
+}
 pub struct ConnectorBlock {
     size: u8,
     symmetric: bool,

@@ -156,17 +156,17 @@ pub fn main(mut args: Args, arg_off: usize) {
 }
 
 pub fn print_schematic(s: &Schematic) {
-    if let Some(name) = s.get_tags().get("name") {
+    if let Some(name) = s.tags.get("name") {
         if !name.is_empty() {
             println!("Name: {name}");
         }
     }
-    if let Some(desc) = s.get_tags().get("description") {
+    if let Some(desc) = s.tags.get("description") {
         if !desc.is_empty() {
             println!("Desc: {desc}");
         }
     }
-    if let Some(labels) = s.get_tags().get("labels") {
+    if let Some(labels) = s.tags.get("labels") {
         if !labels.is_empty() && labels != "[]" {
             println!("Tags: {:?}", labels);
         }

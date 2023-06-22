@@ -168,6 +168,12 @@ pub struct Block {
     logic: BoxAccess<'static, dyn BlockLogic + Sync>,
 }
 
+impl PartialEq for Block {
+    fn eq(&self, rhs: &Block) -> bool {
+        self.name == rhs.name
+    }
+}
+
 impl Block {
     #[must_use]
     pub const fn new(

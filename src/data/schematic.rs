@@ -28,17 +28,13 @@ pub struct Placement<'l> {
     rot: Rotation,
 }
 
+impl PartialEq for Placement<'_> {
+    fn eq(&self, rhs: &Placement<'_>) -> bool {
+        self.pos == rhs.pos && self.block == rhs.block && self.rot == rhs.rot
+    }
+}
+
 impl<'l> Placement<'l> {
-    #[must_use]
-    pub fn get_pos(&self) -> GridPos {
-        self.pos
-    }
-
-    #[must_use]
-    pub fn get_block(&self) -> &'l Block {
-        self.block
-    }
-
     #[must_use]
     pub fn get_state(&self) -> Option<&dyn Any> {
         match self.state {
@@ -60,11 +56,6 @@ impl<'l> Placement<'l> {
     ) -> Result<Option<Box<dyn Any>>, block::DeserializeError> {
         let state = self.block.deserialize_state(data)?;
         Ok(std::mem::replace(&mut self.state, state))
-    }
-
-    #[must_use]
-    pub fn get_rotation(&self) -> Rotation {
-        self.rot
     }
 
     pub fn set_rotation(&mut self, rot: Rotation) -> Rotation {
@@ -89,11 +80,20 @@ impl<'l> Clone for Placement<'l> {
 
 #[derive(Clone)]
 pub struct Schematic<'l> {
-    width: u16,
-    height: u16,
-    tags: HashMap<String, String>,
-    blocks: Vec<Placement<'l>>,
+    pub width: u16,
+    pub height: u16,
+    pub tags: HashMap<String, String>,
+    pub blocks: Vec<Placement<'l>>,
     lookup: Vec<Option<usize>>,
+}
+
+impl<'l> PartialEq for Schematic<'l> {
+    fn eq(&self, rhs: &Schematic<'l>) -> bool {
+        self.width == rhs.width
+            && self.height == rhs.height
+            && self.blocks == rhs.blocks
+            && self.tags == rhs.tags
+    }
 }
 
 impl<'l> Schematic<'l> {
@@ -124,25 +124,6 @@ impl<'l> Schematic<'l> {
             blocks: Vec::new(),
             lookup: Vec::new(),
         })
-    }
-
-    #[must_use]
-    pub fn get_width(&self) -> u16 {
-        self.width
-    }
-
-    #[must_use]
-    pub fn get_height(&self) -> u16 {
-        self.height
-    }
-
-    #[must_use]
-    pub fn get_tags(&self) -> &HashMap<String, String> {
-        &self.tags
-    }
-
-    pub fn get_tags_mut(&mut self) -> &mut HashMap<String, String> {
-        &mut self.tags
     }
 
     #[must_use]
@@ -753,6 +734,12 @@ impl fmt::Display for ResizeError {
 }
 
 impl Error for ResizeError {}
+
+impl fmt::Debug for Schematic<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
 
 impl<'l> fmt::Display for Schematic<'l> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1407,29 +1394,50 @@ impl FusedIterator for PosIter {}
 mod test {
     use super::*;
 
-    macro_rules!test_iter
-	{
-		($name:ident, $it:expr, $($val:expr),+) =>
-		{
+    macro_rules! test_iter {
+		($name:ident, $it:expr, $($val:expr),+) => {
 			#[test]
-			fn $name()
-			{
+			fn $name() {
 				let mut it = $it;
 				$(test_iter!(impl it, $val);)+
 			}
 		};
-		(impl $it:ident, $val:literal) =>
-		{
-			for _ in 0..$val
-			{
+		(impl $it:ident, $val:literal) => {
+			for _ in 0..$val {
 				assert_ne!($it.next(), None, "iterator returned None too early");
 			}
 		};
-		(impl $it:ident, $val:expr) =>
-		{
+		(impl $it:ident, $val:expr) => {
 			assert_eq!($it.next(), $val);
 		};
 	}
+
+    macro_rules! test_schem {
+        ($name:ident, $($val:expr),+) => {
+            #[test]
+            fn $name() {
+                let reg = crate::block::build_registry();
+                let mut ser = SchematicSerializer(&reg);
+                $(
+                    let parsed = ser.deserialize_base64($val).unwrap();
+                    println!("{}", parsed.tags.get("name").unwrap());
+                    let unparsed = ser.serialize_base64(&parsed).unwrap();
+                    let parsed2 = ser.deserialize_base64(&unparsed).unwrap();
+                    assert_eq!(parsed, parsed2);
+                )*
+            }
+        };
+    }
+
+    test_schem! {
+        ser_de,
+        "bXNjaAF4nCVNy07DMBCcvC1c4MBnoNz4G8TBSSxRycSRbVr646iHlmUc2/KOZ3dmFo9QDdrVfFkMb9Gsi5mgFxvncNzS0a8Aemcm6yLq948Bz2eTbBjtTwpmTj7gafs00Y6zX0/2Qt6dzLdLeNj8mbrVLxZ6ciamcQlH59BHH5iAYTKJeOGCF6AisFSoBxF55V+hJm1Lvwca8lpVIuzlS0eGLoMqTGUG6OLRJes3Mw40E5ijc2QedkPuU3DfLX0eHriDsgMapaScu9zkT26o5Uq8EmV/zS5vi4tr/wHvJE7M",
+        "bXNjaAF4nE2MzWrEMAyEJ7bjdOnPobDQvfUF8kSlhyTWFlOv3VWcQvv0lRwoawzSjL4ZHOAtXJ4uhEdi+oz8ek5bDCvuA60Lx68aSwbg0zRTWmHe3j2emWI+F14ojEvJYYsVD5RoqVzSzy8xDjNNlzGXQHi5gVO8SvnIZasCnW4uM8fwQf9tT9+Ua1OUV0GBI9ozHToY6IeDtaIACxkOnaoe1rVrg2RV1cP0CuycLA5+LxuUU+U055W0Yrb4sEcGNQ3u1NTh9iHmH6qaOTI=",
+        "bXNjaAF4nE2R226kQAxEzW1oYC5kopV23/IDfMw+R3ng0klaYehsD6w2+fqtamuiDILCLtvH9MgPaTLJl/5ipR3cy4MN9s2FB//PTVaayV7H4N5X5xcR2c39YOerpI9Pe/kVrFuefRjt1A3BTS+2G/0ybW6V41+7rDGyy9UGjNnGtQt+W78C7ZCcgVSD7S/d4kH8+W3q7P5sbrr1nb85N9DeznZcg58/PlFxx6V77tqNr/1lQOr0anuQ7eQCCn2QQ6Rvy+z7Cb7Ib9xSSJpICsGDV5bxoVJKxpSRLIdUKrVkBQoSkVxYJDuWq5SaNByboUEYJ5LgmFlZRhdejit6oDO5Uw/trDTqgWfgpCqFiiG91MVL7IJfLKck3NooyBDEZM4Gw+9jtJOEXgQZ7TQAJZSaM+POFd5TSWpIoVHEVsqrlUcX8xq+U2pi94wyCHZpICn625jAGdVy4DxGpdom2gXeKu2OIw+6w5E7UABnMgKO9CgxOukiHBGjmGz1dFp+VQO57cA7pUR4+wVvFd5q9x2aQT0r/Ew4k/FfPyvunjhGaPgPoVJdLw==",
+        "bXNjaAF4nGNgZmBmZmDJS8xNZeBOyslPzlYAkwzcKanFyUWZBSWZ+XkMDAxsOYlJqTnFDEzRsYwMfAWJlTn5iSm6RfmlJalFQGlGEGJkZWSYxQAAcBkUPA=="
+        // "bXNjaAF4nD1TDUxTVxS+r6+vr30triCSVjLXiulKoAjMrJRkU8b4qSgLUAlIZ1rah7yt9L31h1LMMCNbRAQhYrKwOnEslhCcdmzJuohL1DjZT4FJtiVsoG5LFtzmGgGngHm790mam7x77ne+c945934HKIAcB2K3vYUGScXmWvM+TQ3jYhysG8idtNfhYTgfAw8ASFz2RtrlBaKG12VA6X1KMjg8fgfT6KLBJi7osfsYH21oYdpoD6A4NkB7DG7WSQOJl/X4IPYM426loeU0bABSv9vF2p3I1cI4PKyB87AO2gu9gGi1+10+kMTCiCYXGzActvtoWEY+ABhcIgzaOBCJ4EZICYDx6xAV86vCdx2IAS5QJJAEIRkQ4XAjAHSIIITBUCCGRwIuESCgheEIkwgYIpEAF4I3wSw9bWccTpvNmVkZy5raWT1p3r+vajJ2odyQb+HAW9HxvV556vfvpNy4oVUfDyq36Kyqe73xsdemprMyv52uAreYwcXzJaPU+aDp8fFM24nuzUvVqYo9yr7CjFT/aDDzUUz8S8W7g+X3VCpVnargblNubl4kI1q6J+cFPH2HS6VSF5xzZWhCyYCKO2FjqAEprB9WRsJbwNFFoLKhITRCQheBbByQCMAQQwow1I8M9oPJ2870npqvvq5RvvfFyYE3hjrLmst3TixrV0XSN08Uax/UrMSeHdmKDdj8uhh3Pef2Wa+qDljrj82pK+aM300sl0eTrC/rL3zzZKZhRWFMq+mLvvTZb0bbweGZL/85ywwnl4RLzR9MBdIGy0LJowOWHxoOY2EiaJ/7s7ZP0Tg2wjWb3y6Lm3IPRNonw/0yT/+lZsdFy/LmUEp2RojHl68B41zDx43WJ/qANkwdVOvGtxjzpgo/keUURn2XK6zerz9Km10w3Vb8Ww/t/UdmHyx7fXwEcPiP0w1Xx9f+/m/X/d13Wiees8yPnk69ePlS9Yuf9sQf1dvVB27mm68U+51Fj7emzS+mzw1jzwuvTKFXHoK30l9EXctVlozIiSPdpk5djrW965BmV1XW4qsp8kNXmtWztdklXXTa0u6lO0d1+GS3TV/Q95O+17+S23Hs5sIfP4e/uqvd9oo+p7u0cYiPb4+9f/L+Qn3PmuXDdDai/ev0ts69I9nuNTOXp9HfOmoy/a5Y9D2cYYsebq+cKgB1V9vXdYFfOz7vWiVCLNnUUVkLOGO9umVN0jl2KoIjYSINEzgUORoDBKAnJwSLTLikQOBSAoC0ABBAbMgDWYIuBBeFRE7CbBCXCAwxFBAJPRgCSAFADBlykokcZCKHFAkPbSRKRaFUUsRGUyZLTJksMWWyjSlDJKhfFALZmFAJdFPo1+gkQVKXw/EW8/zToeZ5fh0t/H+V6k8+"
+        // "bXNjaAF4nGNgZ2BjZmDJS8xNZRByrkzOyc9LdctJLEpVT1F4v3AaA3dKanFyUWZBSWZ+HgMDA1tOYlJqTjEDU3QsFwN/eWJJapFuakVJUWJySX4RA3tSYglQpJKBPRliEgNXQX45UElefkoqA39SUWZKeqpucn5eWWolSDmQlVKaWcIgkpyfm1RaDLJDNz01L7UoEWQaf3JRZX5aTmlmim5uZkUqUCA3M7koX7egKD85tbgYqIIlIzEzB+gqQQYwYGYEEkwgxMjAAuQCKSYOZgam//8ZWP7/+/+HgZGZBSTPDlEGVMEKVssAooAMNqAWBpA0SCdQKTMDMzvEZAZGRhCXBZXLyv7///8cIC4AKgZaCOKGAHEh0DBWBpAKIAW0hQNkAR9Q16+KOXtDbhfNNhBQneu5XNV+o/0FSYFCtbrHC+dm3v/MnK3TnKUYGCv0+X3uygksNwzr3jbr755T/O3NuiOxk+7YX7lSoNb3oW3CUq7vKxq4bn1rUKqJsqldfsLX2KkoICQ679L8bW8fCLaY3K+LfGLIe6hoXlaW3iMvrsUq7Hc9Mq1W/OrydlRf+VK9+Ov1iSmsK1deCPKVPF69dG+I5RQ3qSf2PLmlH2bkLwgT4Q3V5+3qnBDPqcG1dNuqZfETim+6G0UqT9b5bGsUznqqb7GZxoxc5eUMT/JvvC79UdlruPvxJis9XhbeTZXLN+68WFB41+DkNRv7uZEGOr/2rvPPu8ZfyXRLI+zoUnmLXRu3+nz0EnP1Omq39TLX3c23cleZ8F62FSnMVCviO2H6tWXB7z2LpA02vleTOXiJK20BT+ADsencfQd0tlqrfQuoWut5dHaX1OP/KwIY5r66Zp4T9+2p241L0XvPfu5w/Zu3bNX77V89kt42zOLf9jJ9vk+msV1vy/Knlywv7Lh4NEY7fvHay0t3Sxo+2q918+je/O23P+50/qEWe45XqGzaR1vh0h1idRwBYZter2DKPJv559VDhbXSHzgin2x8PeXIKsvmtRIVB5V5b/1zcBP+f7VpfuP1OLcJKiePP7n8paroYrul0uF88dp5619+MN8Z7WT0p7DTUqftYOt3XqN51hGf+IVDH0UwcDKwAZMFMwCWiVNe"
+    }
 
     test_iter!(
         block_iter,

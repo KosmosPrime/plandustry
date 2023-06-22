@@ -80,7 +80,7 @@ impl BlockLogic for SimpleBlock {
 }
 
 macro_rules! cost {
-	($($item:ident: $cnt:literal),+) => {
+	($($item:ident: $cnt:expr),+) => {
 		&[$((crate::item::Type::$item, $cnt)),*]
 	};
 }

@@ -13,8 +13,8 @@ use crate::data::GridPos;
 use crate::fluid;
 use crate::item::storage::Storage;
 
-make_register!
-(
+make_register! {
+    "reinforced-pump" => SimpleBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
     "mechanical-pump" => SimpleBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
     "rotary-pump" => SimpleBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
     "impulse-pump" => SimpleBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
@@ -27,10 +27,16 @@ make_register!
     "liquid-junction" => SimpleBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
     "bridge-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4), 4, true);
     "phase-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 20, Titanium: 10, Silicon: 7, PhaseFabric: 5), 12, true);
+    "reinforced-conduit" => SimpleBlock::new(1, false, cost!(Beryllium: 2));
+    "reinforced-liquid-junction" => SimpleBlock::new(1, true, cost!(Graphite: 4, Beryllium: 8));
+    "reinforced-bridge-conduit" => BridgeBlock::new(1, true, cost!(Graphite: 8, Beryllium: 20), 4, true);
+    "reinforced-liquid-router" => SimpleBlock::new(1, true, cost!(Graphite: 8, Beryllium: 4));
+    "reinforced-liquid-container" => SimpleBlock::new(2, true, cost!(Tungsten: 10, Beryllium: 16));
+    "reinforced-liquid-tank" => SimpleBlock::new(3, true, cost!(Tungsten: 40, Beryllium: 50));
     // sandbox only
     "liquid-source" => FluidBlock::new(1, true, &[]);
     "liquid-void" => SimpleBlock::new(1, true, &[]);
-);
+}
 
 pub struct FluidBlock {
     size: u8,

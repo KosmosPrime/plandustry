@@ -27,6 +27,17 @@ make_register! {
     "overflow-gate" => SimpleBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "underflow-gate" => SimpleBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
+    "duct" => SimpleBlock::new(1, false, cost!(Beryllium: 1));
+    "armored-duct" => SimpleBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
+    "duct-router" => ItemBlock::new(1, true, cost!(Beryllium: 10));
+    "overflow-duct" => SimpleBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
+    "underflow-duct" => SimpleBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
+    "duct-bridge" => BridgeBlock::new(1, true, cost!(Beryllium: 20), 3, true);
+    "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
+    "surge-conveyor" => SimpleBlock::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
+    "surge-router" => SimpleBlock::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
+    "unit-cargo-loader" => SimpleBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
+    "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
     "item-source" => ItemBlock::new(1, true, &[]);
     "item-void" => SimpleBlock::new(1, true, &[]);

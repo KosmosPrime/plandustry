@@ -4,7 +4,8 @@ use std::fmt;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
-    self, impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
+    self, impl_block, make_register, transport::BridgeBlock, BlockLogic, DataConvertError,
+    DeserializeError, SerializeError,
 };
 use crate::content;
 use crate::data::dynamic::{DynData, DynType};
@@ -28,8 +29,30 @@ make_register! {
         cost!(Lead: 4000, Thorium: 1000, Silicon: 3000, Plastanium: 600, PhaseFabric: 600, SurgeAlloy: 800));
     "repair-point" => SimpleBlock::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
     "repair-turret" => SimpleBlock::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
+    "tank-fabricator" => SimpleBlock::new(3, true, cost!(Silicon: 200, Beryllium: 150));
+    "ship-fabricator" => SimpleBlock::new(3, true, cost!(Silicon: 250, Beryllium: 200));
+    "mech-fabricator" => SimpleBlock::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60));
+    "tank-refabricator" => SimpleBlock::new(3, true, cost!(Beryllium: 200, Tungsten: 80, Silicon: 100));
+    "mech-refabricator" => SimpleBlock::new(3, true, cost!(Beryllium: 250, Tungsten: 120, Silicon: 150));
+    "ship-refabricator" => SimpleBlock::new(3, true, cost!(Beryllium: 200, Tungsten: 100, Silicon: 150, Oxide: 40));
+    "prime-refabricator" => SimpleBlock::new(5, true, cost!(Thorium: 250, Oxide: 200, Tungsten: 200, Silicon: 400));
+    "tank-assembler" => SimpleBlock::new(5, true, cost!(Thorium: 500, Oxide: 150, Carbide: 80, Silicon: 500));
+    "ship-assembler" => SimpleBlock::new(5, true, cost!(Carbide: 100, Oxide: 200, Tungsten: 500, Silicon: 800, Thorium: 400));
+    "mech-assembler" => SimpleBlock::new(5, true, cost!(Carbide: 200, Thorium: 600, Oxide: 200, Tungsten: 500, Silicon: 900)); // smh collaris
+    "basic-assembler-module" => SimpleBlock::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
+    // payload
     "payload-conveyor" => SimpleBlock::new(3, false, cost!(Copper: 10, Graphite: 10));
-    "payload-router" => SimpleBlock::new(3, false, cost!(Copper: 10, Graphite: 15));
+    "payload-router" => PayloadBlock::new(3, false, cost!(Copper: 10, Graphite: 15));
+    "reinforced-payload-conveyor" => SimpleBlock::new(3, false, cost!(Tungsten: 10));
+    "reinforced-payload-router" => SimpleBlock::new(3, false, cost!(Tungsten: 15));
+    "payload-mass-driver" => BridgeBlock::new(3, true, cost!(Tungsten: 120, Silicon: 120, Graphite: 50), 700, false);
+    "large-payload-mass-driver" => BridgeBlock::new(5, true, cost!(Thorium: 200, Tungsten: 200, Silicon: 200, Graphite: 100, Oxide: 30), 1100, false);
+    "small-deconstructor" => SimpleBlock::new(3, true, cost!(Beryllium: 100, Silicon: 100, Oxide: 40, Graphite: 80));
+    "deconstructor" => SimpleBlock::new(5, true, cost!(Beryllium: 250, Oxide: 100, Silicon: 250, Carbide: 250));
+    "constructor" => PayloadBlock::new(3, true, cost!(Silicon: 100, Beryllium: 150, Tungsten: 80));
+    "large-constructor" => PayloadBlock::new(3, true, cost!(Silicon: 150, Oxide: 150, Tungsten: 200, PhaseFabric: 40));
+    "payload-loader" => SimpleBlock::new(3, false, cost!(Graphite: 50, Silicon: 50, Tungsten: 80));
+    "payload-unloader" => SimpleBlock::new(3, false, cost!(Graphite: 50, Silicon: 50, Tungsten: 30));
     // sandbox only
     "payload-source" => PayloadBlock::new(5, false, &[]);
     "payload-void" => SimpleBlock::new(5, true, &[]);
