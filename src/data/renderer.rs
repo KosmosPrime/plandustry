@@ -1,18 +1,29 @@
-use std::io::BufReader;
+use std::io::{BufReader, Cursor};
 use std::path::Path;
 
 use image::codecs::png::PngDecoder;
 use image::imageops::overlay;
 use image::{DynamicImage, RgbaImage};
+use zip::ZipArchive;
 
 use super::schematic::Schematic;
 
 pub fn load(category: &str, name: &str) -> Option<RgbaImage> {
-    let mut p = Path::new("assets/blocks").join(category).join(name);
+    let mut p = Path::new("target/out/blocks").join(category).join(name);
     p.set_extension("png");
     let f = std::fs::File::open(p).ok()?;
     let r = PngDecoder::new(BufReader::new(f)).unwrap();
     Some(DynamicImage::from_decoder(r).unwrap().into_rgba8())
+}
+
+fn load_zip() {
+    if !Path::new("target/out").exists() {
+        let mut zip = ZipArchive::new(Cursor::new(
+            include_bytes!(concat!(env!("OUT_DIR"), "/asset")).to_vec(),
+        ))
+        .unwrap();
+        zip.extract("target/out").unwrap();
+    }
 }
 
 const SUFFIXES: &[&str; 8] = &[
@@ -24,10 +35,6 @@ where
 {
     let mut c = RgbaImage::new(size.into() * 32, size.into() * 32);
     for suffix in SUFFIXES {
-        let mut p = Path::new("assets/blocks")
-            .join(category)
-            .join(format!("{name}{suffix}"));
-        p.set_extension("png");
         if let Some(p) = load(category, &format!("{name}{suffix}")) {
             image::imageops::overlay(&mut c, &p, 0, 0);
         }
@@ -38,6 +45,7 @@ where
 pub struct Renderer {}
 impl<'l> Renderer {
     pub fn render(s: &'l Schematic<'_>) -> RgbaImage {
+        load_zip();
         let mut canvas = RgbaImage::new((s.width * 32).into(), (s.height * 32).into());
         for tile in s.block_iter() {
             let mut x = tile.pos.0 as i64;

@@ -15,6 +15,12 @@ strconv = { path = "strconv" }
 image = { version = "0.24.6", features = ["png"], default-features = false }
 const-str = "0.5.5"
 color-hex = "0.2.0"
+zip = { version = "0.6.6", features = ["zstd"], default-features = false }
+
+[build-dependencies]
+zip = { version = "0.6.6", features = ["zstd"], default-features = false }
+walkdir = "2"
+
 
 [[bin]]
 name = "plandustry"
