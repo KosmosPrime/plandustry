@@ -1,8 +1,8 @@
+//! the industry part of mindustry
 use crate::block::make_register;
 use crate::block::simple::{cost, SimpleBlock};
 
-make_register!
-(
+make_register! {
     "graphite-press" => SimpleBlock::new(2, true, cost!(Copper: 75, Lead: 30));
     "multi-press" => SimpleBlock::new(3, true, cost!(Lead: 100, Graphite: 50, Titanium: 100, Silicon: 25));
     "silicon-smelter" => SimpleBlock::new(2, true, cost!(Copper: 30, Lead: 25));
@@ -39,4 +39,4 @@ make_register!
     // heat reactor
     // sandbox only
     "heat-source" => SimpleBlock::new(1, false, &[]);
-);
+}

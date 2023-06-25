@@ -1,3 +1,4 @@
+//! contains types of types
 use std::error::Error;
 
 macro_rules! numeric_enum {

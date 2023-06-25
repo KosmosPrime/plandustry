@@ -28,7 +28,8 @@ impl<'l, E: RegistryEntry + fmt::Debug + 'static> Registry<'l, E> {
         }
     }
 
-    #[must_use] pub fn get(&self, name: &str) -> Option<&'l E> {
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<&'l E> {
         self.by_name.get(name).copied()
     }
 }

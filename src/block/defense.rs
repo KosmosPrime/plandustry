@@ -1,3 +1,4 @@
+//! walls
 use std::any::Any;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};

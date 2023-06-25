@@ -1,3 +1,6 @@
+//! deal with blocks.
+//!
+//! categorized as mindustry categorizes them in its assets folder, for easy drawing
 use image::RgbaImage;
 use std::any::Any;
 use std::borrow::Cow;
@@ -25,6 +28,7 @@ pub mod storage;
 pub mod turrets;
 
 pub trait BlockLogic {
+    /// mindustry blocks are the same width and height
     fn get_size(&self) -> u8;
 
     fn is_symmetric(&self) -> bool;
@@ -169,6 +173,7 @@ impl Error for SerializeError {
     }
 }
 
+/// a block. put it in stuff!
 pub struct Block {
     category: Cow<'static, str>,
     name: Cow<'static, str>,
@@ -183,6 +188,7 @@ impl PartialEq for Block {
 
 impl Block {
     #[must_use]
+    /// create a new block
     pub const fn new(
         category: Cow<'static, str>,
         name: Cow<'static, str>,
@@ -195,6 +201,15 @@ impl Block {
         }
     }
 
+    /// this blocks name
+    /// ```
+    /// assert!(mindus::block::distribution::DISTRIBUTOR.name() == "distributor")
+    /// ```
+    pub fn name(&self) -> &str {
+        &*self.name
+    }
+
+    /// draw this block, with this state
     pub fn image(&self, state: Option<&dyn Any>) -> RgbaImage {
         if let Some(p) = self
             .logic
@@ -207,46 +222,49 @@ impl Block {
         read(&*self.category, &*self.name, self.get_size())
     }
 
+    /// size.
     pub fn get_size(&self) -> u8 {
         self.logic.get_size()
     }
 
+    /// does it matter if its rotated
     pub fn is_symmetric(&self) -> bool {
         self.logic.is_symmetric()
     }
 
+    /// cost
     pub fn get_build_cost(&self) -> Option<ItemStorage> {
         self.logic.as_ref().create_build_cost()
     }
 
-    pub fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError> {
+    pub(crate) fn data_from_i32(
+        &self,
+        config: i32,
+        pos: GridPos,
+    ) -> Result<DynData, DataConvertError> {
         self.logic.data_from_i32(config, pos)
     }
 
-    pub fn deserialize_state(
+    pub(crate) fn deserialize_state(
         &self,
         data: DynData,
     ) -> Result<Option<Box<dyn Any>>, DeserializeError> {
         self.logic.deserialize_state(data)
     }
 
-    pub fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    pub(crate) fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
         self.logic.clone_state(state)
     }
 
-    pub fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
+    pub(crate) fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
         self.logic.mirror_state(state, horizontally, vertically);
     }
 
-    pub fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
+    pub(crate) fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
         self.logic.rotate_state(state, clockwise);
     }
 
-    pub fn rotate_180(&mut self, state: &mut dyn Any) {
-        self.logic.mirror_state(state, true, true);
-    }
-
-    pub fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    pub(crate) fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
         self.logic.serialize_state(state)
     }
 }
@@ -265,6 +283,7 @@ impl RegistryEntry for Block {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// the possible rotation states of a object
 pub enum Rotation {
     Right,
     Up,
@@ -274,6 +293,7 @@ pub enum Rotation {
 
 impl Rotation {
     #[must_use]
+    /// mirror the directions.
     pub fn mirrored(self, horizontally: bool, vertically: bool) -> Self {
         match self {
             Self::Right => {
@@ -307,11 +327,13 @@ impl Rotation {
         }
     }
 
+    /// mirror in place
     pub fn mirror(&mut self, horizontally: bool, vertically: bool) {
         *self = self.mirrored(horizontally, vertically);
     }
 
     #[must_use]
+    /// rotate the rotation
     pub fn rotated(self, clockwise: bool) -> Self {
         match self {
             Self::Right => {
@@ -345,11 +367,13 @@ impl Rotation {
         }
     }
 
+    /// rotate the rotation in place
     pub fn rotate(&mut self, clockwise: bool) {
         *self = self.rotated(clockwise);
     }
 
     #[must_use]
+    /// rotate 180
     pub fn rotated_180(self) -> Self {
         match self {
             Self::Right => Self::Left,
@@ -359,6 +383,7 @@ impl Rotation {
         }
     }
 
+    /// rotate 180 in place
     pub fn rotate_180(&mut self) {
         *self = self.rotated_180();
     }
@@ -407,13 +432,14 @@ macro_rules! make_register {
 pub(crate) use make_register;
 
 #[must_use]
+/// create a block registry
 pub fn build_registry() -> BlockRegistry<'static> {
     let mut reg = BlockRegistry::default();
     register(&mut reg);
     reg
 }
 
-pub fn register(reg: &mut BlockRegistry<'_>) {
+fn register(reg: &mut BlockRegistry<'_>) {
     turrets::register(reg);
     drills::register(reg);
     distribution::register(reg);

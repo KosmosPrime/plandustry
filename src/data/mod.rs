@@ -1,9 +1,10 @@
+//! all the IO
 use std::error::Error;
 use std::fmt;
 use std::str::Utf8Error;
 
-pub mod base64;
-pub mod command;
+mod base64;
+mod command;
 pub mod dynamic;
 pub mod renderer;
 pub mod schematic;
@@ -271,7 +272,7 @@ impl<'d> TryFrom<DataWrite<'d>> for Vec<u8> {
         }
     }
 }
-
+/// basic serialization/deserialization functions
 pub trait Serializer<D> {
     type ReadError;
     type WriteError;

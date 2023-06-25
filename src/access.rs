@@ -1,3 +1,4 @@
+//! Similar to Cow but doesn't require ToOwned
 use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt;
@@ -6,8 +7,8 @@ use std::ops::Deref;
 
 pub type BoxAccess<'a, D> = Access<'a, Box<D>, D>;
 
-// Similar to Cow but doesn't require ToOwned
 #[derive(Clone, Debug)]
+/// Similar to Cow but doesn't require ToOwned
 pub enum Access<'a, T: AsRef<B>, B: ?Sized> {
     Borrowed(&'a B),
     Owned(T),

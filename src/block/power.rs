@@ -1,3 +1,4 @@
+//! power connection and generation
 use std::any::Any;
 use std::error::Error;
 use std::fmt;

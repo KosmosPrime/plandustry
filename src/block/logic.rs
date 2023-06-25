@@ -1,3 +1,4 @@
+//! logic processors and stuff
 use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
@@ -18,6 +19,7 @@ use crate::data::{self, DataRead, DataWrite, GridPos};
 use crate::item::storage::Storage;
 
 make_register! {
+    // todo reinforced proc
     "message" => MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
     "switch" => SwitchLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
     "micro-processor" => ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));

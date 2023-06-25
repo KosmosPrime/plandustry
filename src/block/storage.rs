@@ -1,3 +1,4 @@
+//! cores, vaults, containers
 use crate::block::distribution::ItemBlock;
 use crate::block::make_register;
 use crate::block::simple::{cost, SimpleBlock};

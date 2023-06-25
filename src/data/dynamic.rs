@@ -1,3 +1,4 @@
+//! variable type
 use std::error::Error;
 use std::fmt;
 
@@ -8,6 +9,7 @@ use crate::logic::LogicField;
 use crate::team::Team;
 
 #[derive(Clone, Debug, PartialEq)]
+/// holds different kinds of data
 pub enum DynData {
     Empty,
     Int(i32),

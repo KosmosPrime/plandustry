@@ -1,3 +1,4 @@
+//! type used for basic blocks, eg turrets and factorys
 use std::any::{type_name, Any};
 
 use crate::block::{impl_block, BlockLogic, DataConvertError, DeserializeError, SerializeError};
@@ -7,8 +8,7 @@ use crate::data::GridPos;
 use crate::item;
 use crate::item::storage::Storage;
 
-macro_rules!state_impl
-{
+macro_rules! state_impl {
 	($vis:vis $type:ty) =>
 	{
 		$vis fn get_state(state: &dyn Any) -> &$type

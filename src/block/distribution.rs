@@ -1,3 +1,4 @@
+//! conveyors ( & ducts )
 use std::any::Any;
 use std::error::Error;
 use std::fmt;
@@ -119,12 +120,10 @@ impl BlockLogic for ItemBlock {
                     item_c[2] as f32 / 255.0,
                 ];
                 let mut top = load(category, "center").unwrap();
-                for Rgba([r, g, b, ref a]) in top.pixels_mut() {
-                    if a > &254 {
-                        *r = (*r as f32 * tr) as u8;
-                        *g = (*g as f32 * tg) as u8;
-                        *b = (*b as f32 * tb) as u8;
-                    }
+                for Rgba([r, g, b, _]) in top.pixels_mut() {
+                    *r = (*r as f32 * tr) as u8;
+                    *g = (*g as f32 * tg) as u8;
+                    *b = (*b as f32 * tb) as u8;
                 }
 
                 image::imageops::overlay(&mut p, &top, 0, 0);

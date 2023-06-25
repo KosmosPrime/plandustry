@@ -7,11 +7,13 @@ use crate::content::{Content, Type};
 pub struct Team(u8);
 
 impl Team {
-    #[must_use] pub fn of(id: u8) -> Self {
+    #[must_use]
+    pub fn of(id: u8) -> Self {
         Self(id)
     }
 
-    #[must_use] pub fn is_base(&self) -> bool {
+    #[must_use]
+    pub fn is_base(&self) -> bool {
         self.0 < 6
     }
 }
@@ -110,9 +112,15 @@ impl Content for Team {
     }
 }
 
+#[allow(dead_code)]
 pub const DERELICT: Team = Team(0);
+#[allow(dead_code)]
 pub const SHARDED: Team = Team(1);
+#[allow(dead_code)]
 pub const CRUX: Team = Team(2);
+#[allow(dead_code)]
 pub const MALIS: Team = Team(3);
+#[allow(dead_code)]
 pub const GREEN: Team = Team(4);
+#[allow(dead_code)]
 pub const BLUE: Team = Team(5);

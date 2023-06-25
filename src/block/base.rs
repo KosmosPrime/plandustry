@@ -1,3 +1,4 @@
+//! all the uncategorized blocks (they need to be categorized for proper rendering tho)
 use std::any::Any;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};

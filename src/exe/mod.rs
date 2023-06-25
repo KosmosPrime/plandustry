@@ -1,4 +1,3 @@
-mod args;
 mod draw;
 mod print;
 
@@ -29,8 +28,8 @@ fn main() {
     args.next().unwrap(); // path to executable
     match args.next() {
         None => eprintln!("Not enough arguments, valid commands are: draw, print"),
-        Some(s) if s == "print" => print::main(args, 1),
-        Some(s) if s == "draw" => draw::main(args, 1),
+        Some(s) if s == "print" => print::main(args),
+        Some(s) if s == "draw" => draw::main(args),
         Some(s) => eprintln!("Unknown argument {s}, valid commands are: draw, print"),
     }
 }

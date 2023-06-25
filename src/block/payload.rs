@@ -1,3 +1,4 @@
+//! payload related bits and bobs
 use std::any::Any;
 use std::error::Error;
 use std::fmt;

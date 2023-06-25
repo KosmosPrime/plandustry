@@ -1,3 +1,4 @@
+//! idk why its not in the [crate::block::defense] module
 use crate::block::make_register;
 use crate::block::simple::{cost, SimpleBlock};
 

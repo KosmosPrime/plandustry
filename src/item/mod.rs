@@ -1,3 +1,4 @@
+//! the different kinds of items
 use image::Rgb;
 
 pub mod storage;

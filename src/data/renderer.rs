@@ -1,3 +1,4 @@
+//! schematic drawing
 use std::io::{BufReader, Cursor};
 use std::path::Path;
 
@@ -8,7 +9,7 @@ use zip::ZipArchive;
 
 use super::schematic::Schematic;
 
-pub fn load(category: &str, name: &str) -> Option<RgbaImage> {
+pub(crate) fn load(category: &str, name: &str) -> Option<RgbaImage> {
     let mut p = Path::new("target/out/blocks").join(category).join(name);
     p.set_extension("png");
     let f = std::fs::File::open(p).ok()?;
@@ -29,7 +30,7 @@ fn load_zip() {
 const SUFFIXES: &[&str; 8] = &[
     "bottom", "mid", "", "-base", "-left", "-right", "-top", "-over",
 ];
-pub fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
+pub(crate) fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
 where
     S: Into<u32> + Copy,
 {
@@ -42,8 +43,19 @@ where
     c
 }
 
+/// renderer for creating images of schematics
 pub struct Renderer {}
 impl<'l> Renderer {
+    /// creates a picture of a schematic. Bridges and nodes are not drawn, and there is no background.
+    /// conveyors, conduits, and ducts currently do not render.
+    /// ```
+    /// use mindus::*;
+    /// let s = Schematic::new(2, 3);
+    /// s.put(0, 0, blocks::distribution::DISTRIBUTOR);
+    /// s.put(0, 3, blocks::distrubution::ROUTER);
+    /// s.put(1, 3, blocks::defense::COPPER_WALL);
+    /// let output /*: RgbaImage */ = Renderer::render(&s);
+    /// ```
     pub fn render(s: &'l Schematic<'_>) -> RgbaImage {
         load_zip();
         let mut canvas = RgbaImage::new((s.width * 32).into(), (s.height * 32).into());

@@ -1,3 +1,4 @@
+//! extraction of raw resources (mine part)
 use crate::block::make_register;
 use crate::block::simple::{cost, SimpleBlock};
 

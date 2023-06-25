@@ -6,6 +6,7 @@ use std::slice;
 use crate::item;
 
 #[derive(Clone, Debug, Eq)]
+/// holds item counts
 pub struct Storage {
     base: Vec<u32>,
     total: u64,

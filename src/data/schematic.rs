@@ -1,3 +1,4 @@
+//! schematic parsing
 use std::any::Any;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -19,14 +20,17 @@ use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::item::storage::Storage as ItemStorage;
 use crate::registry::RegistryEntry;
 
+/// biggest schematic
 pub const MAX_DIMENSION: u16 = 128;
+/// most possible blocks
 pub const MAX_BLOCKS: u32 = 128 * 128;
 
+/// a placement in a schematic
 pub struct Placement<'l> {
     pub pos: GridPos,
     pub block: &'l Block,
+    pub rot: Rotation,
     state: Option<Box<dyn Any>>,
-    rot: Rotation,
 }
 
 impl PartialEq for Placement<'_> {
@@ -36,6 +40,7 @@ impl PartialEq for Placement<'_> {
 }
 
 impl<'l> Placement<'l> {
+    /// gets the current state of this placement. you can cast it with `placement.block::get_state(placement.get_state()?)?`
     #[must_use]
     pub fn get_state(&self) -> Option<&dyn Any> {
         match self.state {
@@ -44,6 +49,7 @@ impl<'l> Placement<'l> {
         }
     }
 
+    /// get mutable state.
     pub fn get_state_mut(&mut self) -> Option<&mut dyn Any> {
         match self.state {
             None => None,
@@ -51,10 +57,12 @@ impl<'l> Placement<'l> {
         }
     }
 
+    /// draws this placement in particular
     pub fn image(&self) -> RgbaImage {
         self.block.image(self.get_state())
     }
 
+    /// set the state
     pub fn set_state(
         &mut self,
         data: DynData,
@@ -63,6 +71,7 @@ impl<'l> Placement<'l> {
         Ok(std::mem::replace(&mut self.state, state))
     }
 
+    /// rotate this
     pub fn set_rotation(&mut self, rot: Rotation) -> Rotation {
         std::mem::replace(&mut self.rot, rot)
     }
@@ -84,6 +93,7 @@ impl<'l> Clone for Placement<'l> {
 }
 
 #[derive(Clone)]
+/// a schematic.
 pub struct Schematic<'l> {
     pub width: u16,
     pub height: u16,
@@ -103,6 +113,11 @@ impl<'l> PartialEq for Schematic<'l> {
 
 impl<'l> Schematic<'l> {
     #[must_use]
+    /// create a new schematic, panicking if too big
+    /// ```
+    /// # use mindus::Schematic;
+    /// let s = Schematic::new(5, 5);
+    /// ```
     pub fn new(width: u16, height: u16) -> Self {
         match Self::try_new(width, height) {
             Ok(s) => s,
@@ -111,6 +126,11 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// create a new schematic, erroring if too big
+    /// ```
+    /// # use mindus::Schematic;
+    /// assert!(Schematic::try_new(500, 500).is_err() == true);
+    /// ```
     pub fn try_new(width: u16, height: u16) -> Result<Self, NewError> {
         if width > MAX_DIMENSION {
             return Err(NewError::Width(width));
@@ -132,16 +152,24 @@ impl<'l> Schematic<'l> {
     }
 
     #[must_use]
+    /// have blocks?
     pub fn is_empty(&self) -> bool {
         self.blocks.is_empty()
     }
 
     #[must_use]
+    /// count blocks
     pub fn get_block_count(&self) -> usize {
         self.blocks.len()
     }
 
     #[must_use]
+    /// check if a rect is empty
+    /// ```
+    /// # use mindus::Schematic;
+    /// let s = Schematic::new(5, 5);
+    /// assert!(s.is_region_empty(1, 1, 4, 4) == true);
+    /// ```
     pub fn is_region_empty(&self, x: u16, y: u16, w: u16, h: u16) -> bool {
         if self.blocks.is_empty() {
             return true;
@@ -176,6 +204,7 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// gets a block
     pub fn get(&self, x: u16, y: u16) -> Result<Option<&Placement<'l>>, PosError> {
         if x >= self.width || y >= self.height {
             return Err(PosError {
@@ -195,6 +224,7 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// gets a block, mutably
     pub fn get_mut(&mut self, x: u16, y: u16) -> Result<Option<&mut Placement<'l>>, PosError> {
         if x >= self.width || y >= self.height {
             return Err(PosError {
@@ -214,7 +244,7 @@ impl<'l> Schematic<'l> {
         }
     }
 
-    fn swap_remove(&mut self, idx: usize) -> Placement<'l> {
+    fn remove(&mut self, idx: usize) -> Placement<'l> {
         // swap_remove not only avoids moves in self.blocks but also reduces the lookup changes we have to do
         let prev = self.blocks.swap_remove(idx);
         self.fill_lookup(
@@ -254,6 +284,30 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// put a block in (same as [Schematic::set], but less arguments)
+    /// ```
+    /// # use mindus::Schematic;
+    /// # use mindus::DynData;
+    /// # use mindus::block::Rotation;
+    ///
+    /// let mut s = Schematic::new(5, 5);
+    /// s.put(0, 0, &mindus::block::distribution::ROUTER);
+    /// assert!(s.get(0, 0).unwrap().is_some() == true);
+    /// ```
+    pub fn put(&mut self, x: u16, y: u16, block: &'l Block) -> Result<&Placement<'l>, PlaceError> {
+        self.set(x, y, block, DynData::Empty, Rotation::Up)
+    }
+
+    /// set a block
+    /// ```
+    /// # use mindus::Schematic;
+    /// # use mindus::DynData;
+    /// # use mindus::block::Rotation;
+    ///
+    /// let mut s = Schematic::new(5, 5);
+    /// s.set(0, 0, &mindus::block::distribution::ROUTER, DynData::Empty, Rotation::Right);
+    /// assert!(s.get(0, 0).unwrap().is_some() == true);
+    /// ```
     pub fn set(
         &mut self,
         x: u16,
@@ -335,7 +389,7 @@ impl<'l> Schematic<'l> {
                     if let Some(idx) =
                         self.lookup[(x as usize + dx) + (y as usize + dy) * (self.width as usize)]
                     {
-                        let prev = self.swap_remove(idx);
+                        let prev = self.remove(idx);
                         if let Some(ref mut v) = result {
                             v.push(prev);
                         }
@@ -391,6 +445,18 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// take out a block
+    /// ```
+    /// # use mindus::Schematic;
+    /// # use mindus::DynData;
+    /// # use mindus::block::Rotation;
+    ///
+    /// let mut s = Schematic::new(5, 5);
+    /// s.put(0, 0, &mindus::block::turrets::DUO);
+    /// assert!(s.get(0, 0).unwrap().is_some() == true);
+    /// assert!(s.take(0, 0).unwrap().is_some() == true);
+    /// assert!(s.get(0, 0).unwrap().is_none() == true);
+    /// ```
     pub fn take(&mut self, x: u16, y: u16) -> Result<Option<Placement<'l>>, PosError> {
         if x >= self.width || y >= self.height {
             return Err(PosError {
@@ -406,7 +472,7 @@ impl<'l> Schematic<'l> {
             let pos = (x as usize) + (y as usize) * (self.width as usize);
             match self.lookup[pos] {
                 None => Ok(None),
-                Some(idx) => Ok(Some(self.swap_remove(idx))),
+                Some(idx) => Ok(Some(self.remove(idx))),
             }
         }
     }
@@ -433,6 +499,7 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// flip it
     pub fn mirror(&mut self, horizontally: bool, vertically: bool) {
         if !self.blocks.is_empty() && (horizontally || vertically) {
             for curr in &mut self.blocks {
@@ -456,6 +523,18 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// turn
+    /// ```
+    /// # use mindus::Schematic;
+    /// # use mindus::DynData;
+    /// # use mindus::block::Rotation;
+    ///
+    /// let mut s = Schematic::new(5, 5);
+    /// // 0, 0 == bottom left
+    /// s.put(0, 0, &mindus::block::turrets::HAIL);
+    /// s.rotate(true);
+    /// assert!(s.get(0, 4).unwrap().is_some() == true);
+    /// ```
     pub fn rotate(&mut self, clockwise: bool) {
         let w = self.width;
         let h = self.height;
@@ -485,6 +564,7 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// resize this schematic
     pub fn resize(&mut self, dx: i16, dy: i16, w: u16, h: u16) -> Result<(), ResizeError> {
         if w > MAX_DIMENSION {
             return Err(ResizeError::TargetWidth(w));
@@ -553,6 +633,7 @@ impl<'l> Schematic<'l> {
         Ok(())
     }
 
+    /// like rotate(), but 180
     pub fn rotate_180(&mut self) {
         self.mirror(true, true);
     }
@@ -567,11 +648,22 @@ impl<'l> Schematic<'l> {
         }
     }
 
+    /// iterate over all the blocks
     pub fn block_iter<'s>(&'s self) -> Iter<'s, Placement<'l>> {
         self.blocks.iter()
     }
 
     #[must_use]
+    /// see how much this schematic costs.
+    /// ```
+    /// # use mindus::Schematic;
+    /// # use mindus::DynData;
+    /// # use mindus::block::Rotation;
+    ///
+    /// let mut s = Schematic::new(5, 5);
+    /// s.put(0, 0, &mindus::block::turrets::CYCLONE);
+    /// // assert_eq!(s.compute_total_cost().0.get_total(), 405);
+    /// ```
     pub fn compute_total_cost(&self) -> (ItemStorage, bool) {
         let mut cost = ItemStorage::new();
         let mut sandbox = false;
@@ -586,6 +678,7 @@ impl<'l> Schematic<'l> {
     }
 }
 
+/// error created by creating a new schematic
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum NewError {
     Width(u16),
@@ -603,6 +696,7 @@ impl fmt::Display for NewError {
 
 impl Error for NewError {}
 
+/// error created by doing stuff out of bounds
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct PosError {
     pub x: u16,
@@ -917,12 +1011,12 @@ impl<'l> fmt::Display for Schematic<'l> {
 const SCHEMATIC_HEADER: u32 =
     ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
 
+/// serde_schematic
 pub struct SchematicSerializer<'l>(pub &'l BlockRegistry<'l>);
 
 impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
     type ReadError = ReadError;
     type WriteError = WriteError;
-
     fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Schematic<'l>, Self::ReadError> {
         let hdr = buff.read_u32()?;
         if hdr != SCHEMATIC_HEADER {
@@ -1252,6 +1346,15 @@ impl Error for WriteError {
 }
 
 impl<'l> SchematicSerializer<'l> {
+    /// deserializes a schematic from base64
+    /// ```
+    /// # use mindus::*;
+    /// let string = "bXNjaAF4nGNgZmBmZmDJS8xNZeBOyslPzlYAkwzcKanFyUWZBSWZ+XkMDAxsOYlJqTnFDEzRsYwMfAWJlTn5iSm6RfmlJalFQGlGEGJkZWSYxQAAcBkUPA==";
+    /// let reg = build_registry();
+    /// let mut ss = SchematicSerializer(&reg);
+    /// let s = ss.deserialize_base64(string).unwrap();
+    /// assert!(s.get(0, 0).unwrap().unwrap().block.name() == "payload-router");
+    /// ```
     pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic<'l>, R64Error> {
         let mut buff = Vec::<u8>::new();
         buff.resize(data.len() / 4 * 3 + 1, 0);
@@ -1259,6 +1362,7 @@ impl<'l> SchematicSerializer<'l> {
         Ok(self.deserialize(&mut DataRead::new(&buff[..n_out]))?)
     }
 
+    /// serialize a schematic to base64
     pub fn serialize_base64(&mut self, data: &Schematic<'l>) -> Result<String, W64Error> {
         let mut buff = DataWrite::default();
         self.serialize(&mut buff, data)?;
@@ -1270,7 +1374,7 @@ impl<'l> SchematicSerializer<'l> {
         let n_out = base64::encode(buff, text.as_mut())?;
         // trailing zeros are valid UTF8, but not valid base64
         assert_eq!(n_out, text.len());
-        // SAFETY: base64 encoding outputs pure ASCII (see base64::CHARS)
+        // SAFETY: base64 encoding outputs pure ASCII (hopefully)
         Ok(unsafe { String::from_utf8_unchecked(text) })
     }
 }
@@ -1439,7 +1543,6 @@ mod test {
         "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",
-        "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"
     }
