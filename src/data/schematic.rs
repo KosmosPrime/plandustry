@@ -10,6 +10,7 @@ use flate2::{
     Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress,
     FlushDecompress, Status,
 };
+use image::RgbaImage;
 
 use crate::block::{self, Block, BlockRegistry, Rotation};
 use crate::data::base64;
@@ -22,8 +23,8 @@ pub const MAX_DIMENSION: u16 = 128;
 pub const MAX_BLOCKS: u32 = 128 * 128;
 
 pub struct Placement<'l> {
-    pos: GridPos,
-    block: &'l Block,
+    pub pos: GridPos,
+    pub block: &'l Block,
     state: Option<Box<dyn Any>>,
     rot: Rotation,
 }
@@ -48,6 +49,10 @@ impl<'l> Placement<'l> {
             None => None,
             Some(ref mut b) => Some(b.as_mut()),
         }
+    }
+
+    pub fn image(&self) -> RgbaImage {
+        self.block.image(self.get_state())
     }
 
     pub fn set_state(

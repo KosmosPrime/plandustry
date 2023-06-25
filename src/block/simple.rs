@@ -2,6 +2,7 @@ use std::any::{type_name, Any};
 
 use crate::block::{impl_block, BlockLogic, DataConvertError, DeserializeError, SerializeError};
 use crate::data::dynamic::DynData;
+use crate::data::renderer::{load, read};
 use crate::data::GridPos;
 use crate::item;
 use crate::item::storage::Storage;
@@ -29,6 +30,7 @@ macro_rules!state_impl
 		}
 	};
 }
+use image::RgbaImage;
 pub(crate) use state_impl;
 
 pub type BuildCost = &'static [(item::Type, u32)];
@@ -76,6 +78,17 @@ impl BlockLogic for SimpleBlock {
 
     fn serialize_state(&self, _: &dyn Any) -> Result<DynData, SerializeError> {
         Ok(DynData::Empty)
+    }
+
+    fn draw(&self, category: &str, name: &str, _: Option<&dyn Any>) -> Option<RgbaImage> {
+        if category != "turrets" {
+            return None;
+        }
+        // TODO: erekir
+        let mut base = load(category, &format!("bases/block-{}", self.size)).unwrap();
+        let top = read(category, name, self.size);
+        image::imageops::overlay(&mut base, &top, 0, 0);
+        Some(base)
     }
 }
 

@@ -4,7 +4,7 @@ use std::fmt;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
-    self, impl_block, make_register, transport::BridgeBlock, BlockLogic, DataConvertError,
+    self, distribution::BridgeBlock, impl_block, make_register, BlockLogic, DataConvertError,
     DeserializeError, SerializeError,
 };
 use crate::content;

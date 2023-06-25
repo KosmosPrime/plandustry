@@ -5,6 +5,7 @@ use std::str::Utf8Error;
 pub mod base64;
 pub mod command;
 pub mod dynamic;
+pub mod renderer;
 pub mod schematic;
 
 pub struct DataRead<'d> {
@@ -30,7 +31,8 @@ macro_rules! make_read {
 }
 
 impl<'d> DataRead<'d> {
-    #[must_use] pub fn new(data: &'d [u8]) -> Self {
+    #[must_use]
+    pub fn new(data: &'d [u8]) -> Self {
         Self { data }
     }
 
@@ -202,11 +204,13 @@ impl<'d> DataWrite<'d> {
         Ok(())
     }
 
-    #[must_use] pub fn is_owned(&self) -> bool {
+    #[must_use]
+    pub fn is_owned(&self) -> bool {
         matches!(self.data, WriteBuff::Vec(..))
     }
 
-    #[must_use] pub fn get_written(&self) -> &[u8] {
+    #[must_use]
+    pub fn get_written(&self) -> &[u8] {
         match &self.data {
             WriteBuff::Ref { raw, pos } => &raw[..*pos],
             WriteBuff::Vec(v) => v,

@@ -1,3 +1,4 @@
+use image::RgbaImage;
 use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
@@ -12,15 +13,16 @@ use crate::registry::RegistryEntry;
 pub mod base;
 pub mod content;
 pub mod defense;
-pub mod extraction;
-pub mod factory;
-pub mod fluid;
+pub mod distribution;
+pub mod drills;
+pub mod liquid;
 pub mod logic;
 pub mod payload;
 pub mod power;
+pub mod production;
 pub mod simple;
-pub mod transport;
-pub mod turret;
+pub mod storage;
+pub mod turrets;
 
 pub trait BlockLogic {
     fn get_size(&self) -> u8;
@@ -40,6 +42,10 @@ pub trait BlockLogic {
     fn rotate_state(&self, state: &mut dyn Any, clockwise: bool);
 
     fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>;
+
+    fn draw(&self, _category: &str, _name: &str, _state: Option<&dyn Any>) -> Option<RgbaImage> {
+        None
+    }
 }
 
 // i wish i could derive
@@ -164,6 +170,7 @@ impl Error for SerializeError {
 }
 
 pub struct Block {
+    category: Cow<'static, str>,
     name: Cow<'static, str>,
     logic: BoxAccess<'static, dyn BlockLogic + Sync>,
 }
@@ -177,10 +184,27 @@ impl PartialEq for Block {
 impl Block {
     #[must_use]
     pub const fn new(
+        category: Cow<'static, str>,
         name: Cow<'static, str>,
         logic: BoxAccess<'static, dyn BlockLogic + Sync>,
     ) -> Self {
-        Self { name, logic }
+        Self {
+            category,
+            name,
+            logic,
+        }
+    }
+
+    pub fn image(&self, state: Option<&dyn Any>) -> RgbaImage {
+        if let Some(p) = self
+            .logic
+            .as_ref()
+            .draw(&*self.category, &*self.name, state)
+        {
+            return p;
+        }
+        use crate::data::renderer::read;
+        read(&*self.category, &*self.name, self.get_size())
     }
 
     pub fn get_size(&self) -> u8 {
@@ -365,21 +389,20 @@ impl From<Rotation> for u8 {
 pub type BlockRegistry<'l> = crate::registry::Registry<'l, Block>;
 pub type RegisterError<'l> = crate::registry::RegisterError<'l, Block>;
 
-macro_rules! make_register
-{
-	($($field:literal => $logic:expr;)+) =>
-	{
-        paste::paste! {
+macro_rules! make_register {
+	($($field:literal => $logic:expr;)+) => { paste::paste! {
 		$(
 			pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
+                std::borrow::Cow::Borrowed(
+                    const_str::split!(module_path!(), "::")[2]
+                ),
 				std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic));
 		)+
 
 		pub fn register(reg: &mut $crate::block::BlockRegistry<'_>) {
 			$(assert!(reg.register(&[<$field:snake:upper>]).is_ok(), "duplicate block {:?}", $field);)+
 		}
-    }
-	};
+    }};
 }
 pub(crate) use make_register;
 
@@ -391,13 +414,14 @@ pub fn build_registry() -> BlockRegistry<'static> {
 }
 
 pub fn register(reg: &mut BlockRegistry<'_>) {
-    turret::register(reg);
-    extraction::register(reg);
-    transport::register(reg);
-    fluid::register(reg);
+    turrets::register(reg);
+    drills::register(reg);
+    distribution::register(reg);
+    storage::register(reg);
+    liquid::register(reg);
     power::register(reg);
     defense::register(reg);
-    factory::register(reg);
+    production::register(reg);
     payload::register(reg);
     base::register(reg);
     logic::register(reg);
