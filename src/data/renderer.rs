@@ -10,9 +10,13 @@ use zip::ZipArchive;
 use super::schematic::Schematic;
 
 pub(crate) fn load(category: &str, name: &str) -> Option<RgbaImage> {
-    let mut p = Path::new("target/out/blocks").join(category).join(name);
+    let mut p = Path::new("blocks").join(category).join(name);
     p.set_extension("png");
-    let f = std::fs::File::open(p).ok()?;
+    load_raw(p)
+}
+
+pub(crate) fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
+    let f = std::fs::File::open(Path::new("target/out").join(f)).ok()?;
     let r = PngDecoder::new(BufReader::new(f)).unwrap();
     Some(DynamicImage::from_decoder(r).unwrap().into_rgba8())
 }
@@ -27,8 +31,8 @@ fn load_zip() {
     }
 }
 
-const SUFFIXES: &[&str; 8] = &[
-    "bottom", "mid", "", "-base", "-left", "-right", "-top", "-over",
+const SUFFIXES: &[&str; 10] = &[
+    "-bottom", "-mid", "", "-base", "-left", "-right", "-rotator", "-weave", "-top", "-over",
 ];
 pub(crate) fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
 where
@@ -46,26 +50,23 @@ where
 /// renderer for creating images of schematics
 pub struct Renderer {}
 impl<'l> Renderer {
-    /// creates a picture of a schematic. Bridges and nodes are not drawn, and there is no background.
+    /// creates a picture of a schematic. Bridges and node connections are not drawn, and there is no background.
     /// conveyors, conduits, and ducts currently do not render.
     /// ```
     /// use mindus::*;
-    /// let s = Schematic::new(2, 3);
-    /// s.put(0, 0, blocks::distribution::DISTRIBUTOR);
-    /// s.put(0, 3, blocks::distrubution::ROUTER);
-    /// s.put(1, 3, blocks::defense::COPPER_WALL);
+    /// let mut s = Schematic::new(2, 3);
+    /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
+    /// s.put(0, 3, &block::distribution::ROUTER);
+    /// s.put(1, 3, &block::walls::COPPER_WALL);
     /// let output /*: RgbaImage */ = Renderer::render(&s);
     /// ```
     pub fn render(s: &'l Schematic<'_>) -> RgbaImage {
         load_zip();
         let mut canvas = RgbaImage::new((s.width * 32).into(), (s.height * 32).into());
         for tile in s.block_iter() {
-            let mut x = tile.pos.0 as i64;
-            let mut y = tile.pos.1 as i64;
-            if tile.block.get_size() != 1 && tile.block.get_size() % 2 != 0 {
-                x -= 1;
-                y -= 1;
-            }
+            let sub = ((tile.block.get_size() - 1) / 2) as u16;
+            let x = (tile.pos.0 - sub) as i64;
+            let y = (tile.pos.1 - sub) as i64;
             overlay(&mut canvas, &tile.image(), x * 32, y * 32);
         }
         canvas

@@ -1,6 +1,7 @@
 //! deal with blocks.
 //!
 //! categorized as mindustry categorizes them in its assets folder, for easy drawing
+//! with the exception of sandbox.
 use image::RgbaImage;
 use std::any::Any;
 use std::borrow::Cow;
@@ -13,7 +14,7 @@ use crate::data::GridPos;
 use crate::item::storage::Storage as ItemStorage;
 use crate::registry::RegistryEntry;
 
-pub mod base;
+pub mod campaign;
 pub mod content;
 pub mod defense;
 pub mod distribution;
@@ -26,6 +27,7 @@ pub mod production;
 pub mod simple;
 pub mod storage;
 pub mod turrets;
+pub mod walls;
 
 pub trait BlockLogic {
     /// mindustry blocks are the same width and height
@@ -80,11 +82,11 @@ pub(crate) use impl_block;
 
 #[derive(Debug)]
 pub enum DataConvertError {
-    Custom(Box<dyn Error>),
+    Custom(Box<dyn Error + Sync + Send>),
 }
 
 impl DataConvertError {
-    pub fn forward<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self> {
+    pub fn forward<T, E: Error + Sync + Send + 'static>(result: Result<T, E>) -> Result<T, Self> {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(Self::Custom(Box::new(e))),
@@ -111,11 +113,11 @@ impl Error for DataConvertError {
 #[derive(Debug)]
 pub enum DeserializeError {
     InvalidType { have: DynType, expect: DynType },
-    Custom(Box<dyn Error>),
+    Custom(Box<dyn Error + Sync + Send>),
 }
 
 impl DeserializeError {
-    pub fn forward<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self> {
+    pub fn forward<T, E: Error + Sync + Send + 'static>(result: Result<T, E>) -> Result<T, Self> {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(Self::Custom(Box::new(e))),
@@ -145,11 +147,11 @@ impl Error for DeserializeError {
 
 #[derive(Debug)]
 pub enum SerializeError {
-    Custom(Box<dyn Error>),
+    Custom(Box<dyn Error + Sync + Send>),
 }
 
 impl SerializeError {
-    pub fn forward<T, E: Error + 'static>(result: Result<T, E>) -> Result<T, Self> {
+    pub fn forward<T, E: Error + Sync + Send + 'static>(result: Result<T, E>) -> Result<T, Self> {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(Self::Custom(Box::new(e))),
@@ -449,6 +451,7 @@ fn register(reg: &mut BlockRegistry<'_>) {
     defense::register(reg);
     production::register(reg);
     payload::register(reg);
-    base::register(reg);
+    campaign::register(reg);
     logic::register(reg);
+    walls::register(reg);
 }

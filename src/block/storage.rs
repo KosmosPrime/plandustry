@@ -13,6 +13,6 @@ make_register! {
   "container" => SimpleBlock::new(2, true, cost!(Titanium: 100));
   "vault" => SimpleBlock::new(3, true, cost!(Titanium: 250, Thorium: 125));
   "unloader" => ItemBlock::new(1, true, cost!(Titanium: 25, Silicon: 30));
-  "reinforced-container" =>  SimpleBlock::new(2, true, cost!(Tungsten: 30, Graphite: 40));
-  "reinforced-vault" =>  SimpleBlock::new(3, true, cost!(Tungsten: 125, Thorium: 70, Beryllium: 100));
+  "reinforced-container" => SimpleBlock::new(2, true, cost!(Tungsten: 30, Graphite: 40));
+  "reinforced-vault" => SimpleBlock::new(3, true, cost!(Tungsten: 125, Thorium: 70, Beryllium: 100));
 }

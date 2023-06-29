@@ -20,6 +20,7 @@ use crate::item::storage::Storage;
 
 make_register! {
     // todo reinforced proc
+    "reinforced-message" => MessageLogic::new(1, true, cost!(Graphite: 10, Beryllium: 5));
     "message" => MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
     "switch" => SwitchLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
     "micro-processor" => ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));

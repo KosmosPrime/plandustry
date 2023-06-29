@@ -12,6 +12,8 @@ use crate::data::GridPos;
 use crate::item::storage::Storage;
 
 make_register! {
+    // illuminator == power ?????
+    "illuminator" => LampBlock::new(1, true, cost!(Lead: 8, Graphite: 12, Silicon: 8));
     "power-node" => ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
     "power-node-large" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
     "surge-tower" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
@@ -143,3 +145,78 @@ impl fmt::Display for ConnectorDeserializeError {
 }
 
 impl Error for ConnectorDeserializeError {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RGBA(u8, u8, u8, u8);
+
+impl From<u32> for RGBA {
+    fn from(value: u32) -> Self {
+        Self(
+            (value >> 24) as u8,
+            (value >> 16) as u8,
+            (value >> 8) as u8,
+            value as u8,
+        )
+    }
+}
+
+impl From<RGBA> for u32 {
+    fn from(value: RGBA) -> Self {
+        (u32::from(value.0) << 24)
+            | (u32::from(value.1) << 16)
+            | (u32::from(value.2) << 8)
+            | u32::from(value.3)
+    }
+}
+
+pub struct LampBlock {
+    size: u8,
+    symmetric: bool,
+    build_cost: BuildCost,
+}
+
+impl LampBlock {
+    #[must_use]
+    pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
+        assert!(size != 0, "invalid size");
+        Self {
+            size,
+            symmetric,
+            build_cost,
+        }
+    }
+
+    state_impl!(pub RGBA);
+}
+
+impl BlockLogic for LampBlock {
+    impl_block!();
+
+    fn data_from_i32(&self, config: i32, _: GridPos) -> Result<DynData, DataConvertError> {
+        Ok(DynData::Int(config))
+    }
+
+    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+        match data {
+            DynData::Int(rgba) => Ok(Some(Self::create_state(RGBA::from(rgba as u32)))),
+            _ => Err(DeserializeError::InvalidType {
+                have: data.get_type(),
+                expect: DynType::Int,
+            }),
+        }
+    }
+
+    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+        let state = Self::get_state(state);
+        Box::new(Self::create_state(*state))
+    }
+
+    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+
+    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+
+    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+        let state = Self::get_state(state);
+        Ok(DynData::Int(u32::from(*state) as i32))
+    }
+}

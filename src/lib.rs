@@ -10,6 +10,7 @@ mod modifier;
 mod registry;
 mod team;
 mod unit;
+mod utils;
 pub use block::build_registry;
 pub use data::dynamic::DynData;
 pub use data::renderer::Renderer;

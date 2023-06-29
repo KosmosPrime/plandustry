@@ -50,6 +50,7 @@ where
 }
 
 fn main() -> Result<(), ZipError> {
+    let _ = std::fs::remove_dir_all("target/out");
     let walkdir = WalkDir::new("assets");
     let it = walkdir.into_iter();
     println!("cargo:rerun-if-changed=assets/");

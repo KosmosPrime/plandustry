@@ -86,6 +86,27 @@ macro_rules! content_enum {
 }
 pub(crate) use content_enum;
 
+macro_rules! color_content_enum {
+	($vis:vis enum $tname:ident / $ctype:ident for u16 | $error:ident {$($val:literal: $col:literal),* $(,)?}) =>
+	{
+		paste::paste! {
+		$crate::content::content_enum!($vis enum $tname / $ctype for u16 | $error {
+			$($val),*,
+		});
+
+        impl Type {
+            pub fn color(&self) -> image::Rgb<u8> {
+                match &self {
+                    $(Self::[<$val:camel>] => {
+                        image::Rgb(color_hex::color_from_hex!($col))
+                    },)*
+                }
+            }
+        }
+    }}
+}
+pub(crate) use color_content_enum;
+
 numeric_enum! {
     pub enum Type for u8 | TryFromU8Error
     {

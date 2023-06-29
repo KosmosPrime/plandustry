@@ -10,6 +10,7 @@ use crate::block::{
 };
 use crate::content;
 use crate::data::dynamic::{DynData, DynType};
+use crate::data::renderer::load;
 use crate::data::GridPos;
 use crate::fluid;
 use crate::item::storage::Storage;
@@ -101,6 +102,26 @@ impl BlockLogic for FluidBlock {
             None => Ok(DynData::Empty),
             Some(fluid) => Ok(DynData::Content(content::Type::Fluid, (*fluid).into())),
         }
+    }
+
+    fn draw(
+        &self,
+        category: &str,
+        name: &str,
+        state: Option<&dyn Any>,
+    ) -> Option<image::RgbaImage> {
+        let mut p = load(category, name).unwrap();
+        if let Some(state) = state {
+            if let Some(s) = Self::get_state(state) {
+                let mut top = load("distribution", "center").unwrap();
+                crate::utils::image::tint(&mut top, s.color());
+                image::imageops::overlay(&mut p, &top, 0, 0);
+                return Some(p);
+            }
+        }
+        let mut null = load("distribution", "cross-full").unwrap();
+        image::imageops::overlay(&mut null, &p, 0, 0);
+        Some(null)
     }
 }
 

@@ -3,7 +3,7 @@ use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
-use image::{Rgba, RgbaImage};
+use image::RgbaImage;
 
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
@@ -110,22 +110,17 @@ impl BlockLogic for ItemBlock {
     }
 
     fn draw(&self, category: &str, name: &str, state: Option<&dyn Any>) -> Option<RgbaImage> {
+        if !matches!(
+            name,
+            "unloader" | "item-source" | "sorter" | "inverted-sorter"
+        ) {
+            return None;
+        }
         let mut p = load(category, name).unwrap();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let item_c = s.color();
-                let [tr, tg, tb] = [
-                    item_c[0] as f32 / 255.0,
-                    item_c[1] as f32 / 255.0,
-                    item_c[2] as f32 / 255.0,
-                ];
                 let mut top = load(category, "center").unwrap();
-                for Rgba([r, g, b, _]) in top.pixels_mut() {
-                    *r = (*r as f32 * tr) as u8;
-                    *g = (*g as f32 * tg) as u8;
-                    *b = (*b as f32 * tb) as u8;
-                }
-
+                crate::utils::image::tint(&mut top, s.color());
                 image::imageops::overlay(&mut p, &top, 0, 0);
                 return Some(p);
             }
