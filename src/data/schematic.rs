@@ -1,5 +1,4 @@
 //! schematic parsing
-use std::any::Any;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::error::Error;
@@ -13,7 +12,7 @@ use flate2::{
 };
 use image::RgbaImage;
 
-use crate::block::{self, Block, BlockRegistry, Rotation};
+use crate::block::{self, Block, BlockRegistry, Rotation, State};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData, DynSerializer};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
@@ -30,7 +29,7 @@ pub struct Placement<'l> {
     pub pos: GridPos,
     pub block: &'l Block,
     pub rot: Rotation,
-    state: Option<Box<dyn Any>>,
+    state: Option<State>,
 }
 
 impl PartialEq for Placement<'_> {
@@ -42,18 +41,18 @@ impl PartialEq for Placement<'_> {
 impl<'l> Placement<'l> {
     /// gets the current state of this placement. you can cast it with `placement.block::get_state(placement.get_state()?)?`
     #[must_use]
-    pub fn get_state(&self) -> Option<&dyn Any> {
+    pub fn get_state(&self) -> Option<&State> {
         match self.state {
             None => None,
-            Some(ref b) => Some(b.as_ref()),
+            Some(ref b) => Some(b),
         }
     }
 
     /// get mutable state.
-    pub fn get_state_mut(&mut self) -> Option<&mut dyn Any> {
+    pub fn get_state_mut(&mut self) -> Option<&mut State> {
         match self.state {
             None => None,
-            Some(ref mut b) => Some(b.as_mut()),
+            Some(ref mut b) => Some(b),
         }
     }
 
@@ -63,10 +62,7 @@ impl<'l> Placement<'l> {
     }
 
     /// set the state
-    pub fn set_state(
-        &mut self,
-        data: DynData,
-    ) -> Result<Option<Box<dyn Any>>, block::DeserializeError> {
+    pub fn set_state(&mut self, data: DynData) -> Result<Option<State>, block::DeserializeError> {
         let state = self.block.deserialize_state(data)?;
         Ok(std::mem::replace(&mut self.state, state))
     }
@@ -515,8 +511,7 @@ impl<'l> Schematic<'l> {
                     curr.rot.mirror(horizontally, vertically);
                 }
                 if let Some(ref mut state) = curr.state {
-                    curr.block
-                        .mirror_state(state.as_mut(), horizontally, vertically);
+                    curr.block.mirror_state(state, horizontally, vertically);
                 }
             }
             self.rebuild_lookup();
@@ -557,7 +552,7 @@ impl<'l> Schematic<'l> {
                     curr.rot.rotate(clockwise);
                 }
                 if let Some(ref mut state) = curr.state {
-                    curr.block.rotate_state(state.as_mut(), clockwise);
+                    curr.block.rotate_state(state, clockwise);
                 }
             }
             self.rebuild_lookup();
@@ -1143,7 +1138,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
             rbuff.write_u32(u32::from(curr.pos))?;
             let data = match curr.state {
                 None => DynData::Empty,
-                Some(ref s) => curr.block.serialize_state(s.as_ref())?,
+                Some(ref s) => curr.block.serialize_state(s)?,
             };
             DynSerializer.serialize(&mut rbuff, &data)?;
             rbuff.write_u8(curr.rot.into())?;

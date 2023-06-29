@@ -1,8 +1,8 @@
 //! power connection and generation
-use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
+use super::State;
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
     impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
@@ -81,7 +81,7 @@ impl BlockLogic for ConnectorBlock {
         Ok(DynData::Empty)
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(Vec::new()))),
             DynData::Point2Array(s) => Ok(Some(Self::create_state(s))),
@@ -92,11 +92,11 @@ impl BlockLogic for ConnectorBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         Box::new(Self::get_state(state).clone())
     }
 
-    fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
+    fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {
         for (dx, dy) in Self::get_state_mut(state).iter_mut() {
             if horizontally {
                 *dx = -*dx;
@@ -107,7 +107,7 @@ impl BlockLogic for ConnectorBlock {
         }
     }
 
-    fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
+    fn rotate_state(&self, state: &mut State, clockwise: bool) {
         for (dx, dy) in Self::get_state_mut(state).iter_mut() {
             let (cdx, cdy) = (*dx, *dy);
             *dx = if clockwise { cdy } else { -cdy };
@@ -115,7 +115,7 @@ impl BlockLogic for ConnectorBlock {
         }
     }
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Point2Array(Self::get_state(state).clone()))
     }
 }
@@ -196,7 +196,7 @@ impl BlockLogic for LampBlock {
         Ok(DynData::Int(config))
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Int(rgba) => Ok(Some(Self::create_state(RGBA::from(rgba as u32)))),
             _ => Err(DeserializeError::InvalidType {
@@ -206,16 +206,16 @@ impl BlockLogic for LampBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         let state = Self::get_state(state);
         Ok(DynData::Int(u32::from(*state) as i32))
     }

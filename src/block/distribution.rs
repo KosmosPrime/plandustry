@@ -1,5 +1,4 @@
 //! conveyors ( & ducts )
-use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
@@ -15,6 +14,8 @@ use crate::data::renderer::load;
 use crate::data::GridPos;
 use crate::item;
 use crate::item::storage::Storage;
+
+use super::State;
 
 make_register! {
     "conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1));
@@ -77,7 +78,7 @@ impl BlockLogic for ItemBlock {
         Ok(DynData::Content(content::Type::Item, config as u16))
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(None))),
             DynData::Content(content::Type::Item, id) => Ok(Some(Self::create_state(Some(
@@ -93,23 +94,23 @@ impl BlockLogic for ItemBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {
             None => Ok(DynData::Empty),
             Some(item) => Ok(DynData::Content(content::Type::Item, (*item).into())),
         }
     }
 
-    fn draw(&self, category: &str, name: &str, state: Option<&dyn Any>) -> Option<RgbaImage> {
+    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<RgbaImage> {
         if !matches!(
             name,
             "unloader" | "item-source" | "sorter" | "inverted-sorter"
@@ -237,7 +238,7 @@ impl BlockLogic for BridgeBlock {
         Ok(DynData::Point2(dx, dy))
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(None))),
             DynData::Point2(dx, dy) => {
@@ -261,12 +262,12 @@ impl BlockLogic for BridgeBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
+    fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {
         match Self::get_state_mut(state) {
             None => (),
             Some((dx, dy)) => {
@@ -280,7 +281,7 @@ impl BlockLogic for BridgeBlock {
         }
     }
 
-    fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
+    fn rotate_state(&self, state: &mut State, clockwise: bool) {
         match Self::get_state_mut(state) {
             None => (),
             Some((dx, dy)) => {
@@ -291,7 +292,7 @@ impl BlockLogic for BridgeBlock {
         }
     }
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {
             None => Ok(DynData::Empty),
             Some((dx, dy)) => Ok(DynData::Point2(*dx, *dy)),

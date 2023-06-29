@@ -1,5 +1,4 @@
 //! payload related bits and bobs
-use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
@@ -13,6 +12,7 @@ use crate::data::dynamic::{DynData, DynType};
 use crate::data::GridPos;
 use crate::item::storage::Storage;
 use crate::unit;
+use super::State;
 
 const GROUND_UNITS: &[unit::Type] = &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
 const AIR_UNITS: &[unit::Type] = &[unit::Type::Flare, unit::Type::Mono];
@@ -95,7 +95,7 @@ impl BlockLogic for AssemblerBlock {
         Ok(DynData::Int(-1))
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(None))),
             DynData::Int(idx) => {
@@ -119,16 +119,16 @@ impl BlockLogic for AssemblerBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         if let Some(state) = Self::get_state(state) {
             for (i, curr) in self.valid.iter().enumerate() {
                 if curr == state {
@@ -207,7 +207,7 @@ impl BlockLogic for PayloadBlock {
         Ok(DynData::Empty)
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(Payload::Empty))),
             DynData::Content(content::Type::Block, id) => {
@@ -228,16 +228,16 @@ impl BlockLogic for PayloadBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {
             Payload::Empty => Ok(DynData::Empty),
             Payload::Block(block) => Ok(DynData::Content(content::Type::Block, (*block).into())),

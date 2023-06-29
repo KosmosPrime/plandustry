@@ -29,6 +29,7 @@ pub mod storage;
 pub mod turrets;
 pub mod walls;
 
+pub type State = Box<dyn Any + Sync + Send>;
 pub trait BlockLogic {
     /// mindustry blocks are the same width and height
     fn get_size(&self) -> u8;
@@ -39,17 +40,17 @@ pub trait BlockLogic {
 
     fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError>;
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError>;
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError>;
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any>;
+    fn clone_state(&self, state: &State) -> State;
 
-    fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool);
+    fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool);
 
-    fn rotate_state(&self, state: &mut dyn Any, clockwise: bool);
+    fn rotate_state(&self, state: &mut State, clockwise: bool);
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError>;
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError>;
 
-    fn draw(&self, _category: &str, _name: &str, _state: Option<&dyn Any>) -> Option<RgbaImage> {
+    fn draw(&self, _category: &str, _name: &str, _state: Option<&State>) -> Option<RgbaImage> {
         None
     }
 }
@@ -212,7 +213,7 @@ impl Block {
     }
 
     /// draw this block, with this state
-    pub fn image(&self, state: Option<&dyn Any>) -> RgbaImage {
+    pub fn image(&self, state: Option<&State>) -> RgbaImage {
         if let Some(p) = self
             .logic
             .as_ref()
@@ -250,23 +251,23 @@ impl Block {
     pub(crate) fn deserialize_state(
         &self,
         data: DynData,
-    ) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    ) -> Result<Option<State>, DeserializeError> {
         self.logic.deserialize_state(data)
     }
 
-    pub(crate) fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    pub(crate) fn clone_state(&self, state: &State) -> State {
         self.logic.clone_state(state)
     }
 
-    pub(crate) fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
+    pub(crate) fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {
         self.logic.mirror_state(state, horizontally, vertically);
     }
 
-    pub(crate) fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
+    pub(crate) fn rotate_state(&self, state: &mut State, clockwise: bool) {
         self.logic.rotate_state(state, clockwise);
     }
 
-    pub(crate) fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    pub(crate) fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         self.logic.serialize_state(state)
     }
 }

@@ -1,6 +1,7 @@
 //! type used for basic blocks, eg turrets and factorys
-use std::any::{type_name, Any};
+use std::any::type_name;
 
+use super::State;
 use crate::block::{impl_block, BlockLogic, DataConvertError, DeserializeError, SerializeError};
 use crate::data::dynamic::DynData;
 use crate::data::renderer::{load, read};
@@ -11,19 +12,19 @@ use crate::item::storage::Storage;
 macro_rules! state_impl {
 	($vis:vis $type:ty) =>
 	{
-		$vis fn get_state(state: &dyn Any) -> &$type
+		$vis fn get_state(state: &$crate::block::State) -> &$type
 			where Self: Sized
 		{
 			state.downcast_ref::<$type>().unwrap()
 		}
 
-		$vis fn get_state_mut(state: &mut dyn Any) -> &mut $type
+		$vis fn get_state_mut(state: &mut $crate::block::State) -> &mut $type
 			where Self: Sized
 		{
 			state.downcast_mut::<$type>().unwrap()
 		}
 
-		fn create_state(val: $type) -> Box<dyn Any>
+		fn create_state(val: $type) -> $crate::block::State
 			where Self: Sized
 		{
 			Box::new(val)
@@ -60,27 +61,27 @@ impl BlockLogic for SimpleBlock {
         Ok(DynData::Empty)
     }
 
-    fn deserialize_state(&self, _: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, _: DynData) -> Result<Option<State>, DeserializeError> {
         Ok(None)
     }
 
-    fn clone_state(&self, _: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, _: &State) -> State {
         panic!("{} has no custom state", type_name::<Self>())
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {
         panic!("{} has no custom state", type_name::<Self>());
     }
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {
+    fn rotate_state(&self, _: &mut State, _: bool) {
         panic!("{} has no custom state", type_name::<Self>());
     }
 
-    fn serialize_state(&self, _: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, _: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Empty)
     }
 
-    fn draw(&self, category: &str, name: &str, _: Option<&dyn Any>) -> Option<RgbaImage> {
+    fn draw(&self, category: &str, name: &str, _: Option<&State>) -> Option<RgbaImage> {
         if category != "turrets" {
             return None;
         }

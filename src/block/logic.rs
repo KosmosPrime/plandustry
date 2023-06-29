@@ -1,5 +1,4 @@
 //! logic processors and stuff
-use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
@@ -10,6 +9,7 @@ use flate2::{
     FlushDecompress, Status,
 };
 
+use super::State;
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
     impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
@@ -59,7 +59,7 @@ impl BlockLogic for MessageLogic {
         Ok(DynData::Empty)
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty | DynData::String(None) => Ok(Some(Self::create_state(String::new()))),
             DynData::String(Some(s)) => Ok(Some(Self::create_state(s))),
@@ -70,15 +70,15 @@ impl BlockLogic for MessageLogic {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         Box::new(Self::get_state(state).clone())
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::String(Some(Self::get_state(state).clone())))
     }
 }
@@ -110,7 +110,7 @@ impl BlockLogic for SwitchLogic {
         Ok(DynData::Empty)
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(true))),
             DynData::Boolean(enabled) => Ok(Some(Self::create_state(enabled))),
@@ -121,15 +121,15 @@ impl BlockLogic for SwitchLogic {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         Box::new(*Self::get_state(state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Boolean(*Self::get_state(state)))
     }
 }
@@ -161,7 +161,7 @@ impl BlockLogic for ProcessorLogic {
         Ok(DynData::Empty)
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(ProcessorState::default()))),
             DynData::ByteArray(arr) => {
@@ -240,11 +240,11 @@ impl BlockLogic for ProcessorLogic {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         Box::new(Self::get_state(state).clone())
     }
 
-    fn mirror_state(&self, state: &mut dyn Any, horizontally: bool, vertically: bool) {
+    fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {
         for link in &mut Self::get_state_mut(state).links {
             if horizontally {
                 link.x = -link.x;
@@ -255,7 +255,7 @@ impl BlockLogic for ProcessorLogic {
         }
     }
 
-    fn rotate_state(&self, state: &mut dyn Any, clockwise: bool) {
+    fn rotate_state(&self, state: &mut State, clockwise: bool) {
         for link in &mut Self::get_state_mut(state).links {
             let (cdx, cdy) = link.get_pos();
             link.x = if clockwise { cdy } else { -cdy };
@@ -263,7 +263,7 @@ impl BlockLogic for ProcessorLogic {
         }
     }
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         let state = Self::get_state(state);
         let mut rbuff = DataWrite::default();
         ProcessorSerializeError::forward(rbuff.write_u8(1))?;

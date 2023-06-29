@@ -1,6 +1,5 @@
 //! walls
-use std::any::Any;
-
+use super::State;
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
     impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
@@ -67,7 +66,7 @@ impl BlockLogic for DoorBlock {
         Ok(DynData::Boolean(false))
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Boolean(opened) => Ok(Some(Self::create_state(opened))),
             _ => Err(DeserializeError::InvalidType {
@@ -77,16 +76,16 @@ impl BlockLogic for DoorBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         let state = Self::get_state(state);
         Ok(DynData::Boolean(*state))
     }

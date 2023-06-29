@@ -1,8 +1,8 @@
 //! liquid related things
-use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
+use super::State;
 use crate::block::distribution::BridgeBlock;
 use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
 use crate::block::{
@@ -72,7 +72,7 @@ impl BlockLogic for FluidBlock {
         Ok(DynData::Content(content::Type::Fluid, config as u16))
     }
 
-    fn deserialize_state(&self, data: DynData) -> Result<Option<Box<dyn Any>>, DeserializeError> {
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(None))),
             DynData::Content(content::Type::Fluid, id) => Ok(Some(Self::create_state(Some(
@@ -88,28 +88,23 @@ impl BlockLogic for FluidBlock {
         }
     }
 
-    fn clone_state(&self, state: &dyn Any) -> Box<dyn Any> {
+    fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut dyn Any, _: bool, _: bool) {}
+    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
-    fn rotate_state(&self, _: &mut dyn Any, _: bool) {}
+    fn rotate_state(&self, _: &mut State, _: bool) {}
 
-    fn serialize_state(&self, state: &dyn Any) -> Result<DynData, SerializeError> {
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {
             None => Ok(DynData::Empty),
             Some(fluid) => Ok(DynData::Content(content::Type::Fluid, (*fluid).into())),
         }
     }
 
-    fn draw(
-        &self,
-        category: &str,
-        name: &str,
-        state: Option<&dyn Any>,
-    ) -> Option<image::RgbaImage> {
+    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<image::RgbaImage> {
         let mut p = load(category, name).unwrap();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
