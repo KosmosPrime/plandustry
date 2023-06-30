@@ -7,7 +7,8 @@ use image::imageops::overlay;
 use image::{DynamicImage, RgbaImage};
 use zip::ZipArchive;
 
-use crate::utils::image::repeat;
+use crate::team::SHARDED;
+use crate::utils::image::*;
 
 use super::schematic::Schematic;
 
@@ -33,8 +34,8 @@ fn load_zip() {
     }
 }
 pub const TOP: &str = "-top";
-const SUFFIXES: &[&str; 8] = &[
-    "-bottom", "-mid", "", "-base", "-left", "-right", TOP, "-over",
+const SUFFIXES: &[&str; 9] = &[
+    "-bottom", "-mid", "", "-base", "-left", "-right", TOP, "-over", "-team",
 ];
 pub(crate) fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
 where
@@ -54,7 +55,10 @@ where
 {
     let mut c = RgbaImage::new(size.into() * 32, size.into() * 32);
     for suffix in suffixes {
-        if let Some(p) = load(category, &format!("{name}{suffix}")) {
+        if let Some(mut p) = load(category, &format!("{name}{suffix}")) {
+            if suffix == &"-team" {
+                tint(&mut p, SHARDED.color());
+            }
             image::imageops::overlay(&mut c, &p, 0, 0);
         }
     }

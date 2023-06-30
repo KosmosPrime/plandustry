@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt;
 
+use image::Rgb;
+
 use crate::content::{Content, Type};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -112,15 +114,30 @@ impl Content for Team {
     }
 }
 
-#[allow(dead_code)]
+impl Team {
+    pub fn color(&self) -> Rgb<u8> {
+        macro_rules! h {
+            ($x:literal) => {
+                Rgb(color_hex::color_from_hex!($x))
+            };
+        }
+        match self {
+            &SHARDED => h!("ffd37f"),
+            &DERELICT => h!("4d4e58"),
+            &CRUX => h!("f25555"),
+            &MALIS => h!("a27ce5"),
+            &GREEN => h!("54d67d"),
+            &BLUE => h!("6c87fd"),
+            &NEOPLASTIC => h!("e05438"),
+            _ => h!("a9a9a9"),
+        }
+    }
+}
+
 pub const DERELICT: Team = Team(0);
-#[allow(dead_code)]
 pub const SHARDED: Team = Team(1);
-#[allow(dead_code)]
 pub const CRUX: Team = Team(2);
-#[allow(dead_code)]
 pub const MALIS: Team = Team(3);
-#[allow(dead_code)]
 pub const GREEN: Team = Team(4);
-#[allow(dead_code)]
 pub const BLUE: Team = Team(5);
+pub const NEOPLASTIC: Team = Team(6);
