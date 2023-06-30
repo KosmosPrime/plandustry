@@ -64,9 +64,8 @@ impl<'l> Renderer {
         load_zip();
         let mut canvas = RgbaImage::new((s.width * 32).into(), (s.height * 32).into());
         for tile in s.block_iter() {
-            let sub = ((tile.block.get_size() - 1) / 2) as u16;
-            let x = (tile.pos.0 - sub) as i64;
-            let y = (tile.pos.1 - sub) as i64;
+            let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as i64;
+            let y = (s.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as i64;
             overlay(&mut canvas, &tile.image(), x * 32, y * 32);
         }
         canvas
