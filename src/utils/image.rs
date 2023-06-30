@@ -12,3 +12,16 @@ pub fn tint(image: &mut RgbaImage, color: Rgb<u8>) {
         *b = (*b as f32 * tb) as u8;
     }
 }
+
+pub fn repeat(to: &mut RgbaImage, from: &RgbaImage) {
+    for x in 0..(to.width() / from.width()) {
+        for y in 0..(to.height() / from.height()) {
+            image::imageops::overlay(
+                to,
+                from,
+                (x * from.width()).into(),
+                (y * from.height()).into(),
+            );
+        }
+    }
+}

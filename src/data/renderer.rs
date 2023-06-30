@@ -7,6 +7,8 @@ use image::imageops::overlay;
 use image::{DynamicImage, RgbaImage};
 use zip::ZipArchive;
 
+use crate::utils::image::repeat;
+
 use super::schematic::Schematic;
 
 pub(crate) fn load(category: &str, name: &str) -> Option<RgbaImage> {
@@ -75,6 +77,8 @@ impl<'l> Renderer {
     pub fn render(s: &'l Schematic<'_>) -> RgbaImage {
         load_zip();
         let mut canvas = RgbaImage::new((s.width * 32).into(), (s.height * 32).into());
+        // fill background
+        repeat(&mut canvas, &load("environment", "metal-floor").unwrap());
         for tile in s.block_iter() {
             let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as i64;
             let y = (s.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as i64;
