@@ -85,8 +85,12 @@ impl BlockLogic for SimpleBlock {
         if category != "turrets" {
             return None;
         }
-        // TODO: erekir
-        let mut base = load(category, &format!("bases/block-{}", self.size)).unwrap();
+        let path = match name {
+            "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
+            | "scathe" | "malign" => format!("bases/reinforced-block-{}", self.size),
+            _ => format!("bases/block-{}", self.size),
+        };
+        let mut base = load(category, &path).unwrap();
         let top = read(category, name, self.size);
         image::imageops::overlay(&mut base, &top, 0, 0);
         Some(base)
