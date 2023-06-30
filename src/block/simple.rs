@@ -1,101 +1,96 @@
 //! type used for basic blocks, eg turrets and factorys
-use std::any::type_name;
-
-use super::State;
-use crate::block::{impl_block, BlockLogic, DataConvertError, DeserializeError, SerializeError};
-use crate::data::dynamic::DynData;
-use crate::data::renderer::{load, read};
-use crate::data::GridPos;
 use crate::item;
-use crate::item::storage::Storage;
 
 macro_rules! state_impl {
-	($vis:vis $type:ty) =>
-	{
+	($vis:vis $type:ty) => {
 		$vis fn get_state(state: &$crate::block::State) -> &$type
-			where Self: Sized
-		{
+		where Self: Sized {
 			state.downcast_ref::<$type>().unwrap()
 		}
 
 		$vis fn get_state_mut(state: &mut $crate::block::State) -> &mut $type
-			where Self: Sized
-		{
+		where Self: Sized {
 			state.downcast_mut::<$type>().unwrap()
 		}
 
 		fn create_state(val: $type) -> $crate::block::State
-			where Self: Sized
-		{
+		where Self: Sized {
 			Box::new(val)
 		}
 	};
 }
-use image::RgbaImage;
+
 pub(crate) use state_impl;
 
-pub type BuildCost = &'static [(item::Type, u32)];
-
-pub struct SimpleBlock {
-    size: u8,
-    symmetric: bool,
-    build_cost: BuildCost,
-}
-
-impl SimpleBlock {
-    #[must_use]
-    pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
-        assert!(size != 0, "invalid size");
-        Self {
-            size,
-            symmetric,
-            build_cost,
+macro_rules! make_simple {
+    ($name: ident, $draw: expr) => {
+        pub struct $name {
+            size: u8,
+            symmetric: bool,
+            build_cost: BuildCost,
         }
-    }
-}
-
-impl BlockLogic for SimpleBlock {
-    impl_block!();
-
-    fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
-        Ok(DynData::Empty)
-    }
-
-    fn deserialize_state(&self, _: DynData) -> Result<Option<State>, DeserializeError> {
-        Ok(None)
-    }
-
-    fn clone_state(&self, _: &State) -> State {
-        panic!("{} has no custom state", type_name::<Self>())
-    }
-
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {
-        panic!("{} has no custom state", type_name::<Self>());
-    }
-
-    fn rotate_state(&self, _: &mut State, _: bool) {
-        panic!("{} has no custom state", type_name::<Self>());
-    }
-
-    fn serialize_state(&self, _: &State) -> Result<DynData, SerializeError> {
-        Ok(DynData::Empty)
-    }
-
-    fn draw(&self, category: &str, name: &str, _: Option<&State>) -> Option<RgbaImage> {
-        if category != "turrets" {
-            return None;
+        impl $name {
+            #[must_use]
+            pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost) -> Self {
+                assert!(size != 0, "invalid size");
+                Self {
+                    size,
+                    symmetric,
+                    build_cost,
+                }
+            }
         }
-        let path = match name {
-            "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
-            | "scathe" | "malign" => format!("bases/reinforced-block-{}", self.size),
-            _ => format!("bases/block-{}", self.size),
+
+        use crate::block::{
+            impl_block, simple::BuildCost, BlockLogic, DataConvertError, DeserializeError,
+            SerializeError, State,
         };
-        let mut base = load(category, &path).unwrap();
-        let top = read(category, name, self.size);
-        image::imageops::overlay(&mut base, &top, 0, 0);
-        Some(base)
-    }
+        use crate::data::dynamic::DynData;
+        use crate::data::GridPos;
+        impl BlockLogic for $name {
+            impl_block!();
+
+            fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
+                Ok(DynData::Empty)
+            }
+
+            fn deserialize_state(&self, _: DynData) -> Result<Option<State>, DeserializeError> {
+                Ok(None)
+            }
+
+            fn clone_state(&self, _: &State) -> State {
+                panic!("{} has no custom state", stringify!($name))
+            }
+
+            fn mirror_state(&self, _: &mut State, _: bool, _: bool) {
+                panic!("{} has no custom state", stringify!($name));
+            }
+
+            fn rotate_state(&self, _: &mut State, _: bool) {
+                panic!("{} has no custom state", stringify!($name));
+            }
+
+            fn serialize_state(&self, _: &State) -> Result<DynData, SerializeError> {
+                Ok(DynData::Empty)
+            }
+
+            fn draw(
+                &self,
+                category: &str,
+                name: &str,
+                state: Option<&State>,
+            ) -> Option<image::RgbaImage> {
+                $draw(self, category, name, state)
+            }
+        }
+    };
+    ($name: ident) => {
+        crate::block::simple::make_simple!($name, |_, _, _, _| { None });
+    };
 }
+pub(crate) use make_simple;
+
+pub type BuildCost = &'static [(item::Type, u32)];
 
 macro_rules! cost {
 	($($item:ident: $cnt:expr),+) => {

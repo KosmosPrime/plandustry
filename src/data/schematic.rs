@@ -42,18 +42,12 @@ impl<'l> Placement<'l> {
     /// gets the current state of this placement. you can cast it with `placement.block::get_state(placement.get_state()?)?`
     #[must_use]
     pub fn get_state(&self) -> Option<&State> {
-        match self.state {
-            None => None,
-            Some(ref b) => Some(b),
-        }
+        self.state.as_ref()
     }
 
     /// get mutable state.
     pub fn get_state_mut(&mut self) -> Option<&mut State> {
-        match self.state {
-            None => None,
-            Some(ref mut b) => Some(b),
-        }
+        self.state.as_mut()
     }
 
     /// draws this placement in particular

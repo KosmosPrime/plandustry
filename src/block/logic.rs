@@ -9,14 +9,12 @@ use flate2::{
     FlushDecompress, Status,
 };
 
-use super::State;
-use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
-use crate::block::{
-    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
-};
-use crate::data::dynamic::{DynData, DynType};
-use crate::data::{self, DataRead, DataWrite, GridPos};
-use crate::item::storage::Storage;
+use crate::block::make_register;
+use crate::block::simple::{cost, make_simple, state_impl};
+use crate::data::dynamic::DynType;
+use crate::data::{self, DataRead, DataWrite};
+
+make_simple!(LogicBlock);
 
 make_register! {
     // todo reinforced proc
@@ -26,10 +24,10 @@ make_register! {
     "micro-processor" => ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));
     "logic-processor" => ProcessorLogic::new(2, true, cost!(Lead: 320, Graphite: 60, Thorium: 50, Silicon: 80));
     "hyper-processor" => ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
-    "memory-cell" => SimpleBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
-    "memory-bank" => SimpleBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
-    "logic-display" => SimpleBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
-    "large-logic-display" => SimpleBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
+    "memory-cell" => LogicBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
+    "memory-bank" => LogicBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
+    "logic-display" => LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
+    "large-logic-display" => LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
 }
 
 pub struct MessageLogic {

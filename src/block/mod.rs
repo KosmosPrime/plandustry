@@ -70,7 +70,7 @@ macro_rules! impl_block {
             if self.build_cost.is_empty() {
                 None
             } else {
-                let mut storage = Storage::new();
+                let mut storage = crate::item::storage::Storage::new();
                 for (ty, cnt) in self.build_cost {
                     storage.add(*ty, *cnt, u32::MAX);
                 }
@@ -209,7 +209,7 @@ impl Block {
     /// assert!(mindus::block::distribution::DISTRIBUTOR.name() == "distributor")
     /// ```
     pub fn name(&self) -> &str {
-        &*self.name
+        &self.name
     }
 
     /// draw this block, with this state
@@ -217,12 +217,12 @@ impl Block {
         if let Some(p) = self
             .logic
             .as_ref()
-            .draw(&*self.category, &*self.name, state)
+            .draw(&self.category, &self.name, state)
         {
             return p;
         }
         use crate::data::renderer::read;
-        read(&*self.category, &*self.name, self.get_size())
+        read(&self.category, &self.name, self.get_size())
     }
 
     /// size.

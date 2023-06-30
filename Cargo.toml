@@ -9,10 +9,7 @@ authors = [
 ]
 repository = "https://github.com/bend-n/mindus.git"
 license = "GPL-3.0"
-exclude = [
-	".github/",
-	"items.py"
-]
+exclude = [".github/", "items.py"]
 
 
 [dependencies]
@@ -32,3 +29,8 @@ walkdir = "2"
 [[bin]]
 name = "plandustry"
 path = "src/exe/mod.rs"
+
+[profile.release]
+debug = 2
+opt-level = 3
+lto = true

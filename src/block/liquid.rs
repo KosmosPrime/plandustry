@@ -2,42 +2,39 @@
 use std::error::Error;
 use std::fmt;
 
-use super::State;
 use crate::block::distribution::BridgeBlock;
-use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
-use crate::block::{
-    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
-};
+use crate::block::make_register;
+use crate::block::simple::{cost, make_simple, state_impl};
 use crate::content;
-use crate::data::dynamic::{DynData, DynType};
+use crate::data::dynamic::DynType;
 use crate::data::renderer::load;
-use crate::data::GridPos;
 use crate::fluid;
-use crate::item::storage::Storage;
+
+make_simple!(LiquidBlock);
 
 make_register! {
-    "reinforced-pump" => SimpleBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
-    "mechanical-pump" => SimpleBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
-    "rotary-pump" => SimpleBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
-    "impulse-pump" => SimpleBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
-    "conduit" => SimpleBlock::new(1, false, cost!(Metaglass: 1));
-    "pulse-conduit" => SimpleBlock::new(1, false, cost!(Metaglass: 1, Titanium: 2));
-    "plated-conduit" => SimpleBlock::new(1, false, cost!(Metaglass: 1, Thorium: 2, Plastanium: 1));
-    "liquid-router" => SimpleBlock::new(1, true, cost!(Metaglass: 2, Graphite: 4));
-    "liquid-container" => SimpleBlock::new(2, true, cost!(Metaglass: 15, Titanium: 10));
-    "liquid-tank" => SimpleBlock::new(3, true, cost!(Metaglass: 40, Titanium: 30));
-    "liquid-junction" => SimpleBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
+    "reinforced-pump" => LiquidBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
+    "mechanical-pump" => LiquidBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
+    "rotary-pump" => LiquidBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
+    "impulse-pump" => LiquidBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
+    "conduit" => LiquidBlock::new(1, false, cost!(Metaglass: 1));
+    "pulse-conduit" => LiquidBlock::new(1, false, cost!(Metaglass: 1, Titanium: 2));
+    "plated-conduit" => LiquidBlock::new(1, false, cost!(Metaglass: 1, Thorium: 2, Plastanium: 1));
+    "liquid-router" => LiquidBlock::new(1, true, cost!(Metaglass: 2, Graphite: 4));
+    "liquid-container" => LiquidBlock::new(2, true, cost!(Metaglass: 15, Titanium: 10));
+    "liquid-tank" => LiquidBlock::new(3, true, cost!(Metaglass: 40, Titanium: 30));
+    "liquid-junction" => LiquidBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
     "bridge-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4), 4, true);
     "phase-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 20, Titanium: 10, Silicon: 7, PhaseFabric: 5), 12, true);
-    "reinforced-conduit" => SimpleBlock::new(1, false, cost!(Beryllium: 2));
-    "reinforced-liquid-junction" => SimpleBlock::new(1, true, cost!(Graphite: 4, Beryllium: 8));
+    "reinforced-conduit" => LiquidBlock::new(1, false, cost!(Beryllium: 2));
+    "reinforced-liquid-junction" => LiquidBlock::new(1, true, cost!(Graphite: 4, Beryllium: 8));
     "reinforced-bridge-conduit" => BridgeBlock::new(1, true, cost!(Graphite: 8, Beryllium: 20), 4, true);
-    "reinforced-liquid-router" => SimpleBlock::new(1, true, cost!(Graphite: 8, Beryllium: 4));
-    "reinforced-liquid-container" => SimpleBlock::new(2, true, cost!(Tungsten: 10, Beryllium: 16));
-    "reinforced-liquid-tank" => SimpleBlock::new(3, true, cost!(Tungsten: 40, Beryllium: 50));
+    "reinforced-liquid-router" => LiquidBlock::new(1, true, cost!(Graphite: 8, Beryllium: 4));
+    "reinforced-liquid-container" => LiquidBlock::new(2, true, cost!(Tungsten: 10, Beryllium: 16));
+    "reinforced-liquid-tank" => LiquidBlock::new(3, true, cost!(Tungsten: 40, Beryllium: 50));
     // sandbox only
     "liquid-source" => FluidBlock::new(1, true, &[]);
-    "liquid-void" => SimpleBlock::new(1, true, &[]);
+    "liquid-void" => LiquidBlock::new(1, true, &[]);
 }
 
 pub struct FluidBlock {

@@ -2,14 +2,11 @@
 use std::error::Error;
 use std::fmt;
 
-use super::State;
-use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
-use crate::block::{
-    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
-};
-use crate::data::dynamic::{DynData, DynType};
-use crate::data::GridPos;
-use crate::item::storage::Storage;
+use crate::block::make_register;
+use crate::block::simple::{cost, make_simple, state_impl};
+use crate::data::dynamic::DynType;
+
+make_simple!(GeneratorBlock);
 
 make_register! {
     // illuminator == power ?????
@@ -17,31 +14,31 @@ make_register! {
     "power-node" => ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
     "power-node-large" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
     "surge-tower" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
-    "diode" => SimpleBlock::new(1, false, cost!(Metaglass: 10, Silicon: 10, Plastanium: 5));
-    "battery" => SimpleBlock::new(1, true, cost!(Copper: 5, Lead: 20));
-    "battery-large" => SimpleBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
-    "combustion-generator" => SimpleBlock::new(1, true, cost!(Copper: 25, Lead: 15));
-    "thermal-generator" => SimpleBlock::new(2, true, cost!(Copper: 40, Lead: 50, Metaglass: 40, Graphite: 35, Silicon: 35));
-    "steam-generator" => SimpleBlock::new(2, true, cost!(Copper: 35, Lead: 40, Graphite: 25, Silicon: 30));
-    "differential-generator" => SimpleBlock::new(3, true, cost!(Copper: 70, Lead: 100, Metaglass: 50, Titanium: 50, Silicon: 65));
-    "rtg-generator" => SimpleBlock::new(2, true, cost!(Lead: 100, Thorium: 50, Silicon: 75, Plastanium: 75, PhaseFabric: 25));
-    "solar-panel" => SimpleBlock::new(1, true, cost!(Lead: 10, Silicon: 15));
-    "solar-panel-large" => SimpleBlock::new(3, true, cost!(Lead: 80, Silicon: 110, PhaseFabric: 15));
-    "thorium-reactor" => SimpleBlock::new(3, true, cost!(Lead: 300, Metaglass: 50, Graphite: 150, Thorium: 150, Silicon: 200));
-    "impact-reactor" => SimpleBlock::new(4, true,
+    "diode" => GeneratorBlock::new(1, false, cost!(Metaglass: 10, Silicon: 10, Plastanium: 5));
+    "battery" => GeneratorBlock::new(1, true, cost!(Copper: 5, Lead: 20));
+    "battery-large" => GeneratorBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
+    "combustion-generator" => GeneratorBlock::new(1, true, cost!(Copper: 25, Lead: 15));
+    "thermal-generator" => GeneratorBlock::new(2, true, cost!(Copper: 40, Lead: 50, Metaglass: 40, Graphite: 35, Silicon: 35));
+    "steam-generator" => GeneratorBlock::new(2, true, cost!(Copper: 35, Lead: 40, Graphite: 25, Silicon: 30));
+    "differential-generator" => GeneratorBlock::new(3, true, cost!(Copper: 70, Lead: 100, Metaglass: 50, Titanium: 50, Silicon: 65));
+    "rtg-generator" => GeneratorBlock::new(2, true, cost!(Lead: 100, Thorium: 50, Silicon: 75, Plastanium: 75, PhaseFabric: 25));
+    "solar-panel" => GeneratorBlock::new(1, true, cost!(Lead: 10, Silicon: 15));
+    "solar-panel-large" => GeneratorBlock::new(3, true, cost!(Lead: 80, Silicon: 110, PhaseFabric: 15));
+    "thorium-reactor" => GeneratorBlock::new(3, true, cost!(Lead: 300, Metaglass: 50, Graphite: 150, Thorium: 150, Silicon: 200));
+    "impact-reactor" => GeneratorBlock::new(4, true,
         cost!(Lead: 500, Metaglass: 250, Graphite: 400, Thorium: 100, Silicon: 300, SurgeAlloy: 250));
     "beam-node" => ConnectorBlock::new(1, true, cost!(Beryllium: 8), 4);
     "beam-tower" => ConnectorBlock::new(3, true, cost!(Beryllium: 30, Oxide: 10, Silicon: 10), 12);
-    "turbine-condenser" => SimpleBlock::new(3, true, cost!(Beryllium: 60));
-    "chemical-combustion-chamber" => SimpleBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
-    "pyrolosis-generator" => SimpleBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
-    "flux-reactor" => SimpleBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
-    "neoplasia-reactor" => SimpleBlock::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
+    "turbine-condenser" => GeneratorBlock::new(3, true, cost!(Beryllium: 60));
+    "chemical-combustion-chamber" => GeneratorBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
+    "pyrolosis-generator" => GeneratorBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
+    "flux-reactor" => GeneratorBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
+    "neoplasia-reactor" => GeneratorBlock::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
     // editor only
     "beam-link" => ConnectorBlock::new(3, true, &[], 12);
     // sandbox only
     "power-source" => ConnectorBlock::new(1, true, &[], 100);
-    "power-void" => SimpleBlock::new(1, true, &[]);
+    "power-void" => GeneratorBlock::new(1, true, &[]);
 }
 pub struct ConnectorBlock {
     size: u8,

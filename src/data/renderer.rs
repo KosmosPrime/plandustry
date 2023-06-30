@@ -30,16 +30,28 @@ fn load_zip() {
         zip.extract("target/out").unwrap();
     }
 }
-
-const SUFFIXES: &[&str; 10] = &[
-    "-bottom", "-mid", "", "-base", "-left", "-right", "-rotator", "-weave", "-top", "-over",
+pub const TOP: &str = "-top";
+const SUFFIXES: &[&str; 8] = &[
+    "-bottom", "-mid", "", "-base", "-left", "-right", TOP, "-over",
 ];
 pub(crate) fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
 where
     S: Into<u32> + Copy,
 {
+    read_with(category, name, SUFFIXES, size)
+}
+
+pub(crate) fn read_with<S>(
+    category: &str,
+    name: &str,
+    suffixes: &'static [&'static str],
+    size: S,
+) -> RgbaImage
+where
+    S: Into<u32> + Copy,
+{
     let mut c = RgbaImage::new(size.into() * 32, size.into() * 32);
-    for suffix in SUFFIXES {
+    for suffix in suffixes {
         if let Some(p) = load(category, &format!("{name}{suffix}")) {
             image::imageops::overlay(&mut c, &p, 0, 0);
         }

@@ -4,48 +4,44 @@ use std::fmt;
 
 use image::RgbaImage;
 
-use crate::block::simple::{cost, state_impl, BuildCost, SimpleBlock};
-use crate::block::{
-    impl_block, make_register, BlockLogic, DataConvertError, DeserializeError, SerializeError,
-};
+use crate::block::make_register;
+use crate::block::simple::{cost, make_simple, state_impl};
 use crate::content;
-use crate::data::dynamic::{DynData, DynType};
+use crate::data::dynamic::DynType;
 use crate::data::renderer::load;
-use crate::data::GridPos;
 use crate::item;
-use crate::item::storage::Storage;
 
-use super::State;
+make_simple!(ConveyorBlock);
 
 make_register! {
-    "conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1));
-    "titanium-conveyor" => SimpleBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
-    "plastanium-conveyor" => SimpleBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
-    "armored-conveyor" => SimpleBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
-    "junction" => SimpleBlock::new(1, true, cost!(Copper: 2));
+    "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
+    "titanium-conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
+    "plastanium-conveyor" => ConveyorBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
+    "armored-conveyor" => ConveyorBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
+    "junction" => ConveyorBlock::new(1, true, cost!(Copper: 2));
     "bridge-conveyor" => BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
     "phase-conveyor" => BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
     "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
-    "router" => SimpleBlock::new(1, true, cost!(Copper: 3));
-    "distributor" => SimpleBlock::new(2, true, cost!(Copper: 4, Lead: 4));
-    "overflow-gate" => SimpleBlock::new(1, true, cost!(Copper: 4, Lead: 2));
-    "underflow-gate" => SimpleBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+    "router" => ConveyorBlock::new(1, true, cost!(Copper: 3));
+    "distributor" => ConveyorBlock::new(2, true, cost!(Copper: 4, Lead: 4));
+    "overflow-gate" => ConveyorBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+    "underflow-gate" => ConveyorBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
-    "duct" => SimpleBlock::new(1, false, cost!(Beryllium: 1));
-    "armored-duct" => SimpleBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
+    "duct" => ConveyorBlock::new(1, false, cost!(Beryllium: 1));
+    "armored-duct" => ConveyorBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
     "duct-router" => ItemBlock::new(1, true, cost!(Beryllium: 10));
-    "overflow-duct" => SimpleBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
-    "underflow-duct" => SimpleBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
+    "overflow-duct" => ConveyorBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
+    "underflow-duct" => ConveyorBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
     "duct-bridge" => BridgeBlock::new(1, true, cost!(Beryllium: 20), 3, true);
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
-    "surge-conveyor" => SimpleBlock::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
-    "surge-router" => SimpleBlock::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
-    "unit-cargo-loader" => SimpleBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
+    "surge-conveyor" => ConveyorBlock::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
+    "surge-router" => ConveyorBlock::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
+    "unit-cargo-loader" => ConveyorBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
     "item-source" => ItemBlock::new(1, true, &[]);
-    "item-void" => SimpleBlock::new(1, true, &[]);
+    "item-void" => ConveyorBlock::new(1, true, &[]);
 }
 
 pub struct ItemBlock {
