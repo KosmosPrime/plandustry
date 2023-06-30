@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "1.0.4"
+version = "1.0.6"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics) (fork of plandustry)"
 authors = [
@@ -9,6 +9,11 @@ authors = [
 ]
 repository = "https://github.com/bend-n/mindus.git"
 license = "GPL-3.0"
+exclude = [
+	".github/",
+	"items.py"
+]
+
 
 [dependencies]
 flate2 = { version = "1.0", features = ["zlib"], default-features = false }
@@ -23,7 +28,6 @@ zip = { version = "0.6.6", features = ["zstd"], default-features = false }
 [build-dependencies]
 zip = { version = "0.6.6", features = ["zstd"], default-features = false }
 walkdir = "2"
-
 
 [[bin]]
 name = "plandustry"
