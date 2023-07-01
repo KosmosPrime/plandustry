@@ -351,7 +351,7 @@ impl Serializer<DynData> for DynSerializer {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ReadError {
     Underlying(data::ReadError),
     Type(u8),
@@ -409,7 +409,7 @@ impl Error for ReadError {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum WriteError {
     Underlying(data::WriteError),
     IntArrayLen(usize),

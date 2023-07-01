@@ -6,10 +6,6 @@ use std::fmt::{self, Write};
 use std::iter::FusedIterator;
 use std::slice::Iter;
 
-use flate2::{
-    Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress,
-    FlushDecompress, Status,
-};
 use image::RgbaImage;
 
 use crate::block::{self, Block, BlockRegistry, Rotation, State};
@@ -1015,72 +1011,45 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         if version > 1 {
             return Err(ReadError::Version(version));
         }
-        let mut dec = Decompress::new(true);
-        let mut raw = Vec::<u8>::new();
-        raw.reserve(1024);
-        loop {
-            let t_in = dec.total_in();
-            let t_out = dec.total_out();
-            let res = dec.decompress_vec(buff.data, &mut raw, FlushDecompress::Finish)?;
-            if dec.total_in() > t_in {
-                // we have to advance input every time, decompress_vec only knows the output position
-                buff.data = &buff.data[(dec.total_in() - t_in) as usize..];
-            }
-            match res {
-                // there's no more input (and the flush mode says so), we need to reserve additional space
-                Status::Ok | Status::BufError => (),
-                // input was already at the end, so this is referring to the output
-                Status::StreamEnd => break,
-            }
-            if dec.total_in() == t_in && dec.total_out() == t_out {
-                // protect against looping forever
-                return Err(ReadError::DecompressStall);
-            }
-            raw.reserve(1024);
-        }
-        assert_eq!(dec.total_out() as usize, raw.len());
-        let mut rbuff = DataRead::new(&raw);
-        let w = rbuff.read_i16()?;
-        let h = rbuff.read_i16()?;
+        let mut buff = buff.deflate()?;
+        let mut buff = DataRead::new(&mut buff);
+        let w = buff.read_i16()?;
+        let h = buff.read_i16()?;
         if w < 0 || h < 0 || w as u16 > MAX_DIMENSION || h as u16 > MAX_DIMENSION {
             return Err(ReadError::Dimensions(w, h));
         }
         let mut schematic = Schematic::new(w as u16, h as u16);
-        for _ in 0..rbuff.read_u8()? {
-            let key = rbuff.read_utf()?;
-            let value = rbuff.read_utf()?;
-            schematic.tags.insert(key.to_owned(), value.to_owned());
-        }
-        let num_table = rbuff.read_i8()?;
+        buff.read_map(&mut schematic.tags)?;
+        let num_table = buff.read_i8()?;
         if num_table < 0 {
             return Err(ReadError::TableSize(num_table));
         }
-        let mut block_table = Vec::<&'l Block>::new();
+        let mut block_table = Vec::new();
         block_table.reserve(num_table as usize);
         for _ in 0..num_table {
-            let name = rbuff.read_utf()?;
-            match self.0.get(name) {
+            let name = buff.read_utf()?;
+            match self.0.get(&name) {
                 None => return Err(ReadError::NoSuchBlock(name.to_owned())),
                 Some(b) => block_table.push(b),
             }
         }
-        let num_blocks = rbuff.read_i32()?;
+        let num_blocks = buff.read_i32()?;
         if num_blocks < 0 || num_blocks as u32 > MAX_BLOCKS {
             return Err(ReadError::BlockCount(num_blocks));
         }
         for _ in 0..num_blocks {
-            let idx = rbuff.read_i8()?;
+            let idx = buff.read_i8()?;
             if idx < 0 || idx as usize >= block_table.len() {
                 return Err(ReadError::BlockIndex(idx, block_table.len()));
             }
-            let pos = GridPos::from(rbuff.read_u32()?);
+            let pos = GridPos::from(buff.read_u32()?);
             let block = block_table[idx as usize];
             let config = if version < 1 {
-                block.data_from_i32(rbuff.read_i32()?, pos)?
+                block.data_from_i32(buff.read_i32()?, pos)?
             } else {
-                DynSerializer.deserialize(&mut rbuff)?
+                DynSerializer.deserialize(&mut buff)?
             };
-            let rot = Rotation::from(rbuff.read_u8()?);
+            let rot = Rotation::from(buff.read_u8()?);
             schematic.set(pos.0, pos.1, block, config, rot)?;
         }
         Ok(schematic)
@@ -1108,8 +1077,8 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
             rbuff.write_utf(v)?;
         }
         // use string keys here to avoid issues with different block refs with the same name
-        let mut block_map = HashMap::<&str, u32>::new();
-        let mut block_table = Vec::<&str>::new();
+        let mut block_map = HashMap::new();
+        let mut block_table = Vec::new();
         for curr in &data.blocks {
             if let Entry::Vacant(e) = block_map.entry(curr.block.get_name()) {
                 e.insert(block_table.len() as u32);
@@ -1139,52 +1108,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
             num += 1;
         }
         assert_eq!(num, data.blocks.len());
-
-        // compress into the provided buffer
-        let data::WriteBuff::Vec(raw) = rbuff.data else { unreachable!("write buffer not owned") };
-        let mut comp = Compress::new(Compression::default(), true);
-        // compress the immediate buffer into a temp buffer to copy it to buff? no thanks
-        match buff.data {
-            data::WriteBuff::Ref {
-                raw: ref mut dst,
-                ref mut pos,
-            } => {
-                match comp.compress(&raw, &mut dst[*pos..], FlushCompress::Finish)? {
-                    // there's no more input (and the flush mode says so), but we can't resize the output
-                    Status::Ok | Status::BufError => {
-                        return Err(WriteError::CompressEof(
-                            raw.len() - comp.total_in() as usize,
-                        ))
-                    }
-                    Status::StreamEnd => (),
-                }
-            }
-            data::WriteBuff::Vec(ref mut dst) => {
-                let mut input = raw.as_ref();
-                dst.reserve(1024);
-                loop {
-                    let t_in = comp.total_in();
-                    let t_out = comp.total_out();
-                    let res = comp.compress_vec(input, dst, FlushCompress::Finish)?;
-                    if comp.total_in() > t_in {
-                        // we have to advance input every time, compress_vec only knows the output position
-                        input = &input[(comp.total_in() - t_in) as usize..];
-                    }
-                    match res {
-                        // there's no more input (and the flush mode says so), we need to reserve additional space
-                        Status::Ok | Status::BufError => (),
-                        // input was already at the end, so this is referring to the output
-                        Status::StreamEnd => break,
-                    }
-                    if comp.total_in() == t_in && comp.total_out() == t_out {
-                        // protect against looping forever
-                        return Err(WriteError::CompressStall);
-                    }
-                    dst.reserve(1024);
-                }
-            }
-        }
-        assert_eq!(comp.total_in() as usize, raw.len());
+        rbuff.inflate(buff)?;
         Ok(())
     }
 }
@@ -1194,8 +1118,6 @@ pub enum ReadError {
     Read(data::ReadError),
     Header(u32),
     Version(u8),
-    Decompress(DecompressError),
-    DecompressStall,
     Dimensions(i16, i16),
     TableSize(i8),
     NoSuchBlock(String),
@@ -1209,12 +1131,6 @@ pub enum ReadError {
 impl From<data::ReadError> for ReadError {
     fn from(value: data::ReadError) -> Self {
         Self::Read(value)
-    }
-}
-
-impl From<DecompressError> for ReadError {
-    fn from(value: DecompressError) -> Self {
-        Self::Decompress(value)
     }
 }
 
@@ -1242,8 +1158,6 @@ impl fmt::Display for ReadError {
             Self::Read(..) => f.write_str("failed to read from buffer"),
             Self::Header(hdr) => write!(f, "incorrect header ({hdr:08X})"),
             Self::Version(ver) => write!(f, "unsupported version ({ver})"),
-            Self::Decompress(..) => f.write_str("zlib decompression failed"),
-            Self::DecompressStall => f.write_str("decompressor stalled before completion"),
             Self::Dimensions(w, h) => write!(f, "invalid schematic dimensions ({w} * {h})"),
             Self::TableSize(cnt) => write!(f, "invalid block table size ({cnt})"),
             Self::NoSuchBlock(name) => write!(f, "unknown block {name:?}"),
@@ -1260,7 +1174,6 @@ impl Error for ReadError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Read(e) => Some(e),
-            Self::Decompress(e) => Some(e),
             Self::BlockConfig(e) => Some(e),
             Self::ReadState(e) => Some(e),
             Self::Placement(e) => Some(e),
@@ -1276,9 +1189,6 @@ pub enum WriteError {
     TableSize(usize),
     StateSerialize(block::SerializeError),
     WriteState(dynamic::WriteError),
-    Compress(CompressError),
-    CompressEof(usize),
-    CompressStall,
 }
 
 impl From<data::WriteError> for WriteError {
@@ -1290,12 +1200,6 @@ impl From<data::WriteError> for WriteError {
 impl From<block::SerializeError> for WriteError {
     fn from(value: block::SerializeError) -> Self {
         Self::StateSerialize(value)
-    }
-}
-
-impl From<CompressError> for WriteError {
-    fn from(value: CompressError) -> Self {
-        Self::Compress(value)
     }
 }
 
@@ -1313,12 +1217,6 @@ impl fmt::Display for WriteError {
             Self::TableSize(len) => write!(f, "block table too long ({len})"),
             Self::StateSerialize(e) => e.fmt(f),
             Self::WriteState(..) => f.write_str("failed to write block data"),
-            Self::Compress(..) => f.write_str("zlib compression failed"),
-            Self::CompressEof(remain) => write!(
-                f,
-                "compression overflow with {remain} bytes of input remaining"
-            ),
-            Self::CompressStall => f.write_str("compressor stalled before completion"),
         }
     }
 }
@@ -1328,7 +1226,6 @@ impl Error for WriteError {
         match self {
             Self::Write(e) => Some(e),
             Self::StateSerialize(e) => e.source(),
-            Self::Compress(e) => Some(e),
             _ => None,
         }
     }
