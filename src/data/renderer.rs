@@ -1,6 +1,8 @@
 //! schematic drawing
+use dashmap::DashMap;
 use std::io::{BufReader, Cursor};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use image::codecs::png::PngDecoder;
 use image::{DynamicImage, RgbaImage};
@@ -14,13 +16,23 @@ use crate::Map;
 
 use super::schematic::Schematic;
 
+static CACHE: OnceLock<DashMap<PathBuf, RgbaImage>> = OnceLock::new();
 pub(crate) fn load(category: &str, name: &str) -> Option<RgbaImage> {
     let mut p = Path::new("blocks").join(category).join(name);
+    if let Some(i) = CACHE.get_or_init(|| DashMap::new()).get(&p) {
+        return Some(i.clone());
+    }
+    let insertion = p.clone();
     p.set_extension("png");
-    load_raw(p)
+    if let Some(i) = load_raw(p) {
+        let c = i.clone();
+        CACHE.get().unwrap().insert(insertion, i);
+        return Some(c);
+    }
+    return None;
 }
 
-pub(crate) fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
+fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
     let f = std::fs::File::open(Path::new("target/out").join(f)).ok()?;
     let r = PngDecoder::new(BufReader::new(f)).unwrap();
     Some(DynamicImage::from_decoder(r).unwrap().into_rgba8())

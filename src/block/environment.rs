@@ -158,16 +158,23 @@ register_env! {
     "yellow-stone-wall": 1@2;
     "yellow-stone": 1@3;
     // props
+    "snow-boulder": 1@2;
+    "shale-boulder": 1@2;
     "arkyic-boulder": 1@3;
     "basalt-boulder": 1@2;
     "beryllic-boulder": 1@2;
     "boulder": 1@2;
     "carbon-boulder": 1@2;
+    "crystalline-boulder": 1@2;
+    "dacite-boulder": 1@2;
+    "ferric-boulder": 1@2;
+    "red-ice-boulder": 1@3;
+    "red-stone-boulder": 1@4;
+    "rhyolite-boulder": 1@3;
+    "sand-boulder": 1@2;
+    "yellow-sand-boulder": 1@2;
     // these are tall but uh
     "crystal-blocks": 1@3;
     "crytal-cluster": 1@3;
     "crystal-orbs": 1@3;
-    "crystalline-boulder": 1@2;
-    "dacite-boulder": 1@2;
-    "ferric-boulder": 1@2;
 }

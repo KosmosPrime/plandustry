@@ -42,7 +42,10 @@ impl ImageUtils for RgbaImage {
     fn overlay(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
-                self.put_pixel(i + x, j + y, *with.get_pixel(i, j));
+                let get = with.get_pixel(i, j);
+                if get[3] > 5 {
+                    self.put_pixel(i + x, j + y, *get);
+                }
             }
         }
         self
