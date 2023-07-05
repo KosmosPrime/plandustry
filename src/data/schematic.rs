@@ -16,9 +16,9 @@ use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
 
 /// biggest schematic
-pub const MAX_DIMENSION: u16 = 128;
+pub const MAX_DIMENSION: u16 = 256;
 /// most possible blocks
-pub const MAX_BLOCKS: u32 = 128 * 128;
+pub const MAX_BLOCKS: u32 = 256 * 256;
 
 /// a placement in a schematic
 pub struct Placement<'l> {
