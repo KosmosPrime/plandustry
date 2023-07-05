@@ -1,6 +1,6 @@
 //! walls
-use crate::block::make_register;
-use crate::block::simple::{cost, make_simple, state_impl};
+use crate::block::simple::*;
+use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::{load, read_with, TOP};
 

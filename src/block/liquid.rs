@@ -3,12 +3,13 @@ use std::error::Error;
 use std::fmt;
 
 use crate::block::distribution::BridgeBlock;
-use crate::block::make_register;
-use crate::block::simple::{cost, make_simple, state_impl};
+use crate::block::simple::*;
+use crate::block::*;
 use crate::content;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::load;
 use crate::fluid;
+use crate::utils::ImageUtils;
 
 make_simple!(LiquidBlock);
 
@@ -106,8 +107,7 @@ impl BlockLogic for FluidBlock {
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
                 let mut top = load("distribution", "center").unwrap();
-                crate::utils::image::tint(&mut top, s.color());
-                image::imageops::overlay(&mut p, &top, 0, 0);
+                image::imageops::overlay(&mut p, top.tint(s.color()), 0, 0);
                 return Some(p);
             }
         }

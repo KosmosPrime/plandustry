@@ -1,3 +1,6 @@
+//! units
+//!
+//! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/UnitTypes.java)
 use crate::content::content_enum;
 
 content_enum! {

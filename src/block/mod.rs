@@ -1,7 +1,8 @@
 //! deal with blocks.
 //!
-//! categorized as mindustry categorizes them in its assets folder, for easy drawing
-//! with the exception of sandbox.
+//! categorized as mindustry categorizes them in its assets folder, for easy drawing.
+//!
+//! with the exception of sandbox, that is.
 use image::RgbaImage;
 use std::any::Any;
 use std::borrow::Cow;
@@ -10,8 +11,9 @@ use std::fmt;
 
 use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
-use crate::data::GridPos;
-use crate::item::storage::Storage as ItemStorage;
+use crate::data::map::EntityMapping;
+use crate::data::{DataRead, GridPos, ReadError as DataReadError};
+use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
 
 pub mod campaign;
@@ -19,6 +21,7 @@ pub mod content;
 pub mod defense;
 pub mod distribution;
 pub mod drills;
+pub mod environment;
 pub mod liquid;
 pub mod logic;
 pub mod payload;
@@ -53,6 +56,18 @@ pub trait BlockLogic {
     fn draw(&self, _category: &str, _name: &str, _state: Option<&State>) -> Option<RgbaImage> {
         None
     }
+    // TODO: use data
+    #[allow(unused_variables)]
+    fn read(
+        &self,
+        category: &str,
+        name: &str,
+        reg: &BlockRegistry,
+        mapping: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        Ok(())
+    }
 }
 
 // i wish i could derive
@@ -66,7 +81,7 @@ macro_rules! impl_block {
             self.symmetric
         }
 
-        fn create_build_cost(&self) -> Option<$crate::item::storage::Storage> {
+        fn create_build_cost(&self) -> Option<$crate::item::storage::ItemStorage> {
             if self.build_cost.is_empty() {
                 None
             } else {
@@ -214,15 +229,15 @@ impl Block {
 
     /// draw this block, with this state
     pub fn image(&self, state: Option<&State>) -> RgbaImage {
-        if let Some(p) = self
-            .logic
-            .as_ref()
-            .draw(&self.category, &self.name, state)
-        {
+        if let Some(p) = self.logic.as_ref().draw(&self.category, &self.name, state) {
             return p;
         }
         use crate::data::renderer::read;
         read(&self.category, &self.name, self.get_size())
+    }
+
+    pub fn has_building(&self) -> bool {
+        &self.category != "environment"
     }
 
     /// size.
@@ -269,6 +284,31 @@ impl Block {
 
     pub(crate) fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         self.logic.serialize_state(state)
+    }
+
+    #[doc(hidden)]
+    pub fn read(
+        &self,
+        buff: &mut DataRead,
+        reg: &BlockRegistry,
+        mapping: &EntityMapping,
+    ) -> Result<(), DataReadError> {
+        self.logic
+            .read(&self.category, &self.name, reg, mapping, buff)
+    }
+
+    /// format:
+    /// - iterate 4
+    ///     - u8
+    ///     - iterate u8
+    ///         - i64
+    fn read_directional_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
+        for _ in 0..4 {
+            let _ = buff.read_u8()?;
+            let n = buff.read_u8()? as usize;
+            buff.skip(n * 8)?;
+        }
+        Ok(())
     }
 }
 
@@ -455,4 +495,5 @@ fn register(reg: &mut BlockRegistry<'_>) {
     campaign::register(reg);
     logic::register(reg);
     walls::register(reg);
+    environment::register(reg);
 }

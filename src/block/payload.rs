@@ -2,11 +2,16 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::block::simple::{cost, make_simple, state_impl};
-use crate::block::{self, distribution::BridgeBlock, make_register};
-use crate::content;
+use crate::block::content::Type as BlockEnum;
+use crate::block::distribution::BridgeBlock;
+use crate::block::simple::*;
+use crate::block::{self, *};
+use crate::content::{self, Content};
 use crate::data::dynamic::DynType;
+use crate::data::ReadError;
 use crate::unit;
+
+use super::BlockRegistry;
 
 make_simple!(ConstructorBlock);
 
@@ -239,6 +244,50 @@ impl BlockLogic for PayloadBlock {
             Payload::Block(block) => Ok(DynData::Content(content::Type::Block, (*block).into())),
             Payload::Unit(unit) => Ok(DynData::Content(content::Type::Unit, (*unit).into())),
         }
+    }
+
+    /// format:
+    /// - exists: `bool`
+    /// - if !exists: ok
+    /// - type: `u8`
+    /// - if type == 1 (payload block):
+    ///     - block: `u16`
+    ///     - version: `u8`
+    ///     - [`crate::block::Block::read`] (recursion :ferrisHmm:),
+    /// - if type == 2 (paylood unit):
+    ///     - id: `u8`
+    ///     - unit read???????? TODO
+    fn read(
+        &self,
+        _: &str,
+        _: &str,
+        reg: &BlockRegistry,
+        entity_mapping: &crate::data::map::EntityMapping,
+        buff: &mut crate::data::DataRead,
+    ) -> Result<(), crate::data::ReadError> {
+        if !buff.read_bool()? {
+            return Ok(());
+        }
+        let t = buff.read_u8()?;
+        const BLOCK: u8 = 1;
+        const UNIT: u8 = 0;
+        match t {
+            BLOCK => {
+                let b = buff.read_u16()?;
+                let b = BlockEnum::try_from(b).unwrap_or(BlockEnum::Router);
+                let b = reg.get(b.get_name()).unwrap();
+                b.read(buff, reg, entity_mapping)?;
+            }
+            UNIT => {
+                let u = buff.read_u8()?;
+                let Some(_u) = entity_mapping.get(&u) else {
+                    return Err(ReadError::Expected("map entry"));
+                };
+                // unit::Type::try_from(u).unwrap_or(unit::Type::Alpha).read(todo!());
+            }
+            _ => return Err(ReadError::Expected("0 | 1")),
+        }
+        Ok(())
     }
 }
 

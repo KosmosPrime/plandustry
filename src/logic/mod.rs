@@ -23,7 +23,8 @@ macro_rules!match_select
 }
 
 impl LogicField {
-    #[must_use] pub fn is_readable(&self) -> bool {
+    #[must_use]
+    pub fn is_readable(&self) -> bool {
         match_select!(
             self,
             LogicField,
@@ -73,7 +74,8 @@ impl LogicField {
         )
     }
 
-    #[must_use] pub fn is_writable(&self) -> bool {
+    #[must_use]
+    pub fn is_writable(&self) -> bool {
         match_select!(self, LogicField, Enabled, Shoot, ShootP, Config, Color)
     }
 }

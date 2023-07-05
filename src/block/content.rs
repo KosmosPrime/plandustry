@@ -1,5 +1,5 @@
 //! everything
-use crate::content::content_enum;
+use crate::content::{content_enum, Content};
 
 content_enum! {
     pub enum Type / Block for u16 | TryFromU16Error
@@ -416,5 +416,11 @@ content_enum! {
         "world-processor",
         "world-cell",
         "world-message",
+    }
+}
+use crate::block::*;
+impl Type {
+    pub fn to<'l>(&self, reg: &'l BlockRegistry) -> Option<&'l Block> {
+        reg.get(self.get_name())
     }
 }

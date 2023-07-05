@@ -1,4 +1,6 @@
 //! the different kinds of items
+//!
+//! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/Items.java)
 pub mod storage;
 use crate::content::color_content_enum;
 color_content_enum! {

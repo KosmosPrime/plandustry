@@ -12,7 +12,7 @@ use crate::block::{self, Block, BlockRegistry, Rotation, State};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData, DynSerializer};
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
-use crate::item::storage::Storage as ItemStorage;
+use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
 
 /// biggest schematic
@@ -1011,8 +1011,8 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         if version > 1 {
             return Err(ReadError::Version(version));
         }
-        let mut buff = buff.deflate()?;
-        let mut buff = DataRead::new(&mut buff);
+        let buff = buff.deflate()?;
+        let mut buff = DataRead::new(&buff);
         let w = buff.read_i16()?;
         let h = buff.read_i16()?;
         if w < 0 || h < 0 || w as u16 > MAX_DIMENSION || h as u16 > MAX_DIMENSION {
@@ -1028,7 +1028,7 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         block_table.reserve(num_table as usize);
         for _ in 0..num_table {
             let name = buff.read_utf()?;
-            match self.0.get(&name) {
+            match self.0.get(name) {
                 None => return Err(ReadError::NoSuchBlock(name.to_owned())),
                 Some(b) => block_table.push(b),
             }

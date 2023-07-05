@@ -11,12 +11,24 @@ use std::str::Utf8Error;
 mod base64;
 mod command;
 pub mod dynamic;
+pub mod map;
+pub mod planet;
 pub mod renderer;
 pub mod schematic;
+pub mod sector;
+pub mod weather;
 
 #[derive(Debug)]
 pub struct DataRead<'d> {
     data: &'d [u8],
+    // used with read_chunk
+    read: usize,
+}
+
+impl fmt::Display for DataRead<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(self.data))
+    }
 }
 
 macro_rules! make_read {
@@ -32,6 +44,7 @@ macro_rules! make_read {
             let mut output = [0u8; LEN];
             output.copy_from_slice(&self.data[..LEN]);
             self.data = &self.data[LEN..];
+            self.read += LEN;
             Ok(<$type>::from_be_bytes(output))
         }
     };
@@ -40,7 +53,7 @@ macro_rules! make_read {
 impl<'d> DataRead<'d> {
     #[must_use]
     pub fn new(data: &'d [u8]) -> Self {
-        Self { data }
+        Self { data, read: 0 }
     }
 
     pub fn read_bool(&mut self) -> Result<bool, ReadError> {
@@ -75,6 +88,7 @@ impl<'d> DataRead<'d> {
         }
         let result = std::str::from_utf8(&self.data[..end])?;
         self.data = &self.data[end..];
+        self.read += end;
         Ok(result)
     }
 
@@ -87,7 +101,46 @@ impl<'d> DataRead<'d> {
         }
         dst.copy_from_slice(&self.data[..dst.len()]);
         self.data = &self.data[dst.len()..];
+        self.read += dst.len();
         Ok(())
+    }
+
+    pub fn skip(&mut self, n: usize) -> Result<(), ReadError> {
+        if self.data.len() < n {
+            return Err(ReadError::Underflow {
+                need: n,
+                have: self.data.len(),
+            });
+        }
+        self.data = &self.data[n..];
+        self.read += n;
+        Ok(())
+    }
+
+    pub fn skip_chunk(&mut self) -> Result<usize, ReadError> {
+        let len = self.read_u32()? as usize;
+        self.skip(len)?;
+        return Ok(len);
+    }
+
+    pub fn read_chunk<E>(&mut self, f: impl FnOnce(&mut DataRead) -> Result<(), E>) -> Result<(), E>
+    where
+        E: Error + From<ReadError>,
+    {
+        let len = self.read_u32()? as usize;
+        self.read = 0;
+        let r = f(self);
+        match r {
+            Err(e) => {
+                // skip this chunk
+                let n = len - self.read;
+                if n != 0 {
+                    self.skip(n)?;
+                };
+                Err(e)
+            }
+            Ok(_) => Ok(()),
+        }
     }
 
     pub fn read_vec(&mut self, dst: &mut Vec<u8>, len: usize) -> Result<(), ReadError> {
@@ -99,6 +152,7 @@ impl<'d> DataRead<'d> {
         }
         dst.extend_from_slice(&self.data[..len]);
         self.data = &self.data[len..];
+        self.read += len;
         Ok(())
     }
 
@@ -137,6 +191,7 @@ impl<'d> DataRead<'d> {
             raw.reserve(1024);
         }
         assert_eq!(dec.total_out() as usize, raw.len());
+        self.read = 0;
         Ok(raw)
     }
 }
@@ -146,12 +201,13 @@ pub enum ReadError {
     DecompressStall,
     Decompress(DecompressError),
     Underflow { need: usize, have: usize },
+    Expected(&'static str),
     Utf8(Utf8Error),
 }
 
 impl PartialEq for ReadError {
     fn eq(&self, _: &Self) -> bool {
-        return false;
+        false
     }
 }
 
@@ -176,6 +232,7 @@ impl fmt::Display for ReadError {
             Self::Decompress(..) => f.write_str("zlib decompression failed"),
             Self::DecompressStall => f.write_str("decompressor stalled before completion"),
             Self::Utf8(..) => f.write_str("malformed utf-8 in string"),
+            Self::Expected(z) => write!(f, "expected {z}"),
         }
     }
 }
@@ -281,7 +338,9 @@ impl<'d> DataWrite<'d> {
 
     pub fn inflate(self, to: &mut DataWrite) -> Result<(), WriteError> {
         // compress into the provided buffer
-        let WriteBuff::Vec( raw) = self.data else { unreachable!("write buffer not owned") };
+        let WriteBuff::Vec(raw) = self.data else {
+            unreachable!("write buffer not owned")
+        };
         let mut comp = Compress::new(Compression::default(), true);
         // compress the immediate buffer into a temp buffer to copy it to buff? no thanks
         match to.data {
@@ -354,7 +413,7 @@ impl From<CompressError> for WriteError {
 
 impl PartialEq for WriteError {
     fn eq(&self, _: &Self) -> bool {
-        return false;
+        false
     }
 }
 

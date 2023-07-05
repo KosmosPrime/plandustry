@@ -18,7 +18,7 @@ pub fn main(args: Args) {
                 if !first || need_space {
                     println!();
                 }
-                Renderer::render(&s).save("x.png").unwrap();
+                Renderer::render_schematic(&s).save("x.png").unwrap();
             }
             // continue processing literals & maybe interactive mode
             Err(e) => {
