@@ -5,7 +5,7 @@ pub trait ImageUtils {
 
     fn repeat(&mut self, with: &RgbaImage) -> &mut Self;
 
-    fn overlay(&mut self, with: &RgbaImage, x: i64, y: i64) -> &mut Self;
+    fn overlay(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self;
 
     fn scale(&mut self, to: u32) -> &mut Self;
 }
@@ -39,8 +39,12 @@ impl ImageUtils for RgbaImage {
         self
     }
 
-    fn overlay(&mut self, with: &RgbaImage, x: i64, y: i64) -> &mut Self {
-        image::imageops::overlay(self, with, x, y);
+    fn overlay(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
+        for j in 0..with.height() {
+            for i in 0..with.width() {
+                self.put_pixel(i + x, j + y, *with.get_pixel(i, j));
+            }
+        }
         self
     }
 

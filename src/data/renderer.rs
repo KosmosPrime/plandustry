@@ -3,7 +3,6 @@ use std::io::{BufReader, Cursor};
 use std::path::Path;
 
 use image::codecs::png::PngDecoder;
-use image::imageops::overlay;
 use image::{DynamicImage, RgbaImage};
 use zip::ZipArchive;
 
@@ -87,8 +86,8 @@ impl<'l> Renderer {
         // fill background
         canvas.repeat(&METAL_FLOOR.image(None));
         for tile in s.block_iter() {
-            let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as i64;
-            let y = (s.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as i64;
+            let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as u32;
+            let y = (s.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as u32;
             canvas.overlay(&tile.image(), x * 32, y * 32);
         }
         canvas
@@ -113,14 +112,9 @@ impl<'l> Renderer {
                 } else {
                     1
                 };
-                let x = (tile.pos.0 - ((s - 1) / 2) as u16) as i64;
-                let y = (m.height as u16 - tile.pos.1 - ((s / 2) + 1) as u16) as i64;
-                overlay(
-                    &mut canvas,
-                    tile.image().scale(tile.size() as u32 * 8),
-                    x * 8,
-                    y * 8,
-                );
+                let x = (tile.pos.0 - ((s - 1) / 2) as u16) as u32;
+                let y = (m.height as u16 - tile.pos.1 - ((s / 2) + 1) as u16) as u32;
+                canvas.overlay(tile.image().scale(tile.size() as u32 * 8), x * 8, y * 8);
             }
         }
         canvas
