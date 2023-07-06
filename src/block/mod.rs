@@ -296,20 +296,6 @@ impl Block {
         self.logic
             .read(&self.category, &self.name, reg, mapping, buff)
     }
-
-    /// format:
-    /// - iterate 4
-    ///     - u8
-    ///     - iterate u8
-    ///         - i64
-    fn read_directional_item_buffer(buff: &mut DataRead) -> Result<(), DataReadError> {
-        for _ in 0..4 {
-            let _ = buff.read_u8()?;
-            let n = buff.read_u8()? as usize;
-            buff.skip(n * 8)?;
-        }
-        Ok(())
-    }
 }
 
 impl fmt::Debug for Block {

@@ -1,6 +1,5 @@
 //! variable type
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
 
 use crate::content;
 use crate::data::command::{self, UnitCommand};
@@ -351,100 +350,44 @@ impl Serializer<DynData> for DynSerializer {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum ReadError {
-    Underlying(data::ReadError),
+    #[error("failed to read from buffer")]
+    Underlying(#[from] data::ReadError),
+    #[error("invalid dynamic data type ({0})")]
     Type(u8),
-    ContentType(content::TryFromU8Error),
+    #[error("content type not found")]
+    ContentType(#[from] content::TryFromU8Error),
+    #[error("integer array too long ({0})")]
     IntArrayLen(i16),
+    #[error("point2 array too long ({0})")]
     Point2ArrayLen(i8),
+    #[error("invalid logic field ({0})")]
     LogicField(u8),
+    #[error("byte array too long ({0})")]
     ByteArrayLen(i32),
-    UnitCommand(command::TryFromU8Error),
+    #[error("unit command not found")]
+    UnitCommand(#[from] command::TryFromU8Error),
+    #[error("boolean array too long ({0}")]
     BoolArrayLen(i32),
+    #[error("vec2 array too long ({0})")]
     Vec2ArrayLen(i16),
 }
 
-impl From<data::ReadError> for ReadError {
-    fn from(err: data::ReadError) -> Self {
-        Self::Underlying(err)
-    }
-}
-
-impl From<content::TryFromU8Error> for ReadError {
-    fn from(err: content::TryFromU8Error) -> Self {
-        Self::ContentType(err)
-    }
-}
-
-impl From<command::TryFromU8Error> for ReadError {
-    fn from(err: command::TryFromU8Error) -> Self {
-        Self::UnitCommand(err)
-    }
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Underlying(..) => f.write_str("failed to read from buffer"),
-            Self::Type(id) => write!(f, "invalid dynamic data type ({id})"),
-            Self::ContentType(..) => f.write_str("content type not found"),
-            Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
-            Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
-            Self::LogicField(id) => write!(f, "invalid logic field ({id})"),
-            Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-            Self::UnitCommand(..) => f.write_str("unit command not found"),
-            Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
-            Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
-        }
-    }
-}
-
-impl Error for ReadError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Underlying(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum WriteError {
-    Underlying(data::WriteError),
+    #[error("failed to write to buffer")]
+    Underlying(#[from] data::WriteError),
+    #[error("integer array too long ({0})")]
     IntArrayLen(usize),
+    #[error("point2 array too long ({0})")]
     Point2ArrayLen(usize),
+    #[error("byte array too long ({0})")]
     ByteArrayLen(usize),
+    #[error("boolean array too long ({0})")]
     BoolArrayLen(usize),
+    #[error("vec2 array too long ({0})")]
     Vec2ArrayLen(usize),
-}
-
-impl From<data::WriteError> for WriteError {
-    fn from(err: data::WriteError) -> Self {
-        Self::Underlying(err)
-    }
-}
-
-impl fmt::Display for WriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Underlying(..) => f.write_str("failed to write to buffer"),
-            Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
-            Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
-            Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-            Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
-            Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
-        }
-    }
-}
-
-impl Error for WriteError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Underlying(e) => Some(e),
-            _ => None,
-        }
-    }
 }
 
 #[cfg(test)]

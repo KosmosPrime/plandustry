@@ -7,21 +7,22 @@ use tinyrand_std::clock_seed::ClockSeed;
 
 macro_rules! register_env {
     ($($field:literal: $size:literal @ $variations:literal;)+) => {
-    	make_register!(
-    		$($field => EnvironmentBlock::new($size, true, &[]);)*
-    	);
+        make_register!(
+            $($field => EnvironmentBlock::new($size, true, &[]);)*
+        );
 
-    	make_simple!(EnvironmentBlock, |_, _, name, _| {
-			let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-    		match name {
-    			$($field => {
-					if $variations == 1 { Some(ImageHolder::Borrow(load("environment", $field).unwrap())) }
+        make_simple!(EnvironmentBlock, |_, _, name, _| {
+            let mut rand = StdRand::seed(ClockSeed::default().next_u64());
+            match name {
+                $($field => {
+                    #[allow(clippy::reversed_empty_ranges)]
+                    if $variations == 1 { Some(ImageHolder::Borrow(load("environment", $field).unwrap())) }
                     else if $variations == 0 { return None }
-					else { Some(ImageHolder::Borrow(load("environment", &format!("{}{}", $field, rand.next_range(1usize..$variations))).unwrap())) }
-           		},)*
-				_ => { unreachable!() }
-        	}
-      	});
+                    else { Some(ImageHolder::Borrow(load("environment", &format!("{}{}", $field, rand.next_range(1usize..$variations))).unwrap())) }
+                   },)*
+                _ => { unreachable!() }
+            }
+          });
     };
 }
 

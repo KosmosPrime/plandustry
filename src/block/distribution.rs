@@ -11,13 +11,30 @@ use crate::item;
 use crate::utils::ImageUtils;
 
 make_simple!(ConveyorBlock);
+make_simple!(
+    JunctionBlock,
+    |_, _, _, _| None,
+    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+        // format:
+        // - iterate 4
+        //     - u8
+        //     - iterate u8
+        //         - i64
+        for _ in 0..4 {
+            let _ = buff.read_u8()?;
+            let n = buff.read_u8()? as usize;
+            buff.skip(n * 8)?;
+        }
+        Ok(())
+    }
+);
 
 make_register! {
     "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
     "titanium-conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
     "plastanium-conveyor" => ConveyorBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
     "armored-conveyor" => ConveyorBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
-    "junction" => ConveyorBlock::new(1, true, cost!(Copper: 2));
+    "junction" => JunctionBlock::new(1, true, cost!(Copper: 2));
     "bridge-conveyor" => BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
     "phase-conveyor" => BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));

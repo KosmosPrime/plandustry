@@ -1,10 +1,10 @@
 //! schematic parsing
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt::{self, Write};
 use std::iter::FusedIterator;
 use std::slice::Iter;
+use thiserror::Error;
 
 use crate::block::{self, Block, BlockRegistry, Rotation, State};
 use crate::data::base64;
@@ -600,12 +600,12 @@ impl<'l> Schematic<'l> {
             }
         }
         if left > 0 || top > 0 || right > 0 || bottom > 0 {
-            return Err(ResizeError::Truncated {
+            return Err(TruncatedError {
                 right,
                 top,
                 left,
                 bottom,
-            });
+            })?;
         }
         self.width = w;
         self.height = h;
@@ -662,25 +662,16 @@ impl<'l> Schematic<'l> {
 }
 
 /// error created by creating a new schematic
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Error)]
 pub enum NewError {
+    #[error("invalid schematic width ({0})")]
     Width(u16),
+    #[error("invalid schematic height ({0})")]
     Height(u16),
 }
-
-impl fmt::Display for NewError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Width(w) => write!(f, "invalid schematic width ({w})"),
-            Self::Height(h) => write!(f, "invalid schematic height ({h})"),
-        }
-    }
-}
-
-impl Error for NewError {}
-
 /// error created by doing stuff out of bounds
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Error)]
+#[error("position {x} / {y} out of bounds {w} / {h}")]
 pub struct PosError {
     pub x: u16,
     pub y: u16,
@@ -688,23 +679,9 @@ pub struct PosError {
     pub h: u16,
 }
 
-impl fmt::Display for PosError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "position {x} / {y} out of bounds {w} / {h}",
-            x = self.x,
-            y = self.y,
-            w = self.w,
-            h = self.h
-        )
-    }
-}
-
-impl Error for PosError {}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PlaceError {
+    #[error("invalid block placement {x} / {y} (size {sz}) within {w} / {h}")]
     Bounds {
         x: u16,
         y: u16,
@@ -712,110 +689,62 @@ pub enum PlaceError {
         w: u16,
         h: u16,
     },
-    Overlap {
-        x: u16,
-        y: u16,
-    },
-    Deserialize(block::DeserializeError),
+    #[error("overlapping an existing block at {x} / {y}")]
+    Overlap { x: u16, y: u16 },
+    #[error("block state deserialization failed")]
+    Deserialize(#[from] block::DeserializeError),
 }
 
-impl From<block::DeserializeError> for PlaceError {
-    fn from(value: block::DeserializeError) -> Self {
-        PlaceError::Deserialize(value)
-    }
-}
-
-impl fmt::Display for PlaceError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Bounds { x, y, sz, w, h } => write!(
-                f,
-                "invalid block placement {x} / {y} (size {sz}) within {w} / {h}"
-            ),
-            Self::Overlap { x, y } => write!(f, "overlapping an existing block at {x} / {y}"),
-            Self::Deserialize(..) => f.write_str("block state deserialization failed"),
-        }
-    }
-}
-
-impl Error for PlaceError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            PlaceError::Deserialize(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Debug, Error)]
 pub enum ResizeError {
+    #[error("invalid target width ({0})")]
     TargetWidth(u16),
+    #[error("invalid target height ({0})")]
     TargetHeight(u16),
-    XOffset {
-        dx: i16,
-        old_w: u16,
-        new_w: u16,
-    },
-    YOffset {
-        dy: i16,
-        old_h: u16,
-        new_h: u16,
-    },
-    Truncated {
-        right: u16,
-        top: u16,
-        left: u16,
-        bottom: u16,
-    },
+    #[error("horizontal offset {dx} not in [-{new_w}, {old_w}]")]
+    XOffset { dx: i16, old_w: u16, new_w: u16 },
+    #[error("vertical offset {dy} not in [-{new_h}, {old_h}]")]
+    YOffset { dy: i16, old_h: u16, new_h: u16 },
+    #[error(transparent)]
+    Truncated(#[from] TruncatedError),
 }
 
-impl fmt::Display for ResizeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TargetWidth(w) => write!(f, "invalid target width ({w})"),
-            Self::TargetHeight(w) => write!(f, "invalid target height ({w})"),
-            Self::XOffset { dx, old_w, new_w } => {
-                write!(f, "horizontal offset {dx} not in [-{new_w}, {old_w}]")
-            }
-            Self::YOffset { dy, old_h, new_h } => {
-                write!(f, "vertical offset {dy} not in [-{new_h}, {old_h}]")
-            }
-            Self::Truncated {
-                right,
-                top,
-                left,
-                bottom,
-            } => {
-                macro_rules! fmt_dir {
-                    ($f:ident, $first:ident, $name:expr, $value:expr) => {
-                        if $value != 0 {
-                            if $first {
-                                f.write_str(" (")?;
-                                $first = false;
-                            } else {
-                                f.write_str(", ")?;
-                            }
-                            write!(f, "{}: {}", $name, $value)?;
-                        }
-                    };
-                }
+#[derive(Error, Debug)]
+pub struct TruncatedError {
+    right: u16,
+    top: u16,
+    left: u16,
+    bottom: u16,
+}
 
-                f.write_str("truncated blocks")?;
-                let mut first = true;
-                fmt_dir!(f, first, "right", *right);
-                fmt_dir!(f, first, "top", *top);
-                fmt_dir!(f, first, "left", *left);
-                fmt_dir!(f, first, "bottom", *bottom);
-                if !first {
-                    f.write_char(')')?;
+impl fmt::Display for TruncatedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        macro_rules! fmt_dir {
+            ($f:ident, $first:ident, $name:expr, $value:expr) => {
+                if $value != 0 {
+                    if $first {
+                        f.write_str(" (")?;
+                        $first = false;
+                    } else {
+                        f.write_str(", ")?;
+                    }
+                    write!(f, "{}: {}", $name, $value)?;
                 }
-                Ok(())
-            }
+            };
         }
+
+        f.write_str("truncated blocks")?;
+        let mut first = true;
+        fmt_dir!(f, first, "right", self.right);
+        fmt_dir!(f, first, "top", self.top);
+        fmt_dir!(f, first, "left", self.left);
+        fmt_dir!(f, first, "bottom", self.bottom);
+        if !first {
+            f.write_char(')')?;
+        }
+        Ok(())
     }
 }
-
-impl Error for ResizeError {}
 
 impl fmt::Debug for Schematic<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1111,122 +1040,44 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ReadError {
-    Read(data::ReadError),
+    #[error("failed to read from buffer")]
+    Read(#[from] data::ReadError),
+    #[error("incorrect header ({0:08X})")]
     Header(u32),
+    #[error("unsupported version ({0})")]
     Version(u8),
+    #[error("invalid schematic dimensions ({0} * {1})")]
     Dimensions(i16, i16),
+    #[error("invalid block table size ({0})")]
     TableSize(i8),
+    #[error("unknown block {0:?}")]
     NoSuchBlock(String),
+    #[error("invalid total block count ({0})")]
     BlockCount(i32),
+    #[error("invalid block index ({0} / {1})")]
     BlockIndex(i8, usize),
-    BlockConfig(block::DataConvertError),
-    ReadState(dynamic::ReadError),
-    Placement(PlaceError),
+    #[error("block config conversion failed")]
+    BlockConfig(#[from] block::DataConvertError),
+    #[error("failed to read block data")]
+    ReadState(#[from] dynamic::ReadError),
+    #[error("deserialized block could not be placed")]
+    Placement(#[from] PlaceError),
 }
 
-impl From<data::ReadError> for ReadError {
-    fn from(value: data::ReadError) -> Self {
-        Self::Read(value)
-    }
-}
-
-impl From<dynamic::ReadError> for ReadError {
-    fn from(value: dynamic::ReadError) -> Self {
-        Self::ReadState(value)
-    }
-}
-
-impl From<block::DataConvertError> for ReadError {
-    fn from(value: block::DataConvertError) -> Self {
-        Self::BlockConfig(value)
-    }
-}
-
-impl From<PlaceError> for ReadError {
-    fn from(value: PlaceError) -> Self {
-        Self::Placement(value)
-    }
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Read(..) => f.write_str("failed to read from buffer"),
-            Self::Header(hdr) => write!(f, "incorrect header ({hdr:08X})"),
-            Self::Version(ver) => write!(f, "unsupported version ({ver})"),
-            Self::Dimensions(w, h) => write!(f, "invalid schematic dimensions ({w} * {h})"),
-            Self::TableSize(cnt) => write!(f, "invalid block table size ({cnt})"),
-            Self::NoSuchBlock(name) => write!(f, "unknown block {name:?}"),
-            Self::BlockCount(cnt) => write!(f, "invalid total block count ({cnt})"),
-            Self::BlockIndex(idx, cnt) => write!(f, "invalid block index ({idx} / {cnt})"),
-            Self::BlockConfig(..) => f.write_str("block config conversion failed"),
-            Self::ReadState(..) => f.write_str("failed to read block data"),
-            Self::Placement(..) => f.write_str("deserialized block could not be placed"),
-        }
-    }
-}
-
-impl Error for ReadError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Read(e) => Some(e),
-            Self::BlockConfig(e) => Some(e),
-            Self::ReadState(e) => Some(e),
-            Self::Placement(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum WriteError {
-    Write(data::WriteError),
+    #[error("failed to write data to buffer")]
+    Write(#[from] data::WriteError),
+    #[error("tag list too long ({0})")]
     TagCount(usize),
+    #[error("block table too long ({0})")]
     TableSize(usize),
-    StateSerialize(block::SerializeError),
-    WriteState(dynamic::WriteError),
-}
-
-impl From<data::WriteError> for WriteError {
-    fn from(value: data::WriteError) -> Self {
-        Self::Write(value)
-    }
-}
-
-impl From<block::SerializeError> for WriteError {
-    fn from(value: block::SerializeError) -> Self {
-        Self::StateSerialize(value)
-    }
-}
-
-impl From<dynamic::WriteError> for WriteError {
-    fn from(value: dynamic::WriteError) -> Self {
-        Self::WriteState(value)
-    }
-}
-
-impl fmt::Display for WriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Write(..) => f.write_str("failed to write data to buffer"),
-            Self::TagCount(len) => write!(f, "tag list too long ({len})"),
-            Self::TableSize(len) => write!(f, "block table too long ({len})"),
-            Self::StateSerialize(e) => e.fmt(f),
-            Self::WriteState(..) => f.write_str("failed to write block data"),
-        }
-    }
-}
-
-impl Error for WriteError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Write(e) => Some(e),
-            Self::StateSerialize(e) => e.source(),
-            _ => None,
-        }
-    }
+    #[error(transparent)]
+    StateSerialize(#[from] block::SerializeError),
+    #[error("failed to write block data")]
+    WriteState(#[from] dynamic::WriteError),
 }
 
 impl<'l> SchematicSerializer<'l> {
@@ -1263,76 +1114,20 @@ impl<'l> SchematicSerializer<'l> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum R64Error {
-    Base64(base64::DecodeError),
-    Content(ReadError),
+    #[error("base-64 decoding failed")]
+    Base64(#[from] base64::DecodeError),
+    #[error(transparent)]
+    Content(#[from] ReadError),
 }
 
-impl From<base64::DecodeError> for R64Error {
-    fn from(value: base64::DecodeError) -> Self {
-        Self::Base64(value)
-    }
-}
-
-impl From<ReadError> for R64Error {
-    fn from(value: ReadError) -> Self {
-        Self::Content(value)
-    }
-}
-
-impl fmt::Display for R64Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Base64(..) => f.write_str("base-64 decoding failed"),
-            Self::Content(e) => e.fmt(f),
-        }
-    }
-}
-
-impl Error for R64Error {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Base64(e) => Some(e),
-            Self::Content(e) => e.source(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum W64Error {
-    Base64(base64::EncodeError),
-    Content(WriteError),
-}
-
-impl From<base64::EncodeError> for W64Error {
-    fn from(value: base64::EncodeError) -> Self {
-        Self::Base64(value)
-    }
-}
-
-impl From<WriteError> for W64Error {
-    fn from(value: WriteError) -> Self {
-        Self::Content(value)
-    }
-}
-
-impl fmt::Display for W64Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Base64(..) => f.write_str("base-64 encoding failed"),
-            Self::Content(e) => e.fmt(f),
-        }
-    }
-}
-
-impl Error for W64Error {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Base64(e) => Some(e),
-            Self::Content(e) => e.source(),
-        }
-    }
+    #[error("base-64 encoding failed")]
+    Base64(#[from] base64::EncodeError),
+    #[error(transparent)]
+    Content(#[from] WriteError),
 }
 
 pub struct PosIter {

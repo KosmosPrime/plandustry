@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::str::Utf8Error;
+use thiserror::Error;
 
 mod base64;
 mod command;
@@ -196,54 +197,26 @@ impl<'d> DataRead<'d> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ReadError {
+    #[error("decompressor stalled before completion")]
     DecompressStall,
-    Decompress(DecompressError),
+    #[error("zlib decompession failed")]
+    Decompress(#[from] DecompressError),
+    #[error("buffer underflow (expected {need} but got {have})")]
     Underflow { need: usize, have: usize },
+    #[error("expected {0}")]
     Expected(&'static str),
-    Utf8(Utf8Error),
+    #[error("malformed utf8 in string")]
+    Utf8 {
+        #[from]
+        source: Utf8Error,
+    },
 }
 
 impl PartialEq for ReadError {
     fn eq(&self, _: &Self) -> bool {
         false
-    }
-}
-
-impl From<DecompressError> for ReadError {
-    fn from(value: DecompressError) -> Self {
-        Self::Decompress(value)
-    }
-}
-
-impl From<Utf8Error> for ReadError {
-    fn from(err: Utf8Error) -> Self {
-        Self::Utf8(err)
-    }
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Underflow { need, have } => {
-                write!(f, "buffer underflow (expected {need} but got {have})")
-            }
-            Self::Decompress(..) => f.write_str("zlib decompression failed"),
-            Self::DecompressStall => f.write_str("decompressor stalled before completion"),
-            Self::Utf8(..) => f.write_str("malformed utf-8 in string"),
-            Self::Expected(z) => write!(f, "expected {z}"),
-        }
-    }
-}
-
-impl Error for ReadError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Utf8(e) => Some(e),
-            Self::Decompress(e) => Some(e),
-            _ => None,
-        }
     }
 }
 
@@ -396,50 +369,26 @@ impl Default for DataWrite<'static> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum WriteError {
+    #[error("buffer overflow (expected {need} but got {have})")]
     Overflow { need: usize, have: usize },
+    #[error("string too long ({len} bytes of {})", u16::MAX)]
     TooLong { len: usize },
-    Compress(CompressError),
+    #[error("zlib compression failed")]
+    Compress {
+        #[from]
+        source: CompressError,
+    },
+    #[error("compression overflow with {0} bytes of input remaining")]
     CompressEof(usize),
+    #[error("compressor stalled before completion")]
     CompressStall,
-}
-
-impl From<CompressError> for WriteError {
-    fn from(value: CompressError) -> Self {
-        Self::Compress(value)
-    }
 }
 
 impl PartialEq for WriteError {
     fn eq(&self, _: &Self) -> bool {
         false
-    }
-}
-
-impl fmt::Display for WriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Overflow { need, have } => {
-                write!(f, "buffer overflow (expected {need} but got {have})")
-            }
-            Self::Compress(..) => f.write_str("zlib compression failed"),
-            Self::CompressEof(remain) => write!(
-                f,
-                "compression overflow with {remain} bytes of input remaining"
-            ),
-            Self::CompressStall => f.write_str("compressor stalled before completion"),
-            Self::TooLong { len } => write!(f, "string too long ({len} bytes of {})", u16::MAX),
-        }
-    }
-}
-
-impl Error for WriteError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Compress(e) => Some(e),
-            _ => None,
-        }
     }
 }
 

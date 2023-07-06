@@ -70,6 +70,7 @@
 //!                 - id: `u32`
 //!                 - entity read
 use std::collections::HashMap;
+use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
 use crate::block::{Block, BlockRegistry, Rotation};
@@ -81,7 +82,6 @@ use crate::item::storage::Storage;
 use crate::item::Type as Item;
 use crate::team::Team;
 
-use super::schematic::{ReadError, WriteError};
 use super::GridPos;
 use super::Serializer;
 use crate::content::Content;
@@ -244,19 +244,42 @@ pub struct Map<'l> {
     pub tiles: Vec<Tile<'l>>,
 }
 
-const MAP_HEADER: u32 = 0x4d534156;
+const MAP_HEADER: [u8; 4] = [b'M', b'S', b'A', b'V'];
+
+/// error ocurring when reading a map fails
+#[derive(Debug, Error)]
+pub enum ReadError {
+    #[error("failed to read from buffer")]
+    Read(#[from] super::ReadError),
+    #[error("incorrect header ({0:?})")]
+    Header([u8; 4]),
+    #[error("unsupported version ({0})")]
+    Version(u8),
+    #[error("unknown block {0:?}")]
+    NoSuchBlock(String),
+    #[error("failed to read block data")]
+    ReadState(#[from] super::dynamic::ReadError),
+}
 
 /// serde map
 pub struct MapSerializer<'l>(pub &'l BlockRegistry<'l>);
 impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
     type ReadError = ReadError;
-    type WriteError = WriteError;
+    type WriteError = ();
+    /// deserialize a map
+    ///
+    /// notes:
+    /// - does not deserialize data
+    /// - does not deserialize entities
     fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<Map<'l>, Self::ReadError> {
         let buff = buff.deflate()?;
         let mut buff = DataRead::new(&buff);
-        let hdr = buff.read_u32()?;
-        if hdr != MAP_HEADER {
-            return Err(ReadError::Header(hdr));
+        {
+            let mut b = [0; 4];
+            buff.read_bytes(&mut b)?;
+            if b != MAP_HEADER {
+                return Err(ReadError::Header(b));
+            }
         }
         let version = buff.read_u32()?;
         if version != 7 {
@@ -427,6 +450,8 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         })
     }
 
+    /// serialize a map (todo)
+    /// panics: always
     fn serialize(
         &mut self,
         _: &mut super::DataWrite<'_>,
