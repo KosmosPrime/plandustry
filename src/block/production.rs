@@ -3,6 +3,7 @@ use crate::block::make_register;
 use crate::block::simple::{cost, make_simple};
 
 make_register! {
+    "cultivator" => ProductionBlock::new(2, true, cost!(Copper: 25, Lead: 25, Silicon: 10));
     "graphite-press" => ProductionBlock::new(2, true, cost!(Copper: 75, Lead: 30));
     "multi-press" => ProductionBlock::new(3, true, cost!(Lead: 100, Graphite: 50, Titanium: 100, Silicon: 25));
     "silicon-smelter" => ProductionBlock::new(2, true, cost!(Copper: 30, Lead: 25));

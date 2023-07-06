@@ -19,7 +19,7 @@ use super::schematic::Schematic;
 
 type Cache = DashMap<PathBuf, RgbaImage>;
 fn cache() -> &'static Cache {
-    CACHE.get_or_init(|| Cache::new())
+    CACHE.get_or_init(Cache::new)
 }
 
 pub enum ImageHolder {
@@ -64,7 +64,7 @@ impl From<RgbaImage> for ImageHolder {
 }
 
 static CACHE: OnceLock<Cache> = OnceLock::new();
-pub(crate) fn load<'a>(category: &str, name: &str) -> Option<Ref<'static, PathBuf, RgbaImage>> {
+pub(crate) fn load(category: &str, name: &str) -> Option<Ref<'static, PathBuf, RgbaImage>> {
     let key = Path::new("blocks").join(category).join(name);
     let mut p = key.clone();
     use dashmap::mapref::entry::Entry::*;
@@ -119,7 +119,7 @@ where
     for suffix in suffixes {
         if let Some(p) = load(category, &format!("{name}{suffix}")) {
             if suffix == &"-team" {
-                c.overlay(&p.clone().tint(SHARDED.color()), 0, 0);
+                c.overlay(p.clone().tint(SHARDED.color()), 0, 0);
                 continue;
             }
             c.overlay(&p, 0, 0);
@@ -156,7 +156,7 @@ impl<'l> Renderer {
 
     pub fn render_map(m: &'l Map<'_>) -> RgbaImage {
         load_zip();
-        let mut canvas = RgbaImage::new((m.width * 8).into(), (m.height * 8).into());
+        let mut canvas = RgbaImage::new(m.width * 8, m.height * 8);
         const VEC: Vec<&Tile<'_>> = vec![];
         let mut layers = [VEC; 2];
         for tile in m.tiles.iter() {

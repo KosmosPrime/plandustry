@@ -120,7 +120,7 @@ impl<'d> DataRead<'d> {
     pub fn skip_chunk(&mut self) -> Result<usize, ReadError> {
         let len = self.read_u32()? as usize;
         self.skip(len)?;
-        return Ok(len);
+        Ok(len)
     }
 
     pub fn read_chunk<E>(&mut self, f: impl FnOnce(&mut DataRead) -> Result<(), E>) -> Result<(), E>
