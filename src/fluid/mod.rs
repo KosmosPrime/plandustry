@@ -1,3 +1,6 @@
+//! fluids
+//!
+//! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/Liquids.java)
 use crate::content::color_content_enum;
 
 color_content_enum! {

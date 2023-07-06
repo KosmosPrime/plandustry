@@ -121,14 +121,14 @@ impl Team {
                 Rgb(color_hex::color_from_hex!($x))
             };
         }
-        match self {
-            &SHARDED => h!("ffd37f"),
-            &DERELICT => h!("4d4e58"),
-            &CRUX => h!("f25555"),
-            &MALIS => h!("a27ce5"),
-            &GREEN => h!("54d67d"),
-            &BLUE => h!("6c87fd"),
-            &NEOPLASTIC => h!("e05438"),
+        match *self {
+            SHARDED => h!("ffd37f"),
+            DERELICT => h!("4d4e58"),
+            CRUX => h!("f25555"),
+            MALIS => h!("a27ce5"),
+            GREEN => h!("54d67d"),
+            BLUE => h!("6c87fd"),
+            NEOPLASTIC => h!("e05438"),
             _ => h!("a9a9a9"),
         }
     }

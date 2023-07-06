@@ -3,6 +3,7 @@ use crate::block::make_register;
 use crate::block::simple::{cost, make_simple};
 
 make_register! {
+    "cultivator" => ProductionBlock::new(2, true, cost!(Copper: 25, Lead: 25, Silicon: 10));
     "graphite-press" => ProductionBlock::new(2, true, cost!(Copper: 75, Lead: 30));
     "multi-press" => ProductionBlock::new(3, true, cost!(Lead: 100, Graphite: 50, Titanium: 100, Silicon: 25));
     "silicon-smelter" => ProductionBlock::new(2, true, cost!(Copper: 30, Lead: 25));
@@ -24,9 +25,9 @@ make_register! {
     "silicon-arc-furnace" => ProductionBlock::new(3, true, cost!(Beryllium: 70, Graphite: 80));
     "electrolyzer" => ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
     "atmospheric-concentrator" => ProductionBlock::new(3, true, cost!(Oxide: 60, Beryllium: 180, Silicon: 150));
-    "oxidation-chamber" => ProductionBlock::new(3, true, cost!(Tungsten: 120, Graphite: 80, Silicon: 100, Beryllium: 120));
-    "electric-heater" => ProductionBlock::new(2, false, cost!(Tungsten: 30, Oxide: 30));
-    "slag-heater" => ProductionBlock::new(3, false, cost!(Tungsten: 50, Oxide: 20, Beryllium: 20));
+    "oxidation-chamber" => HeatCrafter::new(3, true, cost!(Tungsten: 120, Graphite: 80, Silicon: 100, Beryllium: 120));
+    "electric-heater" => HeatCrafter::new(2, false, cost!(Tungsten: 30, Oxide: 30));
+    "slag-heater" => HeatCrafter::new(3, false, cost!(Tungsten: 50, Oxide: 20, Beryllium: 20));
     "phase-heater" => ProductionBlock::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
     "heat-redirector" => ProductionBlock::new(3, false, cost!(Tungsten: 10, Graphite: 10));
     "heat-router" => ProductionBlock::new(3, false, cost!(Tungsten: 15, Graphite: 10));
@@ -41,4 +42,30 @@ make_register! {
     "heat-source" => ProductionBlock::new(1, false, &[]);
 }
 
-make_simple!(ProductionBlock);
+make_simple!(
+    ProductionBlock,
+    |_, _, _, _| None,
+    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+        // format:
+        // - progress: `f32`
+        // - warmup: `f32`
+        buff.read_f32()?;
+        buff.read_f32()?;
+        Ok(())
+    }
+);
+
+make_simple!(
+    HeatCrafter,
+    |_, _, _, _| None,
+    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+        // format:
+        // - progress: `f32`
+        // - warmup: `f32`
+        // - heat: f32
+        buff.read_f32()?;
+        buff.read_f32()?;
+        buff.read_f32()?;
+        Ok(())
+    }
+);

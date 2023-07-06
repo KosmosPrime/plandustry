@@ -2,23 +2,39 @@
 use std::error::Error;
 use std::fmt;
 
-use image::RgbaImage;
-
-use crate::block::make_register;
-use crate::block::simple::{cost, make_simple, state_impl};
+use crate::block::simple::*;
+use crate::block::*;
 use crate::content;
 use crate::data::dynamic::DynType;
-use crate::data::renderer::load;
+use crate::data::renderer::{load, ImageHolder};
 use crate::item;
+use crate::utils::ImageUtils;
 
 make_simple!(ConveyorBlock);
+make_simple!(
+    JunctionBlock,
+    |_, _, _, _| None,
+    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+        // format:
+        // - iterate 4
+        //     - u8
+        //     - iterate u8
+        //         - i64
+        for _ in 0..4 {
+            let _ = buff.read_u8()?;
+            let n = buff.read_u8()? as usize;
+            buff.skip(n * 8)?;
+        }
+        Ok(())
+    }
+);
 
 make_register! {
     "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
     "titanium-conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
     "plastanium-conveyor" => ConveyorBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
     "armored-conveyor" => ConveyorBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
-    "junction" => ConveyorBlock::new(1, true, cost!(Copper: 2));
+    "junction" => JunctionBlock::new(1, true, cost!(Copper: 2));
     "bridge-conveyor" => BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
     "phase-conveyor" => BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
@@ -106,28 +122,27 @@ impl BlockLogic for ItemBlock {
         }
     }
 
-    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<RgbaImage> {
+    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<ImageHolder> {
         if !matches!(
             name,
             "unloader" | "item-source" | "sorter" | "inverted-sorter"
         ) {
             return None;
         }
-        let mut p = load(category, name).unwrap();
+        let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load(category, "center").unwrap();
-                crate::utils::image::tint(&mut top, s.color());
-                image::imageops::overlay(&mut p, &top, 0, 0);
-                return Some(p);
+                let mut top = load(category, "center").unwrap().clone();
+                p.overlay(top.tint(s.color()), 0, 0);
+                return Some(ImageHolder::from(p));
             }
         }
         if name == "unloader" {
-            return Some(p);
+            return Some(ImageHolder::from(p));
         }
-        let mut null = load("distribution", "cross-full").unwrap();
-        image::imageops::overlay(&mut null, &p, 0, 0);
-        Some(null)
+        let mut null = load("distribution", "cross-full").unwrap().clone();
+        null.overlay(&p, 0, 0);
+        Some(ImageHolder::from(null))
     }
 }
 
@@ -293,6 +308,29 @@ impl BlockLogic for BridgeBlock {
             None => Ok(DynData::Empty),
             Some((dx, dy)) => Ok(DynData::Point2(*dx, *dy)),
         }
+    }
+
+    /// format:
+    /// - out: `i32`
+    /// - warmup: `f32`
+    /// - iterate `links<u8>`
+    ///     - in+: `i32`
+    /// - moved: `bool`
+    fn read(
+        &self,
+        _: &str,
+        _: &str,
+        _: &super::BlockRegistry,
+        _: &crate::data::map::EntityMapping,
+        buff: &mut crate::data::DataRead,
+    ) -> Result<(), crate::data::ReadError> {
+        buff.read_i32()?;
+        buff.read_f32()?;
+        for _ in 0..buff.read_u8()? {
+            buff.read_i32()?;
+        }
+        buff.read_bool()?;
+        Ok(())
     }
 }
 

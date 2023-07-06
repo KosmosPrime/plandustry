@@ -7,16 +7,29 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 use std::str::Utf8Error;
+use thiserror::Error;
 
 mod base64;
 mod command;
 pub mod dynamic;
+pub mod map;
+pub mod planet;
 pub mod renderer;
 pub mod schematic;
+pub mod sector;
+pub mod weather;
 
 #[derive(Debug)]
 pub struct DataRead<'d> {
     data: &'d [u8],
+    // used with read_chunk
+    read: usize,
+}
+
+impl fmt::Display for DataRead<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(self.data))
+    }
 }
 
 macro_rules! make_read {
@@ -32,6 +45,7 @@ macro_rules! make_read {
             let mut output = [0u8; LEN];
             output.copy_from_slice(&self.data[..LEN]);
             self.data = &self.data[LEN..];
+            self.read += LEN;
             Ok(<$type>::from_be_bytes(output))
         }
     };
@@ -40,7 +54,7 @@ macro_rules! make_read {
 impl<'d> DataRead<'d> {
     #[must_use]
     pub fn new(data: &'d [u8]) -> Self {
-        Self { data }
+        Self { data, read: 0 }
     }
 
     pub fn read_bool(&mut self) -> Result<bool, ReadError> {
@@ -75,6 +89,7 @@ impl<'d> DataRead<'d> {
         }
         let result = std::str::from_utf8(&self.data[..end])?;
         self.data = &self.data[end..];
+        self.read += end;
         Ok(result)
     }
 
@@ -87,7 +102,46 @@ impl<'d> DataRead<'d> {
         }
         dst.copy_from_slice(&self.data[..dst.len()]);
         self.data = &self.data[dst.len()..];
+        self.read += dst.len();
         Ok(())
+    }
+
+    pub fn skip(&mut self, n: usize) -> Result<(), ReadError> {
+        if self.data.len() < n {
+            return Err(ReadError::Underflow {
+                need: n,
+                have: self.data.len(),
+            });
+        }
+        self.data = &self.data[n..];
+        self.read += n;
+        Ok(())
+    }
+
+    pub fn skip_chunk(&mut self) -> Result<usize, ReadError> {
+        let len = self.read_u32()? as usize;
+        self.skip(len)?;
+        Ok(len)
+    }
+
+    pub fn read_chunk<E>(&mut self, f: impl FnOnce(&mut DataRead) -> Result<(), E>) -> Result<(), E>
+    where
+        E: Error + From<ReadError>,
+    {
+        let len = self.read_u32()? as usize;
+        self.read = 0;
+        let r = f(self);
+        match r {
+            Err(e) => {
+                // skip this chunk
+                let n = len - self.read;
+                if n != 0 {
+                    self.skip(n)?;
+                };
+                Err(e)
+            }
+            Ok(_) => Ok(()),
+        }
     }
 
     pub fn read_vec(&mut self, dst: &mut Vec<u8>, len: usize) -> Result<(), ReadError> {
@@ -99,6 +153,7 @@ impl<'d> DataRead<'d> {
         }
         dst.extend_from_slice(&self.data[..len]);
         self.data = &self.data[len..];
+        self.read += len;
         Ok(())
     }
 
@@ -137,56 +192,31 @@ impl<'d> DataRead<'d> {
             raw.reserve(1024);
         }
         assert_eq!(dec.total_out() as usize, raw.len());
+        self.read = 0;
         Ok(raw)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ReadError {
+    #[error("decompressor stalled before completion")]
     DecompressStall,
-    Decompress(DecompressError),
+    #[error("zlib decompession failed")]
+    Decompress(#[from] DecompressError),
+    #[error("buffer underflow (expected {need} but got {have})")]
     Underflow { need: usize, have: usize },
-    Utf8(Utf8Error),
+    #[error("expected {0}")]
+    Expected(&'static str),
+    #[error("malformed utf8 in string")]
+    Utf8 {
+        #[from]
+        source: Utf8Error,
+    },
 }
 
 impl PartialEq for ReadError {
     fn eq(&self, _: &Self) -> bool {
-        return false;
-    }
-}
-
-impl From<DecompressError> for ReadError {
-    fn from(value: DecompressError) -> Self {
-        Self::Decompress(value)
-    }
-}
-
-impl From<Utf8Error> for ReadError {
-    fn from(err: Utf8Error) -> Self {
-        Self::Utf8(err)
-    }
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Underflow { need, have } => {
-                write!(f, "buffer underflow (expected {need} but got {have})")
-            }
-            Self::Decompress(..) => f.write_str("zlib decompression failed"),
-            Self::DecompressStall => f.write_str("decompressor stalled before completion"),
-            Self::Utf8(..) => f.write_str("malformed utf-8 in string"),
-        }
-    }
-}
-
-impl Error for ReadError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Utf8(e) => Some(e),
-            Self::Decompress(e) => Some(e),
-            _ => None,
-        }
+        false
     }
 }
 
@@ -281,7 +311,9 @@ impl<'d> DataWrite<'d> {
 
     pub fn inflate(self, to: &mut DataWrite) -> Result<(), WriteError> {
         // compress into the provided buffer
-        let WriteBuff::Vec( raw) = self.data else { unreachable!("write buffer not owned") };
+        let WriteBuff::Vec(raw) = self.data else {
+            unreachable!("write buffer not owned")
+        };
         let mut comp = Compress::new(Compression::default(), true);
         // compress the immediate buffer into a temp buffer to copy it to buff? no thanks
         match to.data {
@@ -337,50 +369,26 @@ impl Default for DataWrite<'static> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum WriteError {
+    #[error("buffer overflow (expected {need} but got {have})")]
     Overflow { need: usize, have: usize },
+    #[error("string too long ({len} bytes of {})", u16::MAX)]
     TooLong { len: usize },
-    Compress(CompressError),
+    #[error("zlib compression failed")]
+    Compress {
+        #[from]
+        source: CompressError,
+    },
+    #[error("compression overflow with {0} bytes of input remaining")]
     CompressEof(usize),
+    #[error("compressor stalled before completion")]
     CompressStall,
-}
-
-impl From<CompressError> for WriteError {
-    fn from(value: CompressError) -> Self {
-        Self::Compress(value)
-    }
 }
 
 impl PartialEq for WriteError {
     fn eq(&self, _: &Self) -> bool {
-        return false;
-    }
-}
-
-impl fmt::Display for WriteError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Overflow { need, have } => {
-                write!(f, "buffer overflow (expected {need} but got {have})")
-            }
-            Self::Compress(..) => f.write_str("zlib compression failed"),
-            Self::CompressEof(remain) => write!(
-                f,
-                "compression overflow with {remain} bytes of input remaining"
-            ),
-            Self::CompressStall => f.write_str("compressor stalled before completion"),
-            Self::TooLong { len } => write!(f, "string too long ({len} bytes of {})", u16::MAX),
-        }
-    }
-}
-
-impl Error for WriteError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Compress(e) => Some(e),
-            _ => None,
-        }
+        false
     }
 }
 

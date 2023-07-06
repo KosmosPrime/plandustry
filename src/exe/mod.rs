@@ -1,4 +1,5 @@
 mod draw;
+mod map;
 mod print;
 
 macro_rules! print_err {
@@ -30,6 +31,7 @@ fn main() {
         None => eprintln!("Not enough arguments, valid commands are: draw, print"),
         Some(s) if s == "print" => print::main(args),
         Some(s) if s == "draw" => draw::main(args),
+        Some(s) if s == "map" => map::main(args),
         Some(s) => eprintln!("Unknown argument {s}, valid commands are: draw, print"),
     }
 }

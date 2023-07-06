@@ -1,45 +1,98 @@
 use std::error::Error;
 use std::fmt;
 use std::iter::{Enumerate, FusedIterator};
+use std::marker::PhantomData;
 use std::slice;
 
 use crate::item;
 
 #[derive(Clone, Debug, Eq)]
-/// holds item counts
-pub struct Storage {
+/// stores data
+pub struct Storage<T> {
     base: Vec<u32>,
     total: u64,
+    holds: PhantomData<T>,
 }
 
-impl Storage {
-    #[must_use]
-    pub const fn new() -> Self {
+pub type ItemStorage = Storage<item::Type>;
+
+impl<T> Default for Storage<T> {
+    fn default() -> Self {
         Self {
-            base: Vec::new(),
+            base: Vec::default(),
             total: 0,
+            holds: Default::default(),
         }
+    }
+}
+
+impl<T> Storage<T>
+where
+    u16: From<T>,
+{
+    #[must_use]
+    /// create a new storage
+    ///
+    /// ```
+    /// # use mindus::item::storage::ItemStorage;
+    /// // ItemStorage is a alias to Storage<Item>
+    /// let s = ItemStorage::new();
+    /// ```
+    pub fn new() -> Self {
+        Self::default()
     }
 
     #[must_use]
+    /// check if its empty
+    ///
+    /// ```
+    /// # use mindus::item::storage::ItemStorage;
+    /// # use mindus::item;
+    ///
+    /// let mut s = ItemStorage::new();
+    /// assert!(s.is_empty());
+    /// s.set(item::Type::Copper, 500);
+    /// assert!(!s.is_empty());
+    /// s.sub(item::Type::Copper, 500, 0);
+    /// assert!(s.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.total == 0
     }
 
+    /// get item count of certain element
+    ///
+    /// ```
+    /// # use mindus::item::storage::ItemStorage;
+    /// # use mindus::item;
+    ///
+    /// let mut s = ItemStorage::new();
+    /// assert!(s.get(item::Type::Coal) == 0);
+    /// s.set(item::Type::Coal, 500);
+    /// assert!(s.get(item::Type::Titanium) == 0);
+    /// assert!(s.get(item::Type::Coal) == 500);
+    /// s.sub(item::Type::Coal, 500, 0);
+    /// assert!(s.get(item::Type::Coal) == 0);
+    /// ```
     #[must_use]
-    pub fn get_total(&self) -> u64 {
-        self.total
-    }
-
-    #[must_use]
-    pub fn get(&self, ty: item::Type) -> u32 {
+    pub fn get(&self, ty: T) -> u32 {
         match self.base.get(u16::from(ty) as usize) {
             None => 0,
             Some(cnt) => *cnt,
         }
     }
-
-    pub fn set(&mut self, ty: item::Type, count: u32) -> u32 {
+    /// set item count of certain element
+    ///
+    /// ```
+    /// # use mindus::item::storage::ItemStorage;
+    /// # use mindus::item;
+    ///
+    /// let mut s = ItemStorage::new();
+    /// s.set(item::Type::Coal, 500);
+    /// s.set(item::Type::Copper, 500);
+    /// assert!(s.get(item::Type::Copper) == 500);
+    /// ```
+    pub fn set(&mut self, ty: T, count: u32) -> u32 {
         let idx = u16::from(ty) as usize;
         match self.base.get_mut(idx) {
             None => {
@@ -57,7 +110,21 @@ impl Storage {
         }
     }
 
-    pub fn add(&mut self, ty: item::Type, add: u32, max: u32) -> (u32, u32) {
+    /// add to a certain elements item count, capping.
+    ///
+    /// ```
+    /// # use mindus::item::storage::ItemStorage;
+    /// # use mindus::item;
+    ///
+    /// let mut s = ItemStorage::new();
+    /// s.add(item::Type::Coal, 500, 500);
+    /// assert!(s.get(item::Type::Coal) == 500);
+    /// s.add(item::Type::Coal, 500, 10000);
+    /// assert!(s.get(item::Type::Coal) == 1000);
+    /// s.add(item::Type::Coal, 500, 1250);
+    /// assert!(s.get(item::Type::Coal) == 1250);
+    /// ```
+    pub fn add(&mut self, ty: T, add: u32, max: u32) -> (u32, u32) {
         let idx = u16::from(ty) as usize;
         match self.base.get_mut(idx) {
             None => {
@@ -80,12 +147,8 @@ impl Storage {
         }
     }
 
-    pub fn try_add(
-        &mut self,
-        ty: item::Type,
-        add: u32,
-        max: u32,
-    ) -> Result<(u32, u32), TryAddError> {
+    /// like [`Storage::add`] but fails
+    pub fn try_add(&mut self, ty: T, add: u32, max: u32) -> Result<(u32, u32), TryAddError> {
         let idx = u16::from(ty) as usize;
         match self.base.get_mut(idx) {
             None => {
@@ -95,12 +158,7 @@ impl Storage {
                     self.total += u64::from(add);
                     Ok((add, add))
                 } else {
-                    Err(TryAddError {
-                        ty,
-                        have: 0,
-                        add,
-                        max,
-                    })
+                    Err(TryAddError { have: 0, add, max })
                 }
             }
             Some(curr) => {
@@ -110,7 +168,6 @@ impl Storage {
                     Ok((add, *curr))
                 } else {
                     Err(TryAddError {
-                        ty,
                         have: *curr,
                         add,
                         max,
@@ -120,7 +177,7 @@ impl Storage {
         }
     }
 
-    pub fn sub(&mut self, ty: item::Type, sub: u32, min: u32) -> (u32, u32) {
+    pub fn sub(&mut self, ty: T, sub: u32, min: u32) -> (u32, u32) {
         match self.base.get_mut(u16::from(ty) as usize) {
             None => (0, 0),
             Some(curr) => {
@@ -136,20 +193,10 @@ impl Storage {
         }
     }
 
-    pub fn try_sub(
-        &mut self,
-        ty: item::Type,
-        sub: u32,
-        min: u32,
-    ) -> Result<(u32, u32), TrySubError> {
+    pub fn try_sub(&mut self, ty: T, sub: u32, min: u32) -> Result<(u32, u32), TrySubError> {
         let idx = u16::from(ty) as usize;
         match self.base.get_mut(idx) {
-            None => Err(TrySubError {
-                ty,
-                have: 0,
-                sub,
-                min,
-            }),
+            None => Err(TrySubError { have: 0, sub, min }),
             Some(curr) => {
                 if *curr >= min && *curr - min >= sub {
                     *curr -= sub;
@@ -157,7 +204,6 @@ impl Storage {
                     Ok((sub, *curr))
                 } else {
                     Err(TrySubError {
-                        ty,
                         have: *curr,
                         sub,
                         min,
@@ -167,9 +213,9 @@ impl Storage {
         }
     }
 
-    pub fn add_all(&mut self, other: &Storage, max_each: u32) -> (u64, u64) {
+    pub fn add_all(&mut self, other: &Storage<T>, max_each: u32) -> (u64, u64) {
         let mut added = 0u64;
-        if max_each > 0 && other.get_total() > 0 {
+        if max_each > 0 && other.total > 0 {
             let mut iter = other.base.iter().enumerate();
             // resize our vector only once and if necessary
             let (last, add_last) = iter.rfind(|(_, n)| **n != 0).unwrap();
@@ -198,9 +244,9 @@ impl Storage {
         (added, self.total)
     }
 
-    pub fn pull_all(&mut self, other: &mut Storage, max_each: u32) -> (u64, u64, u64) {
+    pub fn pull_all(&mut self, other: &mut Storage<T>, max_each: u32) -> (u64, u64, u64) {
         let mut added = 0u64;
-        if max_each > 0 && other.get_total() > 0 {
+        if max_each > 0 && other.total > 0 {
             let mut iter = other.base.iter_mut().enumerate();
             // resize our vector only once and if necessary
             let (last, add_last) = iter.rfind(|(_, n)| **n != 0).unwrap();
@@ -232,9 +278,9 @@ impl Storage {
         (added, self.total, other.total)
     }
 
-    pub fn sub_all(&mut self, other: &Storage, min_each: u32) -> (u64, u64) {
+    pub fn sub_all(&mut self, other: &Storage<T>, min_each: u32) -> (u64, u64) {
         let mut subbed = 0u64;
-        if self.get_total() > 0 && other.get_total() > 0 {
+        if self.total > 0 && other.total > 0 {
             // no need for resizing, we only remove
             // process items by increasing ID
             for (idx, sub) in other.base.iter().enumerate() {
@@ -254,9 +300,9 @@ impl Storage {
         (subbed, self.total)
     }
 
-    pub fn diff_all(&mut self, other: &mut Storage, min_each: u32) -> (u64, u64, u64) {
+    pub fn diff_all(&mut self, other: &mut Storage<T>, min_each: u32) -> (u64, u64, u64) {
         let mut subbed = 0u64;
-        if self.get_total() > 0 && other.get_total() > 0 {
+        if self.total > 0 && other.total > 0 {
             // no need for resizing, we only remove
             // consider only indexes present in both
             let end = self.base.len().min(other.base.len());
@@ -300,7 +346,7 @@ impl Storage {
 }
 
 // manual because padding with zeros doesn't affect equality
-impl PartialEq for Storage {
+impl<T> PartialEq for Storage<T> {
     fn eq(&self, other: &Self) -> bool {
         let mut li = self.base.iter().fuse();
         let mut ri = other.base.iter().fuse();
@@ -317,16 +363,17 @@ impl PartialEq for Storage {
     }
 }
 
-impl fmt::Display for Storage {
+impl<T> fmt::Display for Storage<T>
+where
+    u16: From<T>,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut first = true;
-        for (ty, cnt) in self.iter_nonzero() {
-            if first {
-                first = false;
-            } else {
-                f.write_str(", ")?;
-            }
+        let mut iter = self.iter_nonzero();
+        if let Some((ty, cnt)) = iter.next() {
             write!(f, "{cnt} {ty}")?;
+            for (ty, cnt) in iter {
+                write!(f, ", {cnt} {ty}")?;
+            }
         }
         Ok(())
     }
@@ -334,7 +381,6 @@ impl fmt::Display for Storage {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TryAddError {
-    pub ty: item::Type,
     pub have: u32,
     pub add: u32,
     pub max: u32,
@@ -344,8 +390,8 @@ impl fmt::Display for TryAddError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "adding {} {:?} to current {} would exceed {}",
-            self.add, self.ty, self.have, self.max
+            "adding {:?} to current {} would exceed {}",
+            self.add, self.have, self.max
         )
     }
 }
@@ -354,7 +400,6 @@ impl Error for TryAddError {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TrySubError {
-    pub ty: item::Type,
     pub have: u32,
     pub sub: u32,
     pub min: u32,
@@ -364,8 +409,8 @@ impl fmt::Display for TrySubError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "removing {} {:?} from current {} would drop below {}",
-            self.sub, self.ty, self.have, self.min
+            "removing {} from current {} would drop below {}",
+            self.sub, self.have, self.min
         )
     }
 }

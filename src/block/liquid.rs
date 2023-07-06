@@ -3,12 +3,13 @@ use std::error::Error;
 use std::fmt;
 
 use crate::block::distribution::BridgeBlock;
-use crate::block::make_register;
-use crate::block::simple::{cost, make_simple, state_impl};
+use crate::block::simple::*;
+use crate::block::*;
 use crate::content;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::load;
 use crate::fluid;
+use crate::utils::ImageUtils;
 
 make_simple!(LiquidBlock);
 
@@ -101,19 +102,18 @@ impl BlockLogic for FluidBlock {
         }
     }
 
-    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<image::RgbaImage> {
-        let mut p = load(category, name).unwrap();
+    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<ImageHolder> {
+        let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load("distribution", "center").unwrap();
-                crate::utils::image::tint(&mut top, s.color());
-                image::imageops::overlay(&mut p, &top, 0, 0);
-                return Some(p);
+                let mut top = load("distribution", "center").unwrap().clone();
+                p.overlay(top.tint(s.color()), 0, 0);
+                return Some(ImageHolder::Own(p));
             }
         }
-        let mut null = load("distribution", "cross-full").unwrap();
-        image::imageops::overlay(&mut null, &p, 0, 0);
-        Some(null)
+        let mut null = load("distribution", "cross-full").unwrap().clone();
+        null.overlay(&p, 0, 0);
+        Some(ImageHolder::Own(null))
     }
 }
 

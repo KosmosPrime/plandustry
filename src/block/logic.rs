@@ -9,15 +9,14 @@ use flate2::{
     FlushDecompress, Status,
 };
 
-use crate::block::make_register;
-use crate::block::simple::{cost, make_simple, state_impl};
+use crate::block::simple::*;
+use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::data::{self, DataRead, DataWrite};
 
 make_simple!(LogicBlock);
 
 make_register! {
-    // todo reinforced proc
     "reinforced-message" => MessageLogic::new(1, true, cost!(Graphite: 10, Beryllium: 5));
     "message" => MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
     "switch" => SwitchLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
@@ -28,6 +27,11 @@ make_register! {
     "memory-bank" => LogicBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
     "logic-display" => LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
     "large-logic-display" => LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
+    // todo canvas (cost!(Silicon: 30, Beryllium: 10))
+    // editor only
+    "world-processor" => LogicBlock::new(1, true, &[]);
+    "world-message" => MessageLogic::new(1, true, &[]);
+    "world-cell" => LogicBlock::new(1, true, &[]);
 }
 
 pub struct MessageLogic {

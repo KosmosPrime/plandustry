@@ -1,4 +1,6 @@
 //! modifiers units can be afflicted with
+//!
+//! [source](https://github.com/Anuken/Mindustry/blob/master/core/src/mindustry/content/SectorPresets.java)
 use crate::content::content_enum;
 
 content_enum! {
