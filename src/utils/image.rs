@@ -1,4 +1,6 @@
+use fast_image_resize as fr;
 use image::{Rgb, Rgba, RgbaImage};
+use std::num::NonZeroU32;
 
 pub trait ImageUtils {
     fn tint(&mut self, color: Rgb<u8>) -> &mut Self;
@@ -7,7 +9,7 @@ pub trait ImageUtils {
 
     fn overlay(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self;
 
-    fn scale(&mut self, to: u32) -> &mut Self;
+    unsafe fn scale(self, to: u32) -> Self;
 }
 
 impl ImageUtils for RgbaImage {
@@ -28,12 +30,7 @@ impl ImageUtils for RgbaImage {
     fn repeat(&mut self, with: &RgbaImage) -> &mut Self {
         for x in 0..(self.width() / with.width()) {
             for y in 0..(self.height() / with.height()) {
-                image::imageops::overlay(
-                    self,
-                    with,
-                    (x * with.width()).into(),
-                    (y * with.height()).into(),
-                );
+                self.overlay(with, x * with.width(), y * with.height());
             }
         }
         self
@@ -51,8 +48,25 @@ impl ImageUtils for RgbaImage {
         self
     }
 
-    fn scale(&mut self, to: u32) -> &mut Self {
-        *self = image::imageops::resize(self, to, to, image::imageops::FilterType::Nearest);
-        self
+    /// scales a image
+    ///
+    /// SAFETY: to and width and height cannot be 0.
+    unsafe fn scale(self, to: u32) -> Self {
+        debug_assert_ne!(to, 0);
+        debug_assert_ne!(self.width(), 0);
+        debug_assert_ne!(self.height(), 0);
+        let to = NonZeroU32::new_unchecked(to);
+        let src = fr::Image::from_vec_u8(
+            NonZeroU32::new_unchecked(self.width()),
+            NonZeroU32::new_unchecked(self.height()),
+            self.into_vec(),
+            fr::PixelType::U8x4,
+        )
+        .unwrap();
+        let mut dst = fr::Image::new(to, to, fr::PixelType::U8x4);
+        fr::Resizer::new(fr::ResizeAlg::Nearest)
+            .resize(&src.view(), &mut dst.view_mut())
+            .unwrap();
+        RgbaImage::from_raw(to.get(), to.get(), dst.into_vec()).unwrap()
     }
 }

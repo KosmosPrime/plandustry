@@ -118,7 +118,7 @@ impl BlockLogic for ItemBlock {
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
                 let mut top = load(category, "center").unwrap();
-                image::imageops::overlay(&mut p, top.tint(s.color()), 0, 0);
+                p.overlay(top.tint(s.color()), 0, 0);
                 return Some(p);
             }
         }
@@ -126,7 +126,7 @@ impl BlockLogic for ItemBlock {
             return Some(p);
         }
         let mut null = load("distribution", "cross-full").unwrap();
-        image::imageops::overlay(&mut null, &p, 0, 0);
+        null.overlay(&p, 0, 0);
         Some(null)
     }
 }

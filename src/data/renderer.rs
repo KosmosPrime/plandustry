@@ -1,11 +1,10 @@
 //! schematic drawing
 use dashmap::DashMap;
+use image::codecs::png::PngDecoder;
+use image::{DynamicImage, RgbaImage};
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-
-use image::codecs::png::PngDecoder;
-use image::{DynamicImage, RgbaImage};
 use zip::ZipArchive;
 
 use crate::block::environment::METAL_FLOOR;
@@ -73,7 +72,7 @@ where
             if suffix == &"-team" {
                 p.tint(SHARDED.color());
             }
-            image::imageops::overlay(&mut c, &p, 0, 0);
+            c.overlay(&p, 0, 0);
         }
     }
     c
@@ -126,7 +125,12 @@ impl<'l> Renderer {
                 };
                 let x = (tile.pos.0 - ((s - 1) / 2) as u16) as u32;
                 let y = (m.height as u16 - tile.pos.1 - ((s / 2) + 1) as u16) as u32;
-                canvas.overlay(tile.image().scale(tile.size() as u32 * 8), x * 8, y * 8);
+                canvas.overlay(
+                    // SAFETY: surely not 0. (tile.size can never be 0). im not sure if you can load a 0 sized image.. but you might be able to.
+                    unsafe { &tile.image().scale(tile.size() as u32 * 8) },
+                    x * 8,
+                    y * 8,
+                );
             }
         }
         canvas

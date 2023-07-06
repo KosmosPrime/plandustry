@@ -33,6 +33,7 @@ make_register! {
 }
 
 use crate::data::renderer::load;
+use crate::utils::ImageUtils;
 crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _| {
     let path = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
@@ -40,7 +41,6 @@ crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _| {
         _ => format!("bases/block-{}", me.size),
     };
     let mut base = load("turrets", &path).unwrap();
-    let top = load("turrets", name).unwrap();
-    image::imageops::overlay(&mut base, &top, 0, 0);
+    base.overlay(&load("turrets", name).unwrap(), 0, 0);
     Some(base)
 });
