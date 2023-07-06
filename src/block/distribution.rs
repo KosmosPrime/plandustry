@@ -2,13 +2,11 @@
 use std::error::Error;
 use std::fmt;
 
-use image::RgbaImage;
-
 use crate::block::simple::*;
 use crate::block::*;
 use crate::content;
 use crate::data::dynamic::DynType;
-use crate::data::renderer::load;
+use crate::data::renderer::{load, ImageHolder};
 use crate::item;
 use crate::utils::ImageUtils;
 
@@ -107,27 +105,27 @@ impl BlockLogic for ItemBlock {
         }
     }
 
-    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<RgbaImage> {
+    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<ImageHolder> {
         if !matches!(
             name,
             "unloader" | "item-source" | "sorter" | "inverted-sorter"
         ) {
             return None;
         }
-        let mut p = load(category, name).unwrap();
+        let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load(category, "center").unwrap();
+                let mut top = load(category, "center").unwrap().clone();
                 p.overlay(top.tint(s.color()), 0, 0);
-                return Some(p);
+                return Some(ImageHolder::from(p));
             }
         }
         if name == "unloader" {
-            return Some(p);
+            return Some(ImageHolder::from(p));
         }
-        let mut null = load("distribution", "cross-full").unwrap();
+        let mut null = load("distribution", "cross-full").unwrap().clone();
         null.overlay(&p, 0, 0);
-        Some(null)
+        Some(ImageHolder::from(null))
     }
 }
 

@@ -2,14 +2,16 @@
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
-use crate::data::renderer::{load, read_with, TOP};
+use crate::data::renderer::{load, read_with, ImageHolder, TOP};
 
 make_simple!(WallBlock, |_, _, name, _| {
     if name == "thruster" {
         const SFX: &[&str; 1] = &[TOP];
-        return Some(read_with("turrets", "thruster", SFX, 4u32));
+        return Some(ImageHolder::Own(read_with(
+            "turrets", "thruster", SFX, 4u32,
+        )));
     }
-    Some(load("walls", name).unwrap())
+    Some(ImageHolder::Borrow(load("walls", name).unwrap()))
 });
 
 make_register! {

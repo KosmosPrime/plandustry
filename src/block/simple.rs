@@ -87,7 +87,7 @@ macro_rules! make_simple {
                 category: &str,
                 name: &str,
                 state: Option<&crate::block::State>,
-            ) -> Option<image::RgbaImage> {
+            ) -> Option<crate::data::renderer::ImageHolder> {
                 $draw(self, category, name, state)
             }
 

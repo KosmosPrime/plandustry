@@ -71,11 +71,10 @@
 //!                 - entity read
 use std::collections::HashMap;
 
-use image::RgbaImage;
-
 use crate::block::content::Type as BlockEnum;
 use crate::block::{Block, BlockRegistry, Rotation};
 use crate::data::dynamic::DynSerializer;
+use crate::data::renderer::*;
 use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
 use crate::item::storage::Storage;
@@ -129,16 +128,16 @@ impl<'l> Tile<'l> {
         1
     }
 
-    pub fn image(&self) -> RgbaImage {
+    pub fn image(&self) -> ImageHolder {
         // building covers floore
         let i = if let Some(b) = &self.build {
             b.image()
         } else {
-            let mut i = self.floor.image(None);
+            let mut i = self.floor.image(None).own();
             if let Some(ore) = self.ore {
-                i.overlay(&ore.image(None), 0, 0);
+                i.overlay(ore.image(None).borrow(), 0, 0);
             }
-            i
+            ImageHolder::from(i)
         };
         i
     }
@@ -179,7 +178,7 @@ pub struct Build<'l> {
 }
 
 impl Build<'_> {
-    pub fn image(&self) -> RgbaImage {
+    pub fn image(&self) -> ImageHolder {
         self.block.image(None)
     }
 

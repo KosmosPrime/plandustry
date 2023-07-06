@@ -1,7 +1,7 @@
 //! grass
 use crate::block::make_register;
 use crate::block::simple::make_simple;
-use crate::data::renderer::load;
+use crate::data::renderer::*;
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
@@ -15,9 +15,9 @@ macro_rules! register_env {
 			let mut rand = StdRand::seed(ClockSeed::default().next_u64());
     		match name {
     			$($field => {
-					if $variations == 1 { load("environment", $field) }
+					if $variations == 1 { Some(ImageHolder::Borrow(load("environment", $field).unwrap())) }
                     // else if $variations == 0 { return None }
-					else { load("environment", &format!("{}{}", $field, rand.next_range(1usize..$variations))) }
+					else { Some(ImageHolder::Borrow(load("environment", &format!("{}{}", $field, rand.next_range(1usize..$variations))).unwrap())) }
            		},)*
 				_ => { unreachable!() }
         	}

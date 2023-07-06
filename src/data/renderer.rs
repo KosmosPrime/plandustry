@@ -1,4 +1,5 @@
 //! schematic drawing
+use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
 use image::codecs::png::PngDecoder;
 use image::{DynamicImage, RgbaImage};
@@ -12,23 +13,71 @@ use crate::data::map::Tile;
 use crate::team::SHARDED;
 use crate::utils::ImageUtils;
 use crate::Map;
+pub use std::borrow::Borrow;
 
 use super::schematic::Schematic;
 
-static CACHE: OnceLock<DashMap<PathBuf, RgbaImage>> = OnceLock::new();
-pub(crate) fn load(category: &str, name: &str) -> Option<RgbaImage> {
-    let mut p = Path::new("blocks").join(category).join(name);
-    if let Some(i) = CACHE.get_or_init(|| DashMap::new()).get(&p) {
-        return Some(i.clone());
+type Cache = DashMap<PathBuf, RgbaImage>;
+fn cache() -> &'static Cache {
+    CACHE.get_or_init(|| Cache::new())
+}
+
+pub enum ImageHolder {
+    Borrow(Ref<'static, PathBuf, RgbaImage>),
+    Own(RgbaImage),
+}
+
+impl ImageHolder {
+    pub fn own(self) -> RgbaImage {
+        match self {
+            Self::Own(x) => x,
+            Self::Borrow(x) => x.clone(),
+        }
     }
-    let insertion = p.clone();
-    p.set_extension("png");
-    if let Some(i) = load_raw(p) {
-        let c = i.clone();
-        CACHE.get().unwrap().insert(insertion, i);
-        return Some(c);
+}
+
+impl Borrow<RgbaImage> for ImageHolder {
+    fn borrow(&self) -> &RgbaImage {
+        match self {
+            Self::Own(x) => x,
+            Self::Borrow(x) => x.value(),
+        }
     }
-    return None;
+}
+
+impl From<Option<Ref<'static, PathBuf, RgbaImage>>> for ImageHolder {
+    fn from(value: Option<Ref<'static, PathBuf, RgbaImage>>) -> Self {
+        Self::Borrow(value.unwrap())
+    }
+}
+
+impl From<Ref<'static, PathBuf, RgbaImage>> for ImageHolder {
+    fn from(value: Ref<'static, PathBuf, RgbaImage>) -> Self {
+        Self::Borrow(value)
+    }
+}
+
+impl From<RgbaImage> for ImageHolder {
+    fn from(value: RgbaImage) -> Self {
+        Self::Own(value)
+    }
+}
+
+static CACHE: OnceLock<Cache> = OnceLock::new();
+pub(crate) fn load<'a>(category: &str, name: &str) -> Option<Ref<'static, PathBuf, RgbaImage>> {
+    let key = Path::new("blocks").join(category).join(name);
+    let mut p = key.clone();
+    use dashmap::mapref::entry::Entry::*;
+    Some(match cache().entry(key) {
+        Occupied(v) => v.into_ref().downgrade(),
+        Vacant(entry) => {
+            p.set_extension("png");
+            let Some(i) = load_raw(p) else {
+                return None;
+            };
+            entry.insert(i).downgrade()
+        }
+    })
 }
 
 fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
@@ -68,9 +117,10 @@ where
 {
     let mut c = RgbaImage::new(size.into() * 32, size.into() * 32);
     for suffix in suffixes {
-        if let Some(mut p) = load(category, &format!("{name}{suffix}")) {
+        if let Some(p) = load(category, &format!("{name}{suffix}")) {
             if suffix == &"-team" {
-                p.tint(SHARDED.color());
+                c.overlay(&p.clone().tint(SHARDED.color()), 0, 0);
+                continue;
             }
             c.overlay(&p, 0, 0);
         }
@@ -95,11 +145,11 @@ impl<'l> Renderer {
         load_zip();
         let mut canvas = RgbaImage::new((s.width * 32).into(), (s.height * 32).into());
         // fill background
-        canvas.repeat(&METAL_FLOOR.image(None));
+        canvas.repeat(METAL_FLOOR.image(None).borrow());
         for tile in s.block_iter() {
             let x = (tile.pos.0 - ((tile.block.get_size() - 1) / 2) as u16) as u32;
             let y = (s.height - tile.pos.1 - ((tile.block.get_size() / 2) + 1) as u16) as u32;
-            canvas.overlay(&tile.image(), x * 32, y * 32);
+            canvas.overlay(tile.image().borrow(), x * 32, y * 32);
         }
         canvas
     }
@@ -127,7 +177,7 @@ impl<'l> Renderer {
                 let y = (m.height as u16 - tile.pos.1 - ((s / 2) + 1) as u16) as u32;
                 canvas.overlay(
                     // SAFETY: surely not 0. (tile.size can never be 0). im not sure if you can load a 0 sized image.. but you might be able to.
-                    unsafe { &tile.image().scale(tile.size() as u32 * 8) },
+                    unsafe { &tile.image().own().scale(tile.size() as u32 * 8) },
                     x * 8,
                     y * 8,
                 );

@@ -102,18 +102,18 @@ impl BlockLogic for FluidBlock {
         }
     }
 
-    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<image::RgbaImage> {
-        let mut p = load(category, name).unwrap();
+    fn draw(&self, category: &str, name: &str, state: Option<&State>) -> Option<ImageHolder> {
+        let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load("distribution", "center").unwrap();
+                let mut top = load("distribution", "center").unwrap().clone();
                 p.overlay(top.tint(s.color()), 0, 0);
-                return Some(p);
+                return Some(ImageHolder::Own(p));
             }
         }
-        let mut null = load("distribution", "cross-full").unwrap();
+        let mut null = load("distribution", "cross-full").unwrap().clone();
         null.overlay(&p, 0, 0);
-        Some(null)
+        Some(ImageHolder::Own(null))
     }
 }
 

@@ -3,7 +3,6 @@
 //! categorized as mindustry categorizes them in its assets folder, for easy drawing.
 //!
 //! with the exception of sandbox, that is.
-use image::RgbaImage;
 use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
@@ -12,6 +11,7 @@ use std::fmt;
 use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::EntityMapping;
+use crate::data::renderer::ImageHolder;
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
@@ -53,7 +53,7 @@ pub trait BlockLogic {
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError>;
 
-    fn draw(&self, _category: &str, _name: &str, _state: Option<&State>) -> Option<RgbaImage> {
+    fn draw(&self, _category: &str, _name: &str, _state: Option<&State>) -> Option<ImageHolder> {
         None
     }
     // TODO: use data
@@ -228,12 +228,12 @@ impl Block {
     }
 
     /// draw this block, with this state
-    pub fn image(&self, state: Option<&State>) -> RgbaImage {
+    pub fn image(&self, state: Option<&State>) -> ImageHolder {
         if let Some(p) = self.logic.as_ref().draw(&self.category, &self.name, state) {
             return p;
         }
         use crate::data::renderer::read;
-        read(&self.category, &self.name, self.get_size())
+        ImageHolder::Own(read(&self.category, &self.name, self.get_size()))
     }
 
     pub fn has_building(&self) -> bool {

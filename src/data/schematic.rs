@@ -6,8 +6,6 @@ use std::fmt::{self, Write};
 use std::iter::FusedIterator;
 use std::slice::Iter;
 
-use image::RgbaImage;
-
 use crate::block::{self, Block, BlockRegistry, Rotation, State};
 use crate::data::base64;
 use crate::data::dynamic::{self, DynData, DynSerializer};
@@ -47,7 +45,7 @@ impl<'l> Placement<'l> {
     }
 
     /// draws this placement in particular
-    pub fn image(&self) -> RgbaImage {
+    pub fn image(&self) -> crate::data::renderer::ImageHolder {
         self.block.image(self.get_state())
     }
 

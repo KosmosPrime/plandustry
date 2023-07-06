@@ -32,7 +32,7 @@ make_register! {
     "malign" => TurretBlock::new(5, true, cost!(Carbide: 400, Beryllium: 2000, Silicon: 800, Graphite: 800, PhaseFabric: 300));
 }
 
-use crate::data::renderer::load;
+use crate::data::renderer::*;
 use crate::utils::ImageUtils;
 crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _| {
     let path = match name {
@@ -40,7 +40,7 @@ crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _| {
         | "scathe" | "malign" => format!("bases/reinforced-block-{}", me.size),
         _ => format!("bases/block-{}", me.size),
     };
-    let mut base = load("turrets", &path).unwrap();
-    base.overlay(&load("turrets", name).unwrap(), 0, 0);
-    Some(base)
+    let mut base = load("turrets", &path).unwrap().value().clone();
+    base.overlay(load("turrets", name).unwrap().value(), 0, 0);
+    Some(ImageHolder::from(base))
 });

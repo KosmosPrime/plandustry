@@ -1,7 +1,6 @@
 use fast_image_resize as fr;
 use image::{Rgb, Rgba, RgbaImage};
 use std::num::NonZeroU32;
-
 pub trait ImageUtils {
     fn tint(&mut self, color: Rgb<u8>) -> &mut Self;
 

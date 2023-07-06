@@ -2,8 +2,8 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::block::*;
 use crate::block::simple::*;
+use crate::block::*;
 use crate::data::dynamic::DynType;
 
 make_simple!(GeneratorBlock);
