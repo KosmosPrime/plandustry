@@ -360,8 +360,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 }
                 if entity {
                     if central {
-                        // we dont bother skipping if not building - mindustry supports
-                        // all kinds of broken saves, but i dont have to
+                        // TODO: actually read
                         let n = buff.read_u16()?;
                         buff.skip(n as usize)?;
                         // let _ = buff.read_i8()?;
@@ -420,8 +419,6 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         })?;
         // skip custom chunks
         buff.skip_chunk()?;
-        println!("remaining bytes: {}", buff.data.len());
-        // println!("{:?}", tiles);
         Ok(Map {
             width: w,
             height: h,

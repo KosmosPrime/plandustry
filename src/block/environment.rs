@@ -16,7 +16,7 @@ macro_rules! register_env {
     		match name {
     			$($field => {
 					if $variations == 1 { Some(ImageHolder::Borrow(load("environment", $field).unwrap())) }
-                    // else if $variations == 0 { return None }
+                    else if $variations == 0 { return None }
 					else { Some(ImageHolder::Borrow(load("environment", &format!("{}{}", $field, rand.next_range(1usize..$variations))).unwrap())) }
            		},)*
 				_ => { unreachable!() }
@@ -26,6 +26,9 @@ macro_rules! register_env {
 }
 
 register_env! {
+    "build1": 1@0;
+    "build2": 1@0;
+    "build3": 1@0;
     "arkycite-floor": 1@1;
     "arkyic-stone": 1@3;
     "arkyic-vent": 3@2;
