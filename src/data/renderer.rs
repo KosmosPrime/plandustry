@@ -139,7 +139,7 @@ impl<'l> Renderer {
     /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
     /// s.put(0, 3, &block::distribution::ROUTER);
     /// s.put(1, 3, &block::walls::COPPER_WALL);
-    /// let output /*: RgbaImage */ = Renderer::render(&s);
+    /// let output /*: RgbaImage */ = Renderer::render_schematic(&s);
     /// ```
     pub fn render_schematic(s: &'l Schematic<'_>) -> RgbaImage {
         load_zip();
