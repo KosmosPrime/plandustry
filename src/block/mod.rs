@@ -11,26 +11,26 @@ use std::fmt;
 use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::EntityMapping;
-use crate::data::renderer::ImageHolder;
+use crate::data::{self, renderer::*, CompressError};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
 
-pub mod campaign;
-pub mod content;
-pub mod defense;
-pub mod distribution;
-pub mod drills;
-pub mod environment;
-pub mod liquid;
-pub mod logic;
-pub mod payload;
-pub mod power;
-pub mod production;
-pub mod simple;
-pub mod storage;
-pub mod turrets;
-pub mod walls;
+macro_rules! mods {
+    ($($mod:ident)*) => {
+        $(pub mod $mod;)*
+
+        pub mod all {
+            $(pub use crate::block::$mod::*;)*
+        }
+    }
+}
+
+mods! {
+    campaign content defense distribution drills environment liquid logic payload power production storage turrets walls
+}
+
+mod simple;
 
 pub type State = Box<dyn Any + Sync + Send>;
 pub trait BlockLogic {
@@ -53,9 +53,21 @@ pub trait BlockLogic {
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError>;
 
-    fn draw(&self, _category: &str, _name: &str, _state: Option<&State>) -> Option<ImageHolder> {
+    #[allow(unused_variables)]
+    fn draw(
+        &self,
+        category: &str,
+        name: &str,
+        state: Option<&State>,
+        context: Option<&RenderingContext>,
+    ) -> Option<ImageHolder> {
         None
     }
+
+    fn want_context(&self) -> bool {
+        false
+    }
+
     // TODO: use data
     #[allow(unused_variables)]
     fn read(
@@ -96,9 +108,10 @@ macro_rules! impl_block {
 }
 pub(crate) use impl_block;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DataConvertError {
-    Custom(Box<dyn Error + Sync + Send>),
+    #[error(transparent)]
+    Custom(#[from] Box<dyn Error + Sync + Send>),
 }
 
 impl DataConvertError {
@@ -110,26 +123,14 @@ impl DataConvertError {
     }
 }
 
-impl fmt::Display for DataConvertError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Custom(e) => e.fmt(f),
-        }
-    }
-}
-
-impl Error for DataConvertError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Custom(e) => e.source(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DeserializeError {
+    #[error(transparent)]
+    DecompressError(#[from] data::DecompressError),
+    #[error("expected type {expect:?} but got {have:?}")]
     InvalidType { have: DynType, expect: DynType },
-    Custom(Box<dyn Error + Sync + Send>),
+    #[error(transparent)]
+    Custom(#[from] Box<dyn Error + Sync + Send>),
 }
 
 impl DeserializeError {
@@ -141,29 +142,12 @@ impl DeserializeError {
     }
 }
 
-impl fmt::Display for DeserializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidType { have, expect } => {
-                write!(f, "expected type {expect:?} but got {have:?}")
-            }
-            Self::Custom(e) => e.fmt(f),
-        }
-    }
-}
-
-impl Error for DeserializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Custom(e) => e.source(),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum SerializeError {
-    Custom(Box<dyn Error + Sync + Send>),
+    #[error(transparent)]
+    Custom(#[from] Box<dyn Error + Sync + Send>),
+    #[error(transparent)]
+    Compress(#[from] CompressError),
 }
 
 impl SerializeError {
@@ -171,22 +155,6 @@ impl SerializeError {
         match result {
             Ok(v) => Ok(v),
             Err(e) => Err(Self::Custom(Box::new(e))),
-        }
-    }
-}
-
-impl fmt::Display for SerializeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Custom(e) => e.fmt(f),
-        }
-    }
-}
-
-impl Error for SerializeError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Custom(e) => e.source(),
         }
     }
 }
@@ -227,12 +195,20 @@ impl Block {
         &self.name
     }
 
+    /// should you send context to [`image`]?
+    pub fn wants_context(&self) -> bool {
+        self.logic.as_ref().want_context()
+    }
+
     /// draw this block, with this state
-    pub fn image(&self, state: Option<&State>) -> ImageHolder {
-        if let Some(p) = self.logic.as_ref().draw(&self.category, &self.name, state) {
+    pub fn image(&self, state: Option<&State>, context: Option<&RenderingContext>) -> ImageHolder {
+        if let Some(p) = self
+            .logic
+            .as_ref()
+            .draw(&self.category, &self.name, state, context)
+        {
             return p;
         }
-        use crate::data::renderer::read;
         ImageHolder::Own(read(&self.category, &self.name, self.get_size()))
     }
 
@@ -301,7 +277,7 @@ impl Block {
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name: &str = &self.name;
-        write!(f, "Block {{ name: {name:?} }}")
+        write!(f, "Block<{name:?}>")
     }
 }
 
@@ -321,6 +297,28 @@ pub enum Rotation {
 }
 
 impl Rotation {
+    #[must_use]
+    /// count rotations
+    pub fn count(self) -> u8 {
+        match self {
+            Self::Up => 0,
+            Self::Right => 1,
+            Self::Down => 2,
+            Self::Left => 3,
+        }
+    }
+
+    #[must_use]
+    /// character of this rot (Right => >, Up => ^, Left => <, Down => v)
+    pub fn ch(self) -> char {
+        match self {
+            Rotation::Right => '>',
+            Rotation::Up => '^',
+            Rotation::Left => '<',
+            Rotation::Down => 'v',
+        }
+    }
+
     #[must_use]
     /// mirror the directions.
     pub fn mirrored(self, horizontally: bool, vertically: bool) -> Self {
@@ -453,7 +451,7 @@ macro_rules! make_register {
 				std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic));
 		)+
 
-		pub fn register(reg: &mut $crate::block::BlockRegistry<'_>) {
+		pub(crate) fn register(reg: &mut $crate::block::BlockRegistry<'_>) {
 			$(assert!(reg.register(&[<$field:snake:upper>]).is_ok(), "duplicate block {:?}", $field);)+
 		}
     }};

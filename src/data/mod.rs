@@ -1,7 +1,7 @@
 //! all the IO
 use flate2::{
-    Compress, CompressError, Compression, Decompress, DecompressError, FlushCompress,
-    FlushDecompress, Status,
+    Compress, CompressError as CError, Compression, Decompress, DecompressError as DError,
+    FlushCompress, FlushDecompress, Status,
 };
 use std::collections::HashMap;
 use std::error::Error;
@@ -124,16 +124,28 @@ impl<'d> DataRead<'d> {
         Ok(len)
     }
 
-    pub fn read_chunk<E>(&mut self, f: impl FnOnce(&mut DataRead) -> Result<(), E>) -> Result<(), E>
+    pub fn read_chunk<E>(
+        &mut self,
+        big: bool,
+        f: impl FnOnce(&mut DataRead) -> Result<(), E>,
+    ) -> Result<(), E>
     where
         E: Error + From<ReadError>,
     {
-        let len = self.read_u32()? as usize;
+        let len = if big {
+            self.read_u32()? as usize
+        } else {
+            self.read_u16()? as usize
+        };
         self.read = 0;
         let r = f(self);
         match r {
             Err(e) => {
                 // skip this chunk
+                if len < self.read {
+                    eprintln!("overread ({e:?})");
+                    return Err(e);
+                }
                 let n = len - self.read;
                 if n != 0 {
                     self.skip(n)?;
@@ -167,7 +179,7 @@ impl<'d> DataRead<'d> {
         Ok(())
     }
 
-    pub fn deflate(&mut self) -> Result<Vec<u8>, ReadError> {
+    pub fn deflate(&mut self) -> Result<Vec<u8>, DecompressError> {
         let mut dec = Decompress::new(true);
         let mut raw = Vec::<u8>::new();
         raw.reserve(1024);
@@ -187,7 +199,7 @@ impl<'d> DataRead<'d> {
             }
             if dec.total_in() == t_in && dec.total_out() == t_out {
                 // protect against looping forever
-                return Err(ReadError::DecompressStall);
+                return Err(DecompressError::DecompressStall);
             }
             raw.reserve(1024);
         }
@@ -198,11 +210,15 @@ impl<'d> DataRead<'d> {
 }
 
 #[derive(Debug, Error)]
-pub enum ReadError {
+pub enum DecompressError {
+    #[error("zlib decompression failed")]
+    Decompress(#[from] DError),
     #[error("decompressor stalled before completion")]
     DecompressStall,
-    #[error("zlib decompession failed")]
-    Decompress(#[from] DecompressError),
+}
+
+#[derive(Debug, Error)]
+pub enum ReadError {
     #[error("buffer underflow (expected {need} but got {have})")]
     Underflow { need: usize, have: usize },
     #[error("expected {0}")]
@@ -309,7 +325,17 @@ impl<'d> DataWrite<'d> {
         }
     }
 
-    pub fn inflate(self, to: &mut DataWrite) -> Result<(), WriteError> {
+    /// eat this datawrite
+    ///
+    /// panics if ref write buffer
+    pub fn consume(self) -> Vec<u8> {
+        match self.data {
+            WriteBuff::Vec(v) => v,
+            WriteBuff::Ref { .. } => unreachable!(),
+        }
+    }
+
+    pub fn inflate(self, to: &mut DataWrite) -> Result<(), CompressError> {
         // compress into the provided buffer
         let WriteBuff::Vec(raw) = self.data else {
             unreachable!("write buffer not owned")
@@ -324,7 +350,7 @@ impl<'d> DataWrite<'d> {
                 match comp.compress(&raw, &mut dst[*pos..], FlushCompress::Finish)? {
                     // there's no more input (and the flush mode says so), but we can't resize the output
                     Status::Ok | Status::BufError => {
-                        return Err(WriteError::CompressEof(
+                        return Err(CompressError::CompressEof(
                             raw.len() - comp.total_in() as usize,
                         ))
                     }
@@ -350,7 +376,7 @@ impl<'d> DataWrite<'d> {
                     }
                     if comp.total_in() == t_in && comp.total_out() == t_out {
                         // protect against looping forever
-                        return Err(WriteError::CompressStall);
+                        return Err(CompressError::CompressStall);
                     }
                     dst.reserve(1024);
                 }
@@ -370,20 +396,21 @@ impl Default for DataWrite<'static> {
 }
 
 #[derive(Debug, Error)]
+pub enum CompressError {
+    #[error(transparent)]
+    Compress(#[from] CError),
+    #[error("compression overflow with {0} bytes of input remaining")]
+    CompressEof(usize),
+    #[error("compressor stalled before completion")]
+    CompressStall,
+}
+
+#[derive(Debug, Error)]
 pub enum WriteError {
     #[error("buffer overflow (expected {need} but got {have})")]
     Overflow { need: usize, have: usize },
     #[error("string too long ({len} bytes of {})", u16::MAX)]
     TooLong { len: usize },
-    #[error("zlib compression failed")]
-    Compress {
-        #[from]
-        source: CompressError,
-    },
-    #[error("compression overflow with {0} bytes of input remaining")]
-    CompressEof(usize),
-    #[error("compressor stalled before completion")]
-    CompressStall,
 }
 
 impl PartialEq for WriteError {
@@ -428,18 +455,28 @@ pub trait Serializer<D> {
     fn serialize(&mut self, buff: &mut DataWrite<'_>, data: &D) -> Result<(), Self::WriteError>;
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct GridPos(pub u16, pub u16);
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct GridPos(pub usize, pub usize);
 
 impl From<u32> for GridPos {
     fn from(value: u32) -> Self {
-        GridPos((value >> 16) as u16, value as u16)
+        GridPos((value >> 16) as u16 as usize, value as u16 as usize)
     }
 }
 
 impl From<GridPos> for u32 {
+    /// ```
+    /// # use mindus::data::GridPos;
+    /// assert_eq!(GridPos::from(u32::from(GridPos(1000, 5))), GridPos(1000, 5));
+    /// ```
     fn from(value: GridPos) -> Self {
-        (u32::from(value.0) << 16) | u32::from(value.1)
+        ((value.0 << 16) | value.1) as u32
+    }
+}
+
+impl fmt::Debug for GridPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({0}, {1})", self.0, self.1)
     }
 }
 
