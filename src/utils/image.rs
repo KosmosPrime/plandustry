@@ -1,7 +1,7 @@
+use blurslice::gaussian_blur_bytes;
 use fast_image_resize as fr;
 use image::{GenericImageView, Rgb, Rgba, RgbaImage};
 use std::num::NonZeroU32;
-use blurslice::gaussian_blur_bytes;
 
 pub trait ImageUtils {
     /// Tint this image with the color
@@ -103,7 +103,13 @@ impl ImageUtils for RgbaImage {
         let mut shadow = self.clone();
         shadow.silhouette();
         let samples = shadow.as_flat_samples_mut();
-        gaussian_blur_bytes::<4>(samples.samples, self.width() as usize, self.height() as usize, 9.0).unwrap();
+        gaussian_blur_bytes::<4>(
+            samples.samples,
+            self.width() as usize,
+            self.height() as usize,
+            9.0,
+        )
+        .unwrap();
         for x in 0..shadow.width() {
             for y in 0..shadow.height() {
                 let Rgba([r, g, b, a]) = self.get_pixel_mut(x, y);

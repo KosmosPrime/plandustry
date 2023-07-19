@@ -3,15 +3,31 @@ use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::{load, read_with, ImageHolder, TOP};
+use tinyrand::{Rand, RandRange, Seeded, StdRand};
+use tinyrand_std::clock_seed::ClockSeed;
 
 make_simple!(WallBlock, |_, _, name, _, _| {
-    if name == "thruster" {
-        const SFX: &[&str; 1] = &[TOP];
-        return Some(ImageHolder::Own(read_with(
-            "turrets", "thruster", SFX, 4u32,
-        )));
+    macro_rules! pick {
+        ($name: literal => load $n: literal) => {{
+            let mut rand = StdRand::seed(ClockSeed::default().next_u64());
+            Some(ImageHolder::from(load(
+                "walls",
+                &format!("{}{}", $name, rand.next_range(1usize..$n)),
+            )))
+        }};
     }
-    Some(ImageHolder::Borrow(load("walls", name).unwrap()))
+    match name {
+        "thruster" => {
+            const SFX: &[&str; 1] = &[TOP];
+            Some(ImageHolder::from(read_with(
+                "turrets", "thruster", SFX, 4u32,
+            )))
+        }
+        "scrap-wall" => pick!("scrap-wall" => load 5),
+        "scrap-wall-large" => pick!("scrap-wall-large" => load 3),
+        "scrap-wall-huge" => pick!("scrap-wall-huge" => load 3),
+        _ => Some(ImageHolder::from(load("walls", name))),
+    }
 });
 
 make_register! {
