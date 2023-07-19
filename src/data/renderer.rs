@@ -364,7 +364,6 @@ impl Renderable for Schematic<'_> {
     /// let output /*: RgbaImage */ = s.render();
     /// ```
     fn render(&self) -> RgbaImage {
-        dbg!(&self.blocks.clone());
         load_zip();
         // fill background
         let mut bg = RgbaImage::new(

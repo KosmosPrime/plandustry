@@ -308,10 +308,6 @@ impl<'l> Schematic<'l> {
         data: DynData,
         rot: Rotation,
     ) -> Result<(), PlaceError> {
-        println!(
-            "putting {block:?} at {x} / {y} ({}/{})",
-            self.width, self.height
-        );
         let sz = usize::from(block.get_size());
         let off = (sz - 1) / 2;
         if x < off || y < off {
@@ -518,23 +514,23 @@ impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {
         }
         let mut block_table = Vec::new();
         block_table.reserve(num_table as usize);
-        for _ in 0..dbg!(num_table) {
+        for _ in 0..num_table {
             let name = buff.read_utf()?;
             match self.0.get(name) {
                 None => return Err(ReadError::NoSuchBlock(name.to_owned())),
                 Some(b) => block_table.push(b),
             }
         }
-        let num_blocks = dbg!(buff.read_i32()?);
+        let num_blocks = buff.read_i32()?;
         if num_blocks < 0 || num_blocks as u32 > MAX_BLOCKS {
             return Err(ReadError::BlockCount(num_blocks));
         }
         for _ in 0..num_blocks {
-            let idx = dbg!(buff.read_i8()?);
+            let idx = buff.read_i8()?;
             if idx < 0 || idx as usize >= block_table.len() {
                 return Err(ReadError::BlockIndex(idx, block_table.len()));
             }
-            let pos = dbg!(GridPos::from(buff.read_u32()?));
+            let pos = GridPos::from(buff.read_u32()?);
             let block = block_table[idx as usize];
             let config = if version < 1 {
                 block.data_from_i32(buff.read_i32()?, pos)?
