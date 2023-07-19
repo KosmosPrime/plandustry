@@ -27,7 +27,7 @@ macro_rules! mods {
 }
 
 mods! {
-    campaign content defense distribution drills environment liquid logic payload power production storage turrets walls
+    campaign content defense distribution drills environment liquid logic payload power production storage turrets walls units
 }
 
 mod simple;
@@ -480,4 +480,5 @@ fn register(reg: &mut BlockRegistry<'_>) {
     logic::register(reg);
     walls::register(reg);
     environment::register(reg);
+    units::register(reg);
 }

@@ -46,13 +46,15 @@ make_register! {
     "door" => DoorBlock::new(1, true, cost!(Titanium: 6, Silicon: 4));
     "door-large" => DoorBlock::new(2, true, cost!(Titanium: 6 * 4, Silicon: 4 * 4));
     "tungsten-wall" => WallBlock::new(1, true, cost!(Tungsten: 6));
-    "large-tungsten-wall" => WallBlock::new(2, true, cost!(Tungsten: 6 * 4));
+    "tungsten-wall-large" => WallBlock::new(2, true, cost!(Tungsten: 6 * 4));
     "blast-door" => DoorBlock::new(2, true, cost!(Tungsten: 24, Silicon: 24));
     "reinforced-surge-wall" => WallBlock::new(1, true, cost!(SurgeAlloy: 6, Tungsten: 2));
     "reinforced-surge-wall-large" => WallBlock::new(2, true, cost!(SurgeAlloy: 6 * 4, Tungsten: 2 * 4));
     "carbide-wall" => WallBlock::new(1, true, cost!(Thorium: 6, Carbide: 6));
     "carbide-wall-large" => WallBlock::new(2, true, cost!(Thorium: 6 * 4, Carbide: 6 * 4));
     "shielded-wall" => WallBlock::new(2, true, cost!(PhaseFabric: 20, SurgeAlloy: 12, Beryllium: 12));
+    "beryllium-wall" => WallBlock::new(1, true, cost!(Beryllium: 6));
+    "beryllium-wall-large" => WallBlock::new(2, true, cost!(Beryllium: 6 * 4));
     // sandbox only
     "scrap-wall" => WallBlock::new(1, true, cost!(Scrap: 6));
     "scrap-wall-large" => WallBlock::new(2, true, cost!(Scrap: 24));

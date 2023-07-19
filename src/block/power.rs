@@ -30,7 +30,7 @@ make_register! {
     "beam-tower" => ConnectorBlock::new(3, true, cost!(Beryllium: 30, Oxide: 10, Silicon: 10), 12);
     "turbine-condenser" => GeneratorBlock::new(3, true, cost!(Beryllium: 60));
     "chemical-combustion-chamber" => GeneratorBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
-    "pyrolosis-generator" => GeneratorBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
+    "pyrolysis-generator" => GeneratorBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
     "flux-reactor" => GeneratorBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
     "neoplasia-reactor" => GeneratorBlock::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
     // editor only

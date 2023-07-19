@@ -109,11 +109,14 @@ register_env! {
     "ore-wall-beryllium": 1@3;
     "ore-wall-thorium": 1@3;
     "ore-wall-tungsten": 1@3;
+    "graphitic-wall": 1@3;
+    "graphitic-wall-large": 2@1;
     "pebbles": 1@3;
     "pine": 1@1;
     "pooled-cryofluid": 1@1;
     "red-diamond-wall": 1@3;
     "red-ice-wall-large": 2@1;
+    "red-ice-wall": 1@2;
     "red-ice": 1@3;
     "red-stone-vent": 3@2;
     "red-stone-wall-large": 2@1;
@@ -121,6 +124,7 @@ register_env! {
     "red-stone": 1@4;
     "redmat": 1@3;
     "regolith-wall-large": 2@1;
+    "regolith-wall": 1@2;
     "regolith": 1@3;
     "rhyolite-crater": 1@3;
     "rhyolite-vent": 3@2;
@@ -162,6 +166,7 @@ register_env! {
     "yellow-stone-wall": 1@2;
     "yellow-stone": 1@3;
     // props
+    "yellow-stone-boulder": 1@2;
     "snow-boulder": 1@2;
     "shale-boulder": 1@2;
     "arkyic-boulder": 1@3;
@@ -177,8 +182,16 @@ register_env! {
     "rhyolite-boulder": 1@3;
     "sand-boulder": 1@2;
     "yellow-sand-boulder": 1@2;
-    // these are tall but uh
+    "pur-bush": 1@1;
+    "tendrils": 1@3;
+    // these are tall but uh (TODO layering)
+    "white-tree-dead": 1@1;
+    "yellowcoral": 1@1;
+    "white-tree": 1@1;
+    "redweed": 1@3;
+    "spore-cluster": 1@3;
     "crystal-blocks": 1@3;
-    "crytal-cluster": 1@3;
+    "crystal-cluster": 1@3;
+    "vibrant-crystal-cluster": 1@3;
     "crystal-orbs": 1@3;
 }

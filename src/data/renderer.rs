@@ -467,3 +467,43 @@ impl Renderable for Map<'_> {
         floor
     }
 }
+
+#[test]
+fn all_blocks() {
+    load_zip();
+    use crate::block::content::Type;
+    use crate::content::Content;
+    let reg = crate::block::build_registry();
+    for t in 19..Type::WorldMessage as u16 {
+        let t = Type::try_from(t).unwrap();
+        if matches!(
+            t,
+            // TODO canvas
+            Type::Canvas
+                | Type::Empty
+                | Type::SlagCentrifuge
+                | Type::HeatReactor
+                | Type::LegacyMechPad
+                | Type::LegacyUnitFactory
+                | Type::LegacyUnitFactoryAir
+                | Type::LegacyUnitFactoryGround
+                | Type::CommandCenter
+        ) {
+            continue;
+        }
+
+        let t = reg.get(dbg!(t.get_name())).unwrap();
+        t.image(
+            None,
+            Some(&RenderingContext {
+                cross: [None; 4],
+                rotation: Rotation::Up,
+                position: PositionContext {
+                    position: GridPos(0, 0),
+                    width: 5,
+                    height: 5,
+                },
+            }),
+        );
+    }
+}

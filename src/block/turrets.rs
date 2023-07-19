@@ -30,6 +30,7 @@ make_register! {
     "lustre" => TurretBlock::new(4, true, cost!(Silicon: 250, Graphite: 200, Oxide: 50, Carbide: 90));
     "scathe" => TurretBlock::new(5, true, cost!(Oxide: 200, SurgeAlloy: 400, Silicon: 800, Carbide: 500, PhaseFabric: 300));
     "malign" => TurretBlock::new(5, true, cost!(Carbide: 400, Beryllium: 2000, Silicon: 800, Graphite: 800, PhaseFabric: 300));
+    "smite" => TurretBlock::new(5, true, cost!(Oxide: 200, SurgeAlloy: 400, Silicon: 800, Carbide: 500, PhaseFabric: 300));
 }
 
 use crate::data::renderer::*;
@@ -37,7 +38,7 @@ use crate::utils::ImageUtils;
 crate::block::simple::make_simple!(TurretBlock, |me: &Self, _, name, _, _| {
     let path = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
-        | "scathe" | "malign" => format!("bases/reinforced-block-{}", me.size),
+        | "scathe" | "malign" | "smite" => format!("bases/reinforced-block-{}", me.size),
         _ => format!("bases/block-{}", me.size),
     };
     let mut base = load("turrets", &path).unwrap().value().clone();

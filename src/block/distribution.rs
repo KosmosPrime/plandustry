@@ -297,8 +297,8 @@ make_register! {
     "overflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "underflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
-    "duct" => ConveyorBlock::new(1, false, cost!(Beryllium: 1));
-    "armored-duct" => ConveyorBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
+    "duct" => ControlBlock::new(1, false, cost!(Beryllium: 1));
+    "armored-duct" => ControlBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
     "duct-router" => ItemBlock::new(1, true, cost!(Beryllium: 10));
     "overflow-duct" => ControlBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
     "underflow-duct" => ControlBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
@@ -310,7 +310,7 @@ make_register! {
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
     "item-source" => ItemBlock::new(1, true, &[]);
-    "item-void" => ConveyorBlock::new(1, true, &[]);
+    "item-void" => ControlBlock::new(1, true, &[]);
 }
 
 pub struct ItemBlock {
