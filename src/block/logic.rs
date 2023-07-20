@@ -2,9 +2,12 @@
 use std::borrow::Cow;
 use std::string::FromUtf8Error;
 
+use image::{Rgb, RgbImage};
+
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
+
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(LogicBlock);
@@ -20,11 +23,145 @@ make_register! {
     "memory-bank" => LogicBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
     "logic-display" => LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
     "large-logic-display" => LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
-    // todo canvas (cost!(Silicon: 30, Beryllium: 10))
+    "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
     // editor only
     "world-processor" => LogicBlock::new(1, true, &[]);
     "world-message" => MessageLogic::new(1, true, &[]);
     "world-cell" => LogicBlock::new(1, true, &[]);
+}
+
+pub struct CanvasBlock {
+    size: u8,
+    symmetric: bool,
+    build_cost: BuildCost,
+    canvas_size: u8,
+}
+
+macro_rules! h {
+    ($x:literal) => {
+        Rgb(color_hex::color_from_hex!($x))
+    };
+}
+const PALETTE: &[Rgb<u8>; 8] = &[
+    h!("#362944"),
+    h!("#c45d9f"),
+    h!("#e39aac"),
+    h!("#f0dab1"),
+    h!("#6461c2"),
+    h!("#2ba9b4"),
+    h!("#93d4b5"),
+    h!("#f0f6e8"),
+];
+
+impl CanvasBlock {
+    #[must_use]
+    pub const fn new(size: u8, symmetric: bool, build_cost: BuildCost, canvas_size: u8) -> Self {
+        assert!(size != 0, "invalid size");
+        assert!(canvas_size != 0, "invalid size");
+        Self {
+            canvas_size,
+            size,
+            symmetric,
+            build_cost,
+        }
+    }
+
+    state_impl!(pub RgbImage);
+}
+
+impl BlockLogic for CanvasBlock {
+    impl_block!();
+
+    fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
+        Ok(DynData::Empty)
+    }
+
+    fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
+        match data {
+            DynData::ByteArray(b) => {
+                let mut p = RgbImage::new(self.canvas_size as u32, self.canvas_size as u32);
+                for i in 0..(self.canvas_size * self.canvas_size) as usize {
+                    let offset = i * 3;
+                    let mut n = 0;
+                    for i in 0..3 {
+                        let word = (i + offset) >> 3;
+                        n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
+                    }
+                    p.put_pixel(
+                        i as u32 % self.canvas_size as u32,
+                        i as u32 / self.canvas_size as u32,
+                        PALETTE[n as usize],
+                    )
+                }
+                Ok(Some(Self::create_state(p)))
+            }
+            _ => Err(DeserializeError::InvalidType {
+                have: data.get_type(),
+                expect: DynType::String,
+            }),
+        }
+    }
+
+    fn clone_state(&self, state: &State) -> State {
+        Box::new(Self::get_state(state).clone())
+    }
+
+    fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
+        let mut o = vec![0; self.canvas_size as usize * self.canvas_size as usize * 3];
+        let p = Self::get_state(state);
+        for i in 0..(self.canvas_size * self.canvas_size) as usize {
+            let color = p.get_pixel(
+                i as u32 % self.canvas_size as u32,
+                i as u32 / self.canvas_size as u32,
+            );
+            let index = PALETTE.iter().position(|v| v == color).unwrap();
+            let offset = i * 3;
+            for i in 0..3 {
+                let word = (i + offset) >> 3;
+                if index >> i & 1 == 0 {
+                    o[word] &= !(1 << ((i + offset) & 7));
+                } else {
+                    o[word] |= 1 << ((i + offset) & 7);
+                }
+            }
+        }
+        Ok(DynData::ByteArray(o))
+    }
+
+    /// i thought about drawing the borders and stuff but it felt like too much work
+    fn draw(
+        &self,
+        c: &str,
+        n: &str,
+        state: Option<&State>,
+        _: Option<&RenderingContext>,
+    ) -> Option<ImageHolder> {
+        if let Some(state) = state {
+            let state = self.clone_state(state);
+            let p = state.downcast::<RgbImage>().unwrap();
+            // SAFETY: canvas_size cannot be 0, so width & height musnt be 0, and size cannot be 0
+            let p = unsafe {
+                DynamicImage::from(
+                    RgbImage::from_raw(
+                        self.canvas_size as u32,
+                        self.canvas_size as u32,
+                        p.into_raw(),
+                    )
+                    .unwrap(),
+                )
+                .into_rgba8()
+                .scale((self.size as u32 * 32) - 14)
+            };
+            let mut borders = load(c, n).unwrap().to_owned();
+            borders.overlay(&p, 7, 7);
+            return Some(ImageHolder::from(borders));
+        }
+
+        Some(ImageHolder::from(RgbaImage::new(
+            self.size as u32 * 32,
+            self.size as u32 * 32,
+        )))
+    }
 }
 
 pub struct MessageLogic {
