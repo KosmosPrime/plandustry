@@ -127,7 +127,7 @@ fn load_zip() {
 }
 pub const TOP: &str = "-top";
 const SUFFIXES: &[&str; 9] = &[
-    "-bottom", "-mid", "", "-base", "-left", "-right", TOP, "-over", "-team",
+    "-bottom", "-mid", "-base", "", "-left", "-right", TOP, "-over", "-team",
 ];
 pub(crate) fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
 where
