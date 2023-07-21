@@ -9,8 +9,17 @@ use crate::item;
 make_simple!(
     ConveyorBlock,
     |_, _, name, _, ctx: Option<&RenderingContext>| {
-        let ctx = ctx.unwrap(); // we specified want_context to true
+        let ctx = ctx.unwrap(); // we set want_context to true
         Some(tile(ctx, "distribution", "conveyors", name, ctx.rotation))
+    },
+    true
+);
+
+make_simple!(
+    DuctBlock,
+    |_, _, name, _, ctx: Option<&RenderingContext>| {
+        let ctx = ctx.unwrap();
+        Some(tile(ctx, "distribution", "ducts", name, ctx.rotation))
     },
     true
 );
@@ -34,6 +43,18 @@ make_simple!(
     false
 );
 
+make_simple!(
+    SimpleDuctBlock,
+    |_, _, name, _, ctx: Option<&RenderingContext>| {
+        let ctx = ctx.unwrap();
+        let mut base = load("distribution/ducts", "duct-base").unwrap().clone();
+        let mut top = load("distribution/ducts", name).unwrap().clone();
+        top.rotate(ctx.rotation.rotated(false).count());
+        base.overlay(&top, 0, 0);
+        Some(ImageHolder::from(base))
+    },
+    true
+);
 make_simple!(ControlBlock);
 
 make_register! {
@@ -51,11 +72,11 @@ make_register! {
     "overflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "underflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
-    "duct" => ControlBlock::new(1, false, cost!(Beryllium: 1));
-    "armored-duct" => ControlBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
+    "duct" => DuctBlock::new(1, false, cost!(Beryllium: 1));
+    "armored-duct" => DuctBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
     "duct-router" => ItemBlock::new(1, true, cost!(Beryllium: 10));
-    "overflow-duct" => ControlBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
-    "underflow-duct" => ControlBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
+    "overflow-duct" => SimpleDuctBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
+    "underflow-duct" => SimpleDuctBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
     "duct-bridge" => BridgeBlock::new(1, true, cost!(Beryllium: 20), 3, true);
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
     "surge-conveyor" => ControlBlock::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
@@ -131,31 +152,64 @@ impl BlockLogic for ItemBlock {
 
     fn draw(
         &self,
-        category: &str,
+        _: &str,
         name: &str,
         state: Option<&State>,
-        _: Option<&RenderingContext>,
+        ctx: Option<&RenderingContext>,
     ) -> Option<ImageHolder> {
-        if !matches!(
+        let mut p = load(
+            match name {
+                "unloader" => "storage",
+                "duct-router" | "duct-unloader" => "distribution/ducts",
+                _ => "distribution",
+            },
             name,
-            "unloader" | "item-source" | "sorter" | "inverted-sorter"
-        ) {
-            return None;
-        }
-        let mut p = load(category, name).unwrap().clone();
+        )
+        .unwrap()
+        .clone();
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load(category, "center").unwrap().clone();
+                let mut top = load(
+                    match name {
+                        "unloader" => "storage",
+                        _ => "distribution",
+                    },
+                    match name {
+                        "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
+                        _ => "center",
+                    },
+                )
+                .unwrap()
+                .clone();
                 p.overlay(top.tint(s.color()), 0, 0);
                 return Some(ImageHolder::from(p));
             }
         }
-        if name == "unloader" {
+        if matches!(name, "unloader" | "unit-cargo-unload-point") {
             return Some(ImageHolder::from(p));
         }
-        let mut null = load("distribution", "cross-full").unwrap().clone();
-        null.overlay(&p, 0, 0);
-        Some(ImageHolder::from(null))
+        if matches!(name, "duct-unloader" | "duct-router") {
+            let mut null = load("distribution/ducts", "top").unwrap().to_owned();
+            null.rotate(ctx.unwrap().rotation.rotated(false).count());
+            if name == "duct-unloader" {
+                let mut top = load("distribution/ducts", "duct-unloader-top")
+                    .unwrap()
+                    .to_owned();
+                // this rotate call could be omitted if rotation == Right to save a clone
+                top.rotate(ctx.unwrap().rotation.rotated(false).count());
+                null.overlay(&top, 0, 0);
+            }
+            p.overlay(&null, 0, 0);
+            Some(ImageHolder::from(p))
+        } else {
+            let mut null = load("distribution", "cross-full").unwrap().clone();
+            null.overlay(&p, 0, 0);
+            Some(ImageHolder::from(null))
+        }
+    }
+
+    fn want_context(&self) -> bool {
+        true
     }
 }
 
