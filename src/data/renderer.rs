@@ -92,12 +92,12 @@ impl From<RgbaImage> for ImageHolder {
 
 static CACHE: OnceLock<Cache> = OnceLock::new();
 pub(crate) fn load(category: &str, name: &str) -> Option<Ref<'static, PathBuf, RgbaImage>> {
-    let key = Path::new("blocks").join(category).join(name);
-    let mut p = key.clone();
+    let key = Path::new(category).join(name);
     use dashmap::mapref::entry::Entry::*;
     Some(match cache().entry(key) {
         Occupied(v) => v.into_ref().downgrade(),
         Vacant(entry) => {
+            let mut p = Path::new("blocks").join(category).join(name);
             p.set_extension("png");
             let Some(i) = load_raw(p) else {
                 return None;

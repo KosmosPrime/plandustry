@@ -6,7 +6,114 @@ use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::unit;
 
-make_simple!(ConstructorBlock);
+// fn is_pay(b: &str) -> bool {
+//     matches!(
+//         b,
+//         "ground-factory"
+//             | "air-factory"
+//             | "naval-factory"
+//             | "additive-reconstructor"
+//             | "multiplicative-reconstructor"
+//             | "exponential-reconstructor"
+//             | "tank-fabricator"
+//             | "ship-fabricator"
+//             | "mech-fabricator"
+//             | "tank-refabricator"
+//             | "ship-refabricator"
+//             | "payload-conveyor"
+//             | "payload-router"
+//             | "reinforced-payload-conveyor"
+//             | "reinforced-payload-router"
+//             | "payload-mass-driver"
+//             | "large-payload-mass-driver"
+//             | "constructor"
+//             | "large-constructor"
+//             | "payload-source"
+//     )
+// }
+
+make_simple!(
+    ConstructorBlock,
+    |me: &Self, _, name, _, context: Option<&RenderingContext>| {
+        let ctx = context.unwrap();
+        let mut base = load("units", name).unwrap().to_owned();
+        let times = ctx.rotation.rotated(false).count();
+        {
+            let out = load(
+                "payload",
+                &match name {
+                    "additive-reconstructor"
+                    | "multiplicative-reconstructor"
+                    | "exponential-reconstructor"
+                    | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
+                    _ => format!("factory-out-{}-dark", me.size),
+                },
+            )
+            .unwrap();
+            if times != 0 {
+                let mut out = out.clone();
+                out.rotate(times);
+                base.overlay(&out, 0, 0);
+            } else {
+                base.overlay(&out, 0, 0);
+            }
+        }
+        {
+            let input = load(
+                "payload",
+                &match name {
+                    "additive-reconstructor"
+                    | "multiplicative-reconstructor"
+                    | "exponential-reconstructor"
+                    | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
+                    _ => format!("factory-in-{}-dark", me.size),
+                },
+            )
+            .unwrap();
+            if times != 0 {
+                let mut input = input.clone();
+                input.rotate(times);
+                base.overlay(&input, 0, 0);
+            } else {
+                base.overlay(&input, 0, 0);
+            }
+        }
+        // TODO: the context cross is too small
+        // for i in 0..4u8 {
+        //     if let Some((b, rot)) = dbg!(ctx.cross[i as usize]) {
+        //         if rot.mirrored(true, true) != ctx.rotation &&  match rot {
+        //             Rotation::Up => i == 3,
+        //             Rotation::Right => i == 4,
+        //             Rotation::Down => i == 0,
+        //             Rotation::Left => i == 2,
+        //         } && is_pay(b.name())
+        //         {
+        //             let r = unsafe { std::mem::transmute::<u8, Rotation>(i) }
+        //                 .mirrored(true, true)
+        //                 .rotated(false);
+        //             let mut input = input.clone();
+        //             input.rotate(r.count());
+        //             base.overlay(&input, 0, 0);
+        //         }
+        //     }
+        // }
+        {
+            base.overlay(&load("units", &format!("{name}-top")).unwrap(), 0, 0);
+        }
+        if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
+            let side = load("units", &format!("{name}-side")).unwrap();
+            if times != 0 {
+                let mut side = side.clone();
+                side.rotate(times);
+                base.overlay(&side, 0, 0);
+            } else {
+                base.overlay(&side, 0, 0);
+            }
+        }
+        Some(ImageHolder::from(base))
+    },
+    true
+);
 make_simple!(UnitBlock);
 
 const GROUND_UNITS: &[unit::Type] = &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
@@ -25,9 +132,9 @@ make_register! {
         cost!(Lead: 4000, Thorium: 1000, Silicon: 3000, Plastanium: 600, PhaseFabric: 600, SurgeAlloy: 800));
     "repair-point" => UnitBlock::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
     "repair-turret" => UnitBlock::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
-    "tank-fabricator" => ConstructorBlock::new(3, true, cost!(Silicon: 200, Beryllium: 150));
-    "ship-fabricator" => ConstructorBlock::new(3, true, cost!(Silicon: 250, Beryllium: 200));
-    "mech-fabricator" => ConstructorBlock::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60));
+    "tank-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 200, Beryllium: 150), &[unit::Type::Stell]);
+    "ship-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 250, Beryllium: 200), &[unit::Type::Elude]);
+    "mech-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60), &[unit::Type::Merui]);
     "tank-refabricator" => ConstructorBlock::new(3, true, cost!(Beryllium: 200, Tungsten: 80, Silicon: 100));
     "mech-refabricator" => ConstructorBlock::new(3, true, cost!(Beryllium: 250, Tungsten: 120, Silicon: 150));
     "ship-refabricator" => ConstructorBlock::new(3, true, cost!(Beryllium: 200, Tungsten: 100, Silicon: 150, Oxide: 40));
@@ -35,7 +142,7 @@ make_register! {
     "tank-assembler" => ConstructorBlock::new(5, true, cost!(Thorium: 500, Oxide: 150, Carbide: 80, Silicon: 500));
     "ship-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 100, Oxide: 200, Tungsten: 500, Silicon: 800, Thorium: 400));
     "mech-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 200, Thorium: 600, Oxide: 200, Tungsten: 500, Silicon: 900)); // smh collaris
-    "basic-assembler-module" => ConstructorBlock::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
+    "basic-assembler-module" => UnitBlock::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
     "unit-repair-tower" => UnitBlock::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
 
 }
@@ -105,10 +212,6 @@ impl BlockLogic for AssemblerBlock {
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         if let Some(state) = Self::get_state(state) {
             for (i, curr) in self.valid.iter().enumerate() {
@@ -122,6 +225,55 @@ impl BlockLogic for AssemblerBlock {
         } else {
             Ok(DynData::Int(-1))
         }
+    }
+
+    fn draw(
+        &self,
+        _: &str,
+        name: &str,
+        _: Option<&State>,
+        context: Option<&RenderingContext>,
+    ) -> Option<ImageHolder> {
+        let ctx = context.unwrap();
+        let mut base = load("units", name).unwrap().to_owned();
+        let out = load(
+            "payload",
+            match name {
+                "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
+                _ => "factory-out-3-dark",
+            },
+        )
+        .unwrap();
+        let times = ctx.rotation.rotated(false).count();
+        if times != 0 {
+            let mut out = out.clone();
+            out.rotate(times);
+            base.overlay(&out, 0, 0);
+        } else {
+            base.overlay(&out, 0, 0);
+        }
+        base.overlay(
+            &load(
+                match name {
+                    "ground-factory" | "air-factory" | "naval-factory" => "payload",
+                    _ => "units",
+                },
+                &match name {
+                    "ground-factory" | "air-factory" | "naval-factory" => {
+                        format!("factory-top-{}", self.size)
+                    }
+                    _ => format!("{name}-top"),
+                },
+            )
+            .unwrap(),
+            0,
+            0,
+        );
+        Some(ImageHolder::from(base))
+    }
+
+    fn want_context(&self) -> bool {
+        true
     }
 }
 
