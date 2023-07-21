@@ -81,7 +81,7 @@ use crate::data::DataRead;
 use crate::fluid::Type as Fluid;
 use crate::item::{storage::Storage, Type as Item};
 use crate::team::Team;
-#[allow(unused_imports)]
+#[cfg(doc)]
 use crate::{block::content, data::*, fluid, item, modifier, unit};
 
 use super::Serializer;

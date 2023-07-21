@@ -291,23 +291,19 @@ impl RegistryEntry for Block {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 /// the possible rotation states of a object
+#[repr(u8)]
 pub enum Rotation {
-    Right,
     Up,
-    Left,
+    Right,
     Down,
+    Left,
 }
 
 impl Rotation {
     #[must_use]
     /// count rotations
     pub fn count(self) -> u8 {
-        match self {
-            Self::Up => 0,
-            Self::Right => 1,
-            Self::Down => 2,
-            Self::Left => 3,
-        }
+        self as u8
     }
 
     #[must_use]

@@ -11,22 +11,45 @@ use crate::fluid;
 use crate::utils::ImageUtils;
 
 make_simple!(LiquidBlock);
+make_simple!(
+    ConduitBlock,
+    |_, _, name, _, ctx: Option<&RenderingContext>| {
+        let ctx = ctx.unwrap();
+        let mask = mask(ctx, name);
+        let (index, rot, flip) = mask2rotations(mask, ctx.rotation);
+        let tile = rotations2tile(
+            (index, rot, flip),
+            "liquid",
+            "conduits",
+            &format!("{name}-top"),
+        );
+        let mut bottom = load("liquid", &format!("conduits/conduit-bottom-{index}"))
+            .unwrap()
+            .to_owned();
+        flrot(flip, rot, &mut bottom);
+        bottom.tint(image::Rgb([74, 75, 83]));
+        bottom.overlay(tile.borrow(), 0, 0);
+        // TODO caps. stopped trying bcz too complex
+        Some(ImageHolder::from(bottom))
+    },
+    true
+);
 
 make_register! {
     "reinforced-pump" => LiquidBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
     "mechanical-pump" => LiquidBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
     "rotary-pump" => LiquidBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
     "impulse-pump" => LiquidBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
-    "conduit" => LiquidBlock::new(1, false, cost!(Metaglass: 1));
-    "pulse-conduit" => LiquidBlock::new(1, false, cost!(Metaglass: 1, Titanium: 2));
-    "plated-conduit" => LiquidBlock::new(1, false, cost!(Metaglass: 1, Thorium: 2, Plastanium: 1));
+    "conduit" => ConduitBlock::new(1, false, cost!(Metaglass: 1));
+    "pulse-conduit" => ConduitBlock::new(1, false, cost!(Metaglass: 1, Titanium: 2));
+    "plated-conduit" => ConduitBlock::new(1, false, cost!(Metaglass: 1, Thorium: 2, Plastanium: 1));
     "liquid-router" => LiquidBlock::new(1, true, cost!(Metaglass: 2, Graphite: 4));
     "liquid-container" => LiquidBlock::new(2, true, cost!(Metaglass: 15, Titanium: 10));
     "liquid-tank" => LiquidBlock::new(3, true, cost!(Metaglass: 40, Titanium: 30));
     "liquid-junction" => LiquidBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
     "bridge-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4), 4, true);
     "phase-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 20, Titanium: 10, Silicon: 7, PhaseFabric: 5), 12, true);
-    "reinforced-conduit" => LiquidBlock::new(1, false, cost!(Beryllium: 2));
+    "reinforced-conduit" => ConduitBlock::new(1, false, cost!(Beryllium: 2));
     "reinforced-liquid-junction" => LiquidBlock::new(1, true, cost!(Graphite: 4, Beryllium: 8));
     "reinforced-bridge-conduit" => BridgeBlock::new(1, true, cost!(Graphite: 8, Beryllium: 20), 4, true);
     "reinforced-liquid-router" => LiquidBlock::new(1, true, cost!(Graphite: 8, Beryllium: 4));
