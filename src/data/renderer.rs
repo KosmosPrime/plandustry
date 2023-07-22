@@ -245,16 +245,12 @@ impl Renderable for Map<'_> {
                     y as u32 * scale,
                 );
             } else {
-                let s = if let Some(build) = &tile.build() {
-                    build.block.get_size()
-                } else {
-                    1
-                };
+                let build = tile.build().unwrap();
+                let s = build.block.get_size();
                 let x = x - ((s - 1) / 2) as usize;
                 let y = y - (s / 2) as usize;
                 let ctx = (|| {
-                    let b = tile.build()?;
-                    if !b.block.wants_context() {
+                    if !build.block.wants_context() {
                         return None;
                     }
                     let pctx = PositionContext {
@@ -264,7 +260,7 @@ impl Renderable for Map<'_> {
                     };
                     let rctx = RenderingContext {
                         cross: self.cross(j, &pctx),
-                        rotation: b.rotation,
+                        rotation: build.rotation,
                         position: pctx,
                     };
                     Some(rctx)

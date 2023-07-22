@@ -459,7 +459,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     Some(
                         self.0
                             .get(block.get_name())
-                            .ok_or(ReadError::NoSuchBlock(block.to_string()))?,
+                            .ok_or_else(|| ReadError::NoSuchBlock(block.to_string()))?,
                     )
                 } else {
                     None
@@ -489,9 +489,9 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     map[i].build.as_mut().unwrap().data = buff.read_i8()?;
                 } else {
                     let consecutives = buff.read_u8()? as usize;
-                    for tile in map.tiles.iter_mut().take(consecutives).skip(i + 1) {
+                    for i in i..=i + consecutives {
                         if let Some(block) = block {
-                            tile.set_block(block);
+                            map.tiles[i].set_block(block);
                         }
                     }
                     i += consecutives;
