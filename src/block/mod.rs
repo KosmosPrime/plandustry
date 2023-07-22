@@ -3,6 +3,7 @@
 //! categorized as mindustry categorizes them in its assets folder, for easy drawing.
 //!
 //! with the exception of sandbox, that is.
+use bobbin_bits::U4::{self, *};
 use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
@@ -304,6 +305,17 @@ impl Rotation {
     /// count rotations
     pub fn count(self) -> u8 {
         self as u8
+    }
+
+    #[must_use]
+    /// mask
+    pub fn mask(self) -> U4 {
+        match self {
+            Rotation::Up => B1000,
+            Rotation::Right => B0100,
+            Rotation::Down => B0010,
+            Rotation::Left => B0001,
+        }
     }
 
     #[must_use]

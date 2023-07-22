@@ -55,12 +55,81 @@ make_simple!(
     },
     true
 );
+
+fn draw_stack(
+    _: &StackConveyor,
+    _: &str,
+    name: &str,
+    _: Option<&State>,
+    ctx: Option<&RenderingContext>,
+) -> Option<ImageHolder> {
+    let ctx = ctx.unwrap();
+    let mask = mask(ctx, name);
+    // clone to not hold lock
+    let edge = load("distribution/stack-conveyors", &format!("{name}-edge"))
+        .unwrap()
+        .clone();
+    let edgify = |skip, to: &mut RgbaImage| {
+        for i in 0..4 {
+            if i == skip {
+                continue;
+            }
+            let mut edge = edge.clone();
+            edge.rotate(i);
+            to.overlay(&edge, 0, 0);
+        }
+    };
+    let gimme = |n: u8| {
+        load("distribution/stack-conveyors", &format!("{name}-{n}"))
+            .unwrap()
+            .clone()
+    };
+    let empty = ctx.cross[ctx.rotation.count() as usize].map_or(true, |(v, _)| v.name != name);
+    // mindustry says fuck this and just draws the arrow convs in schems but im better than that
+    Some(ImageHolder::from(
+        if ctx.rotation.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
+            // end
+            let mut base = gimme(2);
+            edgify(
+                ctx.rotation.mirrored(true, true).rotated(false).count(),
+                &mut base,
+            );
+            base
+        } else if mask == B0000 && empty {
+            // single
+            let mut base = gimme(0);
+            base.rotate(ctx.rotation.rotated(false).count());
+            edgify(5, &mut base);
+            base
+        } else if mask == B0000 {
+            // input
+            let mut base = gimme(1);
+            edgify(ctx.rotation.rotated(false).count(), &mut base);
+            base
+        } else {
+            // directional
+            let mut base = gimme(0);
+            let going = ctx.rotation.rotated(false).count();
+            base.rotate(going);
+            for [r, i] in [[3, 0b1000], [0, 0b0100], [1, 0b0010], [2, 0b0001]] {
+                if (mask.into_u8() & i) == 0 && (going != r || empty) {
+                    let mut edge = edge.clone();
+                    edge.rotate(r);
+                    base.overlay(&edge, 0, 0);
+                }
+            }
+            base
+        },
+    ))
+}
+
+make_simple!(StackConveyor, draw_stack, true);
 make_simple!(ControlBlock);
 
 make_register! {
     "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
     "titanium-conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
-    "plastanium-conveyor" => ControlBlock::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
+    "plastanium-conveyor" => StackConveyor::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
     "armored-conveyor" => ConveyorBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
     "junction" => JunctionBlock::new(1, true, cost!(Copper: 2));
     "bridge-conveyor" => BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
@@ -79,7 +148,7 @@ make_register! {
     "underflow-duct" => SimpleDuctBlock::new(1, true, cost!(Graphite: 8, Beryllium: 8));
     "duct-bridge" => BridgeBlock::new(1, true, cost!(Beryllium: 20), 3, true);
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
-    "surge-conveyor" => ControlBlock::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
+    "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
     "surge-router" => ControlBlock::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
     "unit-cargo-loader" => ControlBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
