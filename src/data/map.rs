@@ -141,18 +141,20 @@ impl<'l> Tile<'l> {
         1
     }
 
-    pub fn image(&self, context: Option<&RenderingContext>) -> ImageHolder {
+    pub fn floor_image(&self, context: Option<&RenderingContext>) -> ImageHolder {
+        let mut i = self.floor.image(None, context).own();
+        if let Some(ore) = self.ore {
+            i.overlay(ore.image(None, context).borrow(), 0, 0);
+        }
+        ImageHolder::from(i)
+    }
+
+    pub fn build_image(&self, context: Option<&RenderingContext>) -> ImageHolder {
         // building covers floore
-        let i = if let Some(b) = &self.build {
-            b.image(context)
-        } else {
-            let mut i = self.floor.image(None, context).own();
-            if let Some(ore) = self.ore {
-                i.overlay(ore.image(None, context).borrow(), 0, 0);
-            }
-            ImageHolder::from(i)
+        let Some(b)= &self.build else {
+            unreachable!();
         };
-        i
+        b.image(context)
     }
 }
 

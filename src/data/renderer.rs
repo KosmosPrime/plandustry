@@ -237,15 +237,14 @@ impl Renderable for Map<'_> {
                 t,
             )
         }) {
-            if tile.build().is_none() {
-                floor.overlay(
-                    // SAFETY: [`load_raw`] forces nonzero image size
-                    unsafe { &tile.image(None).own().scale(scale) },
-                    x as u32 * scale,
-                    y as u32 * scale,
-                );
-            } else {
-                let build = tile.build().unwrap();
+            // draw the floor first.
+            floor.overlay(
+                // SAFETY: [`load_raw`] forces nonzero image size
+                unsafe { &tile.floor_image(None).own().scale(scale) },
+                x as u32 * scale,
+                y as u32 * scale,
+            );
+            if let Some(build) = tile.build() {
                 let s = build.block.get_size();
                 let x = x - ((s - 1) / 2) as usize;
                 let y = y - (s / 2) as usize;
@@ -269,7 +268,7 @@ impl Renderable for Map<'_> {
                     // SAFETY: tile.size can never be 0, and [`load_raw`] forces nonzero.
                     unsafe {
                         &tile
-                            .image(ctx.as_ref())
+                            .build_image(ctx.as_ref())
                             .own()
                             .scale(tile.size() as u32 * scale)
                     },
