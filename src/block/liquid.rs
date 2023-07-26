@@ -13,10 +13,10 @@ use crate::utils::ImageUtils;
 make_simple!(LiquidBlock);
 make_simple!(
     ConduitBlock,
-    |_, _, name, _, ctx: Option<&RenderingContext>| {
+    |_, _, name, _, ctx: Option<&RenderingContext>, rot| {
         let ctx = ctx.unwrap();
-        let mask = mask(ctx, name);
-        let (index, rot, flip) = mask2rotations(mask, ctx.rotation);
+        let mask = mask(ctx, rot, name);
+        let (index, rot, flip) = mask2rotations(mask, rot);
         let tile = rotations2tile(
             (index, rot, flip),
             "liquid",
@@ -113,10 +113,6 @@ impl BlockLogic for FluidBlock {
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {
             None => Ok(DynData::Empty),
@@ -130,6 +126,7 @@ impl BlockLogic for FluidBlock {
         name: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
+        _: Rotation,
     ) -> Option<ImageHolder> {
         let mut p = load(category, name).unwrap().clone();
         if let Some(state) = state {
@@ -142,6 +139,20 @@ impl BlockLogic for FluidBlock {
         let mut null = load("distribution", "cross-full").unwrap().clone();
         null.overlay(&p, 0, 0);
         Some(ImageHolder::Own(null))
+    }
+
+    /// format:
+    /// - fluid: [`u16`] as [`Fluid`](fluid::Type)
+    fn read(
+        &self,
+        b: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        let f = buff.read_u16()?;
+        b.state = Some(Self::create_state(fluid::Type::try_from(f).ok()));
+        Ok(())
     }
 }
 

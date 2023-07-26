@@ -5,12 +5,23 @@ use std::string::FromUtf8Error;
 use image::{Rgb, RgbImage};
 
 use crate::block::simple::*;
-use crate::block::*;
-use crate::data::dynamic::DynType;
+use crate::data::dynamic::{DynSerializer, DynType};
+use crate::{block::*, Serializer};
 
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(LogicBlock);
+make_simple!(
+    MemoryBlock,
+    |_, _, _, _, _, _| None,
+    |_, _, _, buff: &mut DataRead| {
+        // format:
+        // - iterate [`u32`]
+        //     - memory: [`f64`]
+        let n = buff.read_u32()? as usize;
+        buff.skip(n * 8)
+    }
+);
 
 make_register! {
     "reinforced-message" => MessageLogic::new(1, true, cost!(Graphite: 10, Beryllium: 5));
@@ -19,15 +30,15 @@ make_register! {
     "micro-processor" => ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));
     "logic-processor" => ProcessorLogic::new(2, true, cost!(Lead: 320, Graphite: 60, Thorium: 50, Silicon: 80));
     "hyper-processor" => ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
-    "memory-cell" => LogicBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
-    "memory-bank" => LogicBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
+    "memory-cell" => MemoryBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
+    "memory-bank" => MemoryBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
     "logic-display" => LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
     "large-logic-display" => LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
     "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
     // editor only
     "world-processor" => LogicBlock::new(1, true, &[]);
     "world-message" => MessageLogic::new(1, true, &[]);
-    "world-cell" => LogicBlock::new(1, true, &[]);
+    "world-cell" => MemoryBlock::new(1, true, &[]);
 }
 
 pub struct CanvasBlock {
@@ -69,6 +80,24 @@ impl CanvasBlock {
     state_impl!(pub RgbImage);
 }
 
+fn deser_canvas_image(b: Vec<u8>, size: usize) -> RgbImage {
+    let mut p = RgbImage::new(size as u32, size as u32);
+    for i in 0..(size * size) {
+        let offset = i * 3;
+        let mut n = 0;
+        for i in 0..3 {
+            let word = (i + offset) >> 3;
+            n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
+        }
+        p.put_pixel(
+            i as u32 % size as u32,
+            i as u32 / size as u32,
+            PALETTE[n as usize],
+        )
+    }
+    p
+}
+
 impl BlockLogic for CanvasBlock {
     impl_block!();
 
@@ -78,23 +107,10 @@ impl BlockLogic for CanvasBlock {
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
-            DynData::ByteArray(b) => {
-                let mut p = RgbImage::new(self.canvas_size as u32, self.canvas_size as u32);
-                for i in 0..(self.canvas_size * self.canvas_size) as usize {
-                    let offset = i * 3;
-                    let mut n = 0;
-                    for i in 0..3 {
-                        let word = (i + offset) >> 3;
-                        n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
-                    }
-                    p.put_pixel(
-                        i as u32 % self.canvas_size as u32,
-                        i as u32 / self.canvas_size as u32,
-                        PALETTE[n as usize],
-                    )
-                }
-                Ok(Some(Self::create_state(p)))
-            }
+            DynData::ByteArray(b) => Ok(Some(Self::create_state(deser_canvas_image(
+                b,
+                self.canvas_size as usize,
+            )))),
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
                 expect: DynType::String,
@@ -135,6 +151,7 @@ impl BlockLogic for CanvasBlock {
         n: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
+        _: Rotation,
     ) -> Option<ImageHolder> {
         if let Some(state) = state {
             let state = self.clone_state(state);
@@ -161,6 +178,26 @@ impl BlockLogic for CanvasBlock {
             self.size as u32 * 32,
             self.size as u32 * 32,
         )))
+    }
+
+    /// format:
+    /// - len: [`i32`]
+    /// - read(len) -> [`deser_canvas_image`]
+    fn read(
+        &self,
+        build: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        let n = buff.read_i32()? as usize;
+        let mut b = vec![0; n];
+        buff.read_bytes(&mut b)?;
+        build.state = Some(Self::create_state(deser_canvas_image(
+            b,
+            self.canvas_size as usize,
+        )));
+        Ok(())
     }
 }
 
@@ -213,6 +250,17 @@ impl BlockLogic for MessageLogic {
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::String(Some(Self::get_state(state).clone())))
     }
+
+    fn read(
+        &self,
+        b: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        b.state = Some(Self::create_state(buff.read_utf()?.to_string()));
+        Ok(())
+    }
 }
 
 pub struct SwitchLogic {
@@ -257,12 +305,39 @@ impl BlockLogic for SwitchLogic {
         Box::new(*Self::get_state(state))
     }
 
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Boolean(*Self::get_state(state)))
+    }
+
+    fn read(
+        &self,
+        build: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        build.state = Some(Self::create_state(buff.read_bool()?));
+        Ok(())
+    }
+
+    fn draw(
+        &self,
+        _: &str,
+        _: &str,
+        state: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> Option<ImageHolder> {
+        let base = load("logic", "switch").unwrap();
+        if let Some(state) = state {
+            if *Self::get_state(state) {
+                let mut base = base.clone();
+                let on = load("logic", "switch-on").unwrap();
+                base.overlay(&on, 0, 0);
+                return Some(ImageHolder::from(base));
+            }
+        }
+        Some(ImageHolder::from(base))
     }
 }
 
@@ -286,6 +361,36 @@ impl ProcessorLogic {
     state_impl!(pub ProcessorState);
 }
 
+fn read_decompressed(buff: &mut DataRead) -> Result<ProcessorState, ProcessorDeserializeError> {
+    let ver = buff.read_u8()?;
+    if ver != 1 {
+        return Err(ProcessorDeserializeError::Version(ver));
+    }
+
+    let code_len = buff.read_u32()? as usize;
+    if !(0..=500 * 1024).contains(&code_len) {
+        return Err(ProcessorDeserializeError::CodeLength(code_len));
+    }
+    let mut code = vec![];
+    code.resize(code_len, 0);
+    buff.read_bytes(&mut code)?;
+    let code = String::from_utf8(code)?;
+    let link_cnt = buff.read_u32()? as usize;
+    let mut links = vec![];
+    links.reserve(link_cnt);
+    for _ in 0..link_cnt {
+        let name = buff.read_utf()?;
+        let x = buff.read_i16()?;
+        let y = buff.read_i16()?;
+        links.push(ProcessorLink {
+            name: String::from(name),
+            x,
+            y,
+        });
+    }
+    Ok(ProcessorState { code, links })
+}
+
 impl BlockLogic for ProcessorLogic {
     impl_block!();
 
@@ -299,49 +404,40 @@ impl BlockLogic for ProcessorLogic {
             DynData::ByteArray(arr) => {
                 let input = arr.as_ref();
                 let buff = DataRead::new(input).deflate()?;
-                let mut buff = DataRead::new(&buff);
-                let ver = ProcessorDeserializeError::forward(buff.read_u8())?;
-                if ver != 1 {
-                    return Err(DeserializeError::Custom(Box::new(
-                        ProcessorDeserializeError::Version(ver),
-                    )));
-                }
-
-                let code_len = ProcessorDeserializeError::forward(buff.read_i32())?;
-                if !(0..=500 * 1024).contains(&code_len) {
-                    return Err(DeserializeError::Custom(Box::new(
-                        ProcessorDeserializeError::CodeLength(code_len),
-                    )));
-                }
-                let mut code = Vec::<u8>::new();
-                code.resize(code_len as usize, 0);
-                ProcessorDeserializeError::forward(buff.read_bytes(&mut code))?;
-                let code = ProcessorDeserializeError::forward(String::from_utf8(code))?;
-                let link_cnt = ProcessorDeserializeError::forward(buff.read_i32())?;
-                if link_cnt < 0 {
-                    return Err(DeserializeError::Custom(Box::new(
-                        ProcessorDeserializeError::LinkCount(link_cnt),
-                    )));
-                }
-                let mut links = Vec::<ProcessorLink>::new();
-                links.reserve(link_cnt as usize);
-                for _ in 0..link_cnt {
-                    let name = ProcessorDeserializeError::forward(buff.read_utf())?;
-                    let x = ProcessorDeserializeError::forward(buff.read_i16())?;
-                    let y = ProcessorDeserializeError::forward(buff.read_i16())?;
-                    links.push(ProcessorLink {
-                        name: String::from(name),
-                        x,
-                        y,
-                    });
-                }
-                Ok(Some(Self::create_state(ProcessorState { code, links })))
+                Ok(Some(Self::create_state(
+                    ProcessorDeserializeError::forward(read_decompressed(&mut DataRead::new(
+                        &buff,
+                    )))?,
+                )))
             }
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
                 expect: DynType::Boolean,
             }),
         }
+    }
+
+    fn read(
+        &self,
+        b: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        let n = buff.read_u32()? as usize;
+        let mut v = vec![0; n];
+        buff.read_bytes(&mut v)?;
+        v = DataRead::new(&v).deflate().unwrap();
+        b.state = Some(Self::create_state(
+            read_decompressed(&mut DataRead::new(&v)).unwrap(),
+        ));
+        for _ in 0..buff.read_u32()? {
+            let _ = buff.read_utf()?;
+            let _ = DynSerializer.deserialize(buff).unwrap();
+        }
+        let memory = buff.read_u32()? as usize;
+        buff.skip(memory * 8)?;
+        Ok(())
     }
 
     fn clone_state(&self, state: &State) -> State {
@@ -396,9 +492,7 @@ pub enum ProcessorDeserializeError {
     #[error("unsupported version ({0})")]
     Version(u8),
     #[error("invalid code length ({0})")]
-    CodeLength(i32),
-    #[error("invalid link count {0}")]
-    LinkCount(i32),
+    CodeLength(usize),
 }
 
 impl ProcessorDeserializeError {

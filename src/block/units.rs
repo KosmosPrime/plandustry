@@ -1,6 +1,7 @@
 //! unit creation related blocks
 use thiserror::Error;
 
+use super::payload::read_payload_block;
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
@@ -34,10 +35,9 @@ use crate::unit;
 
 make_simple!(
     ConstructorBlock,
-    |me: &Self, _, name, _, context: Option<&RenderingContext>| {
-        let ctx = context.unwrap();
+    |me: &Self, _, name, _, _, rot: Rotation| {
         let mut base = load("units", name).unwrap().to_owned();
-        let times = ctx.rotation.rotated(false).count();
+        let times = rot.rotated(false).count();
         {
             let out = load(
                 "payload",
@@ -111,10 +111,12 @@ make_simple!(
             }
         }
         Some(ImageHolder::from(base))
-    },
-    true
+    }
 );
 make_simple!(UnitBlock);
+make_simple!(RepairTurret => |_, _, _, buff: &mut DataRead| {
+   buff.skip(4) // rotation: [`f32`]
+});
 
 const GROUND_UNITS: &[unit::Type] = &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
 const AIR_UNITS: &[unit::Type] = &[unit::Type::Flare, unit::Type::Mono];
@@ -130,8 +132,8 @@ make_register! {
         cost!(Lead: 2000, Titanium: 2000, Thorium: 750, Silicon: 1000, Plastanium: 450, PhaseFabric: 600));
     "tetrative-reconstructor" => ConstructorBlock::new(9, false,
         cost!(Lead: 4000, Thorium: 1000, Silicon: 3000, Plastanium: 600, PhaseFabric: 600, SurgeAlloy: 800));
-    "repair-point" => UnitBlock::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
-    "repair-turret" => UnitBlock::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
+    "repair-point" => RepairTurret::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
+    "repair-turret" => RepairTurret::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
     "tank-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 200, Beryllium: 150), &[unit::Type::Stell]);
     "ship-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 250, Beryllium: 200), &[unit::Type::Elude]);
     "mech-fabricator" => AssemblerBlock::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60), &[unit::Type::Merui]);
@@ -232,9 +234,9 @@ impl BlockLogic for AssemblerBlock {
         _: &str,
         name: &str,
         _: Option<&State>,
-        context: Option<&RenderingContext>,
+        _: Option<&RenderingContext>,
+        rot: Rotation,
     ) -> Option<ImageHolder> {
-        let ctx = context.unwrap();
         let mut base = load("units", name).unwrap().to_owned();
         let out = load(
             "payload",
@@ -244,7 +246,7 @@ impl BlockLogic for AssemblerBlock {
             },
         )
         .unwrap();
-        let times = ctx.rotation.rotated(false).count();
+        let times = rot.rotated(false).count();
         if times != 0 {
             let mut out = out.clone();
             out.rotate(times);
@@ -272,8 +274,20 @@ impl BlockLogic for AssemblerBlock {
         Some(ImageHolder::from(base))
     }
 
-    fn want_context(&self) -> bool {
-        true
+    /// format:
+    /// - call [`read_payload_block`]
+    /// - progress: [`f32`]
+    /// - plan: [`u16`]
+    /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
+    fn read(
+        &self,
+        _: &mut Build,
+        reg: &BlockRegistry,
+        mapping: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        read_payload_block(reg, mapping, buff)?;
+        buff.skip(14)
     }
 }
 

@@ -1,6 +1,7 @@
 //! the industry part of mindustry
 use crate::block::make_register;
 use crate::block::simple::{cost, make_simple};
+use crate::data::DataRead;
 
 make_register! {
     "cultivator" => ProductionBlock::new(2, true, cost!(Copper: 25, Lead: 25, Silicon: 10));
@@ -21,17 +22,17 @@ make_register! {
     "spore-press" => ProductionBlock::new(2, true, cost!(Lead: 35, Silicon: 30));
     "pulverizer" => ProductionBlock::new(1, true, cost!(Copper: 30, Lead: 25));
     "coal-centrifuge" => ProductionBlock::new(2, true, cost!(Lead: 30, Graphite: 40, Titanium: 20));
-    "incinerator" => ProductionBlock::new(1, true, cost!(Lead: 15, Graphite: 5));
+    "incinerator" => Incinerator::new(1, true, cost!(Lead: 15, Graphite: 5));
     "silicon-arc-furnace" => ProductionBlock::new(3, true, cost!(Beryllium: 70, Graphite: 80));
     "electrolyzer" => ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
     "atmospheric-concentrator" => ProductionBlock::new(3, true, cost!(Oxide: 60, Beryllium: 180, Silicon: 150));
     "oxidation-chamber" => HeatCrafter::new(3, true, cost!(Tungsten: 120, Graphite: 80, Silicon: 100, Beryllium: 120));
     "electric-heater" => HeatCrafter::new(2, false, cost!(Tungsten: 30, Oxide: 30));
     "slag-heater" => HeatCrafter::new(3, false, cost!(Tungsten: 50, Oxide: 20, Beryllium: 20));
-    "phase-heater" => ProductionBlock::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
-    "heat-redirector" => ProductionBlock::new(3, false, cost!(Tungsten: 10, Graphite: 10));
-    "heat-router" => ProductionBlock::new(3, false, cost!(Tungsten: 15, Graphite: 10));
-    "slag-incinerator" => ProductionBlock::new(1, true, cost!(Tungsten: 15));
+    "phase-heater" => HeatCrafter::new(2, false, cost!(Oxide: 30, Carbide: 30, Beryllium: 30));
+    "heat-redirector" => HeatConduit::new(3, false, cost!(Tungsten: 10, Graphite: 10));
+    "heat-router" => HeatConduit::new(3, false, cost!(Tungsten: 15, Graphite: 10));
+    "slag-incinerator" => Incinerator::new(1, true, cost!(Tungsten: 15));
     "carbide-crucible" => ProductionBlock::new(3, true, cost!(Tungsten: 110, Thorium: 150, Oxide: 60));
     // slag centrifuge
     "surge-crucible" => ProductionBlock::new(3, true, cost!(Silicon: 100, Graphite: 80, Tungsten: 80, Oxide: 80));
@@ -39,33 +40,32 @@ make_register! {
     "phase-synthesizer" => ProductionBlock::new(3, true, cost!(Carbide: 90, Silicon: 100, Thorium: 100, Tungsten: 200));
     // heat reactor
     // sandbox only
-    "heat-source" => ProductionBlock::new(1, false, &[]);
+    "heat-source" => HeatCrafter::new(1, false, &[]);
 }
 
 make_simple!(
     ProductionBlock,
-    |_, _, _, _, _| None,
-    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, _, _, _| None,
+    |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
-        buff.read_f32()?;
-        buff.read_f32()?;
+        buff.skip(8)?;
         Ok(())
     }
 );
 
 make_simple!(
     HeatCrafter,
-    |_, _, _, _, _| None,
-    |_, _, _, _, _, buff: &mut crate::data::DataRead| {
+    |_, _, _, _, _, _| None,
+    |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
         // - heat: f32
-        buff.read_f32()?;
-        buff.read_f32()?;
-        buff.read_f32()?;
+        buff.skip(12)?;
         Ok(())
     }
 );
+make_simple!(HeatConduit);
+make_simple!(Incinerator);

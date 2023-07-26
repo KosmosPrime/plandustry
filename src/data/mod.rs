@@ -22,7 +22,7 @@ pub mod weather;
 
 #[derive(Debug)]
 pub struct DataRead<'d> {
-    data: &'d [u8],
+    pub(crate) data: &'d [u8],
     // used with read_chunk
     read: usize,
 }
@@ -144,11 +144,18 @@ impl<'d> DataRead<'d> {
             Err(e) => {
                 // skip this chunk
                 if len < self.read {
-                    eprintln!("overread ({e:?})");
+                    #[cfg(debug_assertions)]
+                    panic!("overread; supposed to read {len}; read {}", self.read);
+                    #[cfg(not(debug_assertions))]
                     return Err(e);
                 }
                 let n = len - self.read;
                 if n != 0 {
+                    #[cfg(debug_assertions)]
+                    println!(
+                        "supposed to read {len}; read {} - skipping excess",
+                        self.read
+                    );
                     self.skip(n)?;
                 };
                 Err(e)

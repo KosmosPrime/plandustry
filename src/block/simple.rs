@@ -22,8 +22,8 @@ macro_rules! state_impl {
 
 pub(crate) use state_impl;
 
-/// draw is called with self, category, name, state, context
-/// read is called with self, category, name, reg, entity_mapping, buff
+/// draw is called with self, category, name, state, context, rotation
+/// read is called with build, reg, entity_mapping, buff
 macro_rules! make_simple {
     ($name: ident, $draw: expr, $read: expr, $wants_context: literal) => {
         pub struct $name {
@@ -90,8 +90,9 @@ macro_rules! make_simple {
                 name: &str,
                 state: Option<&crate::block::State>,
                 context: Option<&crate::data::renderer::RenderingContext>,
+                rot: crate::block::Rotation,
             ) -> Option<crate::data::renderer::ImageHolder> {
-                $draw(self, category, name, state, context)
+                $draw(self, category, name, state, context, rot)
             }
 
             fn want_context(&self) -> bool {
@@ -100,30 +101,32 @@ macro_rules! make_simple {
 
             fn read(
                 &self,
-                category: &str,
-                name: &str,
+                build: &mut crate::data::map::Build,
                 reg: &crate::block::BlockRegistry,
                 entity_mapping: &crate::data::map::EntityMapping,
                 buff: &mut crate::data::DataRead,
             ) -> Result<(), crate::data::ReadError> {
-                $read(self, category, name, reg, entity_mapping, buff)
+                $read(build, reg, entity_mapping, buff)
             }
         }
     };
     ($name: ident, $draw: expr) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _, _, _, _| Ok(()), false);
+        crate::block::simple::make_simple!($name, $draw, |_, _, _, _| Ok(()), false);
     };
     ($name: ident, $draw: expr, $wants_context: literal) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _, _, _, _| Ok(()), $wants_context);
+        crate::block::simple::make_simple!($name, $draw, |_, _, _, _| Ok(()), $wants_context);
     };
     ($name: ident, $draw: expr, $read: expr) => {
         crate::block::simple::make_simple!($name, $draw, $read, false);
     };
+    ($name: ident => $read: expr) => {
+        crate::block::simple::make_simple!($name, |_, _, _, _, _, _| None, $read);
+    };
     ($name: ident) => {
         crate::block::simple::make_simple!(
             $name,
-            |_, _, _, _, _| None,
-            |_, _, _, _, _, _| { Ok(()) },
+            |_, _, _, _, _, _| None,
+            |_, _, _, _| Ok(()),
             false
         );
     };
