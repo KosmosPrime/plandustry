@@ -1,21 +1,40 @@
 //! extraction of raw resources (mine part)
+use super::production::ProductionBlock;
 use crate::block::simple::{cost, make_simple};
 use crate::block::*;
-use super::production::ProductionBlock;
 
 make_simple!(
     DrillBlock,
-    |me: &DrillBlock, _, name, _, _, _| {
-        if matches!(name, "cliff-crusher" | "large-plasma-bore" | "plasma-bore") {
-            const SFX: &[&str; 3] = &["", "-top", "-rotator"];
-            return Some(ImageHolder::Own(read_with("drills", name, SFX, me.size)));
+    |_, _, name, _, _, rot: Rotation| {
+        if matches!(name, "large-plasma-bore" | "plasma-bore") {
+            let mut base = load("drills", name).unwrap().clone();
+            let top = load("drills", &format!("{name}-top")).unwrap();
+            if rot == Rotation::Right {
+                base.overlay(&top, 0, 0);
+            } else {
+                let mut top = top.clone();
+                top.rotate(rot.rotated(false).count());
+                base.overlay(&top, 0, 0);
+            }
+            return Some(ImageHolder::from(base));
         }
         Some(ImageHolder::Borrow(load("drills", name).unwrap()))
     },
     |_, _, _, buff: &mut DataRead| { read_drill(buff) }
 );
 make_simple!(ExtractorBlock);
-make_simple!(WallCrafter);
+make_simple!(WallCrafter, |_, _, _, _, _, rot: Rotation| {
+    let mut base = load("drills", "cliff-crusher").unwrap().clone();
+    let top = load("drills", "cliff-crusher-top").unwrap();
+    if rot == Rotation::Right {
+        base.overlay(&top, 0, 0);
+    } else {
+        let mut top = top.clone();
+        top.rotate(rot.rotated(false).count());
+        base.overlay(&top, 0, 0);
+    }
+    Some(ImageHolder::from(base))
+});
 
 make_register! {
     "mechanical-drill" => DrillBlock::new(2, true, cost!(Copper: 12));
