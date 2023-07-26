@@ -10,6 +10,17 @@ make_simple!(NuclearGeneratorBlock => |_, _, _, buff: &mut DataRead| read_nuclea
 make_simple!(ImpactReactorBlock => |_, _, _, buff: &mut DataRead| read_impact(buff));
 make_simple!(HeaterGeneratorBlock => |_, _, _, buff: &mut DataRead| read_heater(buff));
 make_simple!(BatteryBlock);
+make_simple!(DiodeBlock, |_, _, _, _, _, rot: Rotation| {
+	let base = load("power", "diode").unwrap();
+	if rot == Rotation::Right {
+		return Some(ImageHolder::from(base));
+	}
+	let mut base = base.clone();
+	let mut top = load("power", "diode-arrow").unwrap().clone();
+	top.rotate(rot.rotated(false).count());
+	base.overlay(&top, 0, 0);
+	Some(ImageHolder::from(base))
+});
 
 make_register! {
     // illuminator == power ?????
@@ -17,7 +28,7 @@ make_register! {
     "power-node" => ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
     "power-node-large" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
     "surge-tower" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
-    "diode" => GeneratorBlock::new(1, false, cost!(Metaglass: 10, Silicon: 10, Plastanium: 5));
+    "diode" => DiodeBlock::new(1, false, cost!(Metaglass: 10, Silicon: 10, Plastanium: 5));
     "battery" => BatteryBlock::new(1, true, cost!(Copper: 5, Lead: 20));
     "battery-large" => BatteryBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
     "combustion-generator" => GeneratorBlock::new(1, true, cost!(Copper: 25, Lead: 15));
