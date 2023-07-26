@@ -129,10 +129,12 @@ make_simple!(
     // format:
     // - link: `i32`
     // - cooldown: `f32`
-    |_, _, _, buff: &mut DataRead| { buff.skip(8) },
+    |_, _, _, buff: &mut DataRead| buff.skip(8),
     true
 );
 make_simple!(ControlBlock);
+// format: id: [`i32`]
+make_simple!(UnitCargoLoader => |_, _, _, buff: &mut DataRead| buff.skip(4));
 
 make_register! {
     "conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1));
@@ -158,7 +160,7 @@ make_register! {
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
     "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
     "surge-router" => ControlBlock::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
-    "unit-cargo-loader" => ControlBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
+    "unit-cargo-loader" => UnitCargoLoader::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
     "item-source" => ItemBlock::new(1, true, &[]);
