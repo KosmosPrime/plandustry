@@ -311,6 +311,7 @@ impl BlockLogic for ItemBlock {
                 if n != -1 {
                     b.state = Some(Self::create_state(item::Type::try_from(n as u16).ok()));
                 }
+                buff.skip(2)?;
             }
             "unit-cargo-unload-point" => {
                 b.state = Some(Self::create_state(
