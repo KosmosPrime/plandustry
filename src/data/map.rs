@@ -145,7 +145,7 @@ impl<'l> Tile<'l> {
     pub fn floor_image(&self, context: Option<&RenderingContext>) -> ImageHolder {
         let mut i = self.floor.image(None, context, Rotation::Up).own();
         if let Some(ore) = self.ore {
-            i.overlay(ore.image(None, context, Rotation::Up).borrow(), 0, 0);
+            i.overlay(ore.image(None, context, Rotation::Up).borrow());
         }
         ImageHolder::from(i)
     }
@@ -580,10 +580,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                         output.copy_from_slice(&buff.data[..2]);
                         let _ = buff.read_chunk(false, |buff| {
                             #[cfg(debug_assertions)]
-                            println!(
-                                "reading {:?}",
-                                map[i].build.as_ref().unwrap()
-                            );
+                            println!("reading {:?}", map[i].build.as_ref().unwrap());
                             let _ = buff.read_i8()?;
 
                             map[i]

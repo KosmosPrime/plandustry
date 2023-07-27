@@ -155,10 +155,10 @@ where
     for suffix in suffixes {
         if let Some(p) = load(category, &format!("{name}{suffix}")) {
             if suffix == &"-team" {
-                c.overlay(p.clone().tint(SHARDED.color()), 0, 0);
+                c.overlay(p.clone().tint(SHARDED.color()));
                 continue;
             }
-            c.overlay(&p, 0, 0);
+            c.overlay(&p);
         }
     }
     c
@@ -205,23 +205,20 @@ impl Renderable for Schematic<'_> {
             } else {
                 None
             };
-            #[cfg(debug_assertions)]
-            println!("rendering {tile:?} ({x}, {y}) [+{}]", tile.block.get_size());
             let x = x as u32 - ((tile.block.get_size() - 1) / 2) as u32;
             let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
-            canvas.overlay(
+            canvas.overlay_at(
                 tile.image(ctx.as_ref(), tile.get_rotation().unwrap_or(Rotation::Up))
                     .borrow(),
                 (x + 1) * 32,
                 (y + 1) * 32,
             );
-            // canvas.save("tmp.png").unwrap();
         }
-        #[cfg(debug_assertions)]
-        println!("finishing up");
+
         #[cfg(feature = "schem_shadow")]
-        canvas.shadow();
-        image::imageops::overlay(&mut bg, &canvas, 0, 0);
+        image::imageops::overlay(&mut bg, canvas.shadow(), 0, 0);
+        #[cfg(not(feature = "schem_shadow"))]
+        bg.overlay(&canvas);
         bg
     }
 }
@@ -246,7 +243,7 @@ impl Renderable for Map<'_> {
             )
         }) {
             // draw the floor first.
-            floor.overlay(
+            floor.overlay_at(
                 // SAFETY: [`load_raw`] forces nonzero image size
                 unsafe { &tile.floor_image(None).own().scale(scale) },
                 x as u32 * scale,
@@ -271,7 +268,7 @@ impl Renderable for Map<'_> {
                     };
                     Some(rctx)
                 })();
-                top.overlay(
+                top.overlay_at(
                     // SAFETY: tile.size can never be 0, and [`load_raw`] forces nonzero.
                     unsafe {
                         &tile
@@ -285,8 +282,9 @@ impl Renderable for Map<'_> {
             }
         }
         #[cfg(feature = "map_shadow")]
-        top.shadow();
-        image::imageops::overlay(&mut floor, &top, 0, 0);
+        image::imageops::overlay(&mut floor, top.shadow(), 0, 0);
+        #[cfg(not(feature = "map_shadow"))]
+        floor.overlay(&top);
         floor
     }
 }

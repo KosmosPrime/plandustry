@@ -170,7 +170,7 @@ impl BlockLogic for CanvasBlock {
                 .scale((self.size as u32 * 32) - 14)
             };
             let mut borders = load(c, n).unwrap().to_owned();
-            borders.overlay(&p, 7, 7);
+            borders.overlay_at(&p, 7, 7);
             return Some(ImageHolder::from(borders));
         }
 
@@ -333,7 +333,7 @@ impl BlockLogic for SwitchLogic {
             if *Self::get_state(state) {
                 let mut base = base.clone();
                 let on = load("logic", "switch-on").unwrap();
-                base.overlay(&on, 0, 0);
+                base.overlay(&on);
                 return Some(ImageHolder::from(base));
             }
         }

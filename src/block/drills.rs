@@ -10,11 +10,11 @@ make_simple!(
             let mut base = load("drills", name).unwrap().clone();
             let top = load("drills", &format!("{name}-top")).unwrap();
             if rot == Rotation::Right {
-                base.overlay(&top, 0, 0);
+                base.overlay(&top);
             } else {
                 let mut top = top.clone();
                 top.rotate(rot.rotated(false).count());
-                base.overlay(&top, 0, 0);
+                base.overlay(&top);
             }
             return Some(ImageHolder::from(base));
         }
@@ -27,11 +27,11 @@ make_simple!(WallCrafter, |_, _, _, _, _, rot: Rotation| {
     let mut base = load("drills", "cliff-crusher").unwrap().clone();
     let top = load("drills", "cliff-crusher-top").unwrap();
     if rot == Rotation::Right {
-        base.overlay(&top, 0, 0);
+        base.overlay(&top);
     } else {
         let mut top = top.clone();
         top.rotate(rot.rotated(false).count());
-        base.overlay(&top, 0, 0);
+        base.overlay(&top);
     }
     Some(ImageHolder::from(base))
 });

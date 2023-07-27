@@ -8,7 +8,9 @@ pub trait ImageUtils {
     /// Repeat with over self
     fn repeat(&mut self, with: &Self) -> &mut Self;
     /// Overlay with onto self (does not blend)
-    fn overlay(&mut self, with: &Self, x: u32, y: u32) -> &mut Self;
+    fn overlay(&mut self, with: &Self) -> &mut Self;
+    /// Overlay with onto self at coordinates x, y, without blending
+    fn overlay_at(&mut self, with: &Self, x: u32, y: u32) -> &mut Self;
     /// rotate
     fn rotate(&mut self, times: u8) -> &mut Self;
     /// shadow
@@ -52,13 +54,13 @@ impl ImageUtils for RgbaImage {
     fn repeat(&mut self, with: &RgbaImage) -> &mut Self {
         for x in 0..(self.width() / with.width()) {
             for y in 0..(self.height() / with.height()) {
-                self.overlay(with, x * with.width(), y * with.height());
+                self.overlay_at(with, x * with.width(), y * with.height());
             }
         }
         self
     }
 
-    fn overlay(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
+    fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
                 let get = with.get_pixel(i, j);
@@ -67,6 +69,25 @@ impl ImageUtils for RgbaImage {
                 }
             }
         }
+        self
+    }
+
+    fn overlay(&mut self, with: &RgbaImage) -> &mut Self {
+        let w = self.width();
+        let h = self.height();
+        let local = std::mem::take(self);
+        let mut own = local.into_raw();
+        let other = with.as_raw();
+        if own.len() % 4 != 0 || other.len() % 4 != 0 {
+            unsafe { std::hint::unreachable_unchecked(); }
+        }
+        for (i, other_pixels) in other.chunks_exact(4).enumerate() {
+            if other_pixels[3] > 128 {
+                let own_pixels = &mut own[i * 4..i * 4 + 4];
+                own_pixels.copy_from_slice(other_pixels);
+            }
+        }
+        *self = image::RgbaImage::from_raw(w, h, own).unwrap();
         self
     }
 

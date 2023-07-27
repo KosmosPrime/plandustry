@@ -51,7 +51,7 @@ fn draw_turret(
         _ => format!("bases/block-{}", me.get_size()),
     };
     let mut base = load("turrets", &path).unwrap().value().clone();
-    base.overlay(load("turrets", name).unwrap().value(), 0, 0);
+    base.overlay(load("turrets", name).unwrap().value());
     Some(ImageHolder::from(base))
 }
 

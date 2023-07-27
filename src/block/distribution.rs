@@ -54,7 +54,7 @@ make_simple!(SimpleDuctBlock, |_, _, name, _, _, rot: Rotation| {
     let mut base = load("distribution/ducts", "duct-base").unwrap().clone();
     let mut top = load("distribution/ducts", name).unwrap().clone();
     top.rotate(rot.rotated(false).count());
-    base.overlay(&top, 0, 0);
+    base.overlay(&top);
     Some(ImageHolder::from(base))
 });
 
@@ -79,7 +79,7 @@ fn draw_stack(
             }
             let mut edge = edge.clone();
             edge.rotate(i);
-            to.overlay(&edge, 0, 0);
+            to.overlay(&edge);
         }
     };
     let gimme = |n: u8| {
@@ -115,7 +115,7 @@ fn draw_stack(
                 if (mask.into_u8() & i) == 0 && (going != r || empty) {
                     let mut edge = edge.clone();
                     edge.rotate(r);
-                    base.overlay(&edge, 0, 0);
+                    base.overlay(&edge);
                 }
             }
             base
@@ -261,7 +261,7 @@ impl BlockLogic for ItemBlock {
                 )
                 .unwrap()
                 .clone();
-                p.overlay(top.tint(s.color()), 0, 0);
+                p.overlay(top.tint(s.color()));
                 return Some(ImageHolder::from(p));
             }
         }
@@ -277,13 +277,13 @@ impl BlockLogic for ItemBlock {
                     .to_owned();
                 // this rotate call could be omitted if rotation == Right to save a clone
                 top.rotate(rot.rotated(false).count());
-                null.overlay(&top, 0, 0);
+                null.overlay(&top);
             }
-            p.overlay(&null, 0, 0);
+            p.overlay(&null);
             Some(ImageHolder::from(p))
         } else {
             let mut null = load("distribution", "cross-full").unwrap().clone();
-            null.overlay(&p, 0, 0);
+            null.overlay(&p);
             Some(ImageHolder::from(null))
         }
     }

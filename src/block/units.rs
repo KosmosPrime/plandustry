@@ -53,9 +53,9 @@ make_simple!(
             if times != 0 {
                 let mut out = out.clone();
                 out.rotate(times);
-                base.overlay(&out, 0, 0);
+                base.overlay(&out);
             } else {
-                base.overlay(&out, 0, 0);
+                base.overlay(&out);
             }
         }
         {
@@ -73,9 +73,9 @@ make_simple!(
             if times != 0 {
                 let mut input = input.clone();
                 input.rotate(times);
-                base.overlay(&input, 0, 0);
+                base.overlay(&input);
             } else {
-                base.overlay(&input, 0, 0);
+                base.overlay(&input);
             }
         }
         // TODO: the context cross is too small
@@ -93,21 +93,21 @@ make_simple!(
         //                 .rotated(false);
         //             let mut input = input.clone();
         //             input.rotate(r.count());
-        //             base.overlay(&input, 0, 0);
+        //             base.overlay(&input);
         //         }
         //     }
         // }
-        {
-            base.overlay(&load("units", &format!("{name}-top")).unwrap(), 0, 0);
-        }
+    
+            base.overlay(&load("units", &format!("{name}-top")).unwrap());
+        
         if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
             let side = load("units", &format!("{name}-side")).unwrap();
             if times != 0 {
                 let mut side = side.clone();
                 side.rotate(times);
-                base.overlay(&side, 0, 0);
+                base.overlay(&side);
             } else {
-                base.overlay(&side, 0, 0);
+                base.overlay(&side);
             }
         }
         Some(ImageHolder::from(base))
@@ -250,9 +250,9 @@ impl BlockLogic for AssemblerBlock {
         if times != 0 {
             let mut out = out.clone();
             out.rotate(times);
-            base.overlay(&out, 0, 0);
+            base.overlay(&out);
         } else {
-            base.overlay(&out, 0, 0);
+            base.overlay(&out);
         }
         base.overlay(
             &load(
@@ -267,9 +267,7 @@ impl BlockLogic for AssemblerBlock {
                     _ => format!("{name}-top"),
                 },
             )
-            .unwrap(),
-            0,
-            0,
+            .unwrap()
         );
         Some(ImageHolder::from(base))
     }

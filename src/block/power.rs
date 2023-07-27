@@ -18,7 +18,7 @@ make_simple!(DiodeBlock, |_, _, _, _, _, rot: Rotation| {
 	let mut base = base.clone();
 	let mut top = load("power", "diode-arrow").unwrap().clone();
 	top.rotate(rot.rotated(false).count());
-	base.overlay(&top, 0, 0);
+	base.overlay(&top);
 	Some(ImageHolder::from(base))
 });
 

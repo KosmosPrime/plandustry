@@ -28,7 +28,7 @@ make_simple!(
             .to_owned();
         flrot(flip, rot, &mut bottom);
         bottom.tint(image::Rgb([74, 75, 83]));
-        bottom.overlay(tile.borrow(), 0, 0);
+        bottom.overlay(tile.borrow());
         // TODO caps. stopped trying bcz too complex
         Some(ImageHolder::from(bottom))
     },
@@ -132,12 +132,12 @@ impl BlockLogic for FluidBlock {
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
                 let mut top = load("distribution", "center").unwrap().clone();
-                p.overlay(top.tint(s.color()), 0, 0);
+                p.overlay(top.tint(s.color()));
                 return Some(ImageHolder::Own(p));
             }
         }
         let mut null = load("distribution", "cross-full").unwrap().clone();
-        null.overlay(&p, 0, 0);
+        null.overlay(&p);
         Some(ImageHolder::Own(null))
     }
 
