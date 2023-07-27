@@ -578,13 +578,11 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     if central {
                         let mut output = [0u8; 2];
                         output.copy_from_slice(&buff.data[..2]);
-                        let n = u16::from_be_bytes(output) as usize;
                         let _ = buff.read_chunk(false, |buff| {
                             #[cfg(debug_assertions)]
                             println!(
-                                "reading {:?} {:?}",
-                                map[i].build.as_ref().unwrap(),
-                                &buff.data[1..n]
+                                "reading {:?}",
+                                map[i].build.as_ref().unwrap()
                             );
                             let _ = buff.read_i8()?;
 

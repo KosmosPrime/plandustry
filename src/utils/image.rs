@@ -1,6 +1,5 @@
-use blurslice::gaussian_blur_bytes;
 use fast_image_resize as fr;
-use image::{GenericImageView, Rgb, Rgba, RgbaImage};
+use image::{Rgb, Rgba, RgbaImage};
 use std::num::NonZeroU32;
 
 pub trait ImageUtils {
@@ -13,8 +12,10 @@ pub trait ImageUtils {
     /// rotate
     fn rotate(&mut self, times: u8) -> &mut Self;
     /// shadow
+    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn shadow(&mut self) -> &mut Self;
     /// silhouette
+    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn silhouette(&mut self) -> &mut Self;
     /// scale a image
     ///
@@ -88,6 +89,7 @@ impl ImageUtils for RgbaImage {
         RgbaImage::from_raw(to.get(), to.get(), dst.into_vec()).unwrap()
     }
 
+    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn silhouette(&mut self) -> &mut Self {
         for pixel in self.pixels_mut() {
             if pixel[3] < 128 {
@@ -99,11 +101,12 @@ impl ImageUtils for RgbaImage {
         self
     }
 
+    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn shadow(&mut self) -> &mut Self {
         let mut shadow = self.clone();
         shadow.silhouette();
         let samples = shadow.as_flat_samples_mut();
-        gaussian_blur_bytes::<4>(
+        blurslice::gaussian_blur_bytes::<4>(
             samples.samples,
             self.width() as usize,
             self.height() as usize,
@@ -114,6 +117,7 @@ impl ImageUtils for RgbaImage {
             for y in 0..shadow.height() {
                 let Rgba([r, g, b, a]) = self.get_pixel_mut(x, y);
                 if *a == 0 {
+                    use image::GenericImageView;
                     // SAFETY: yes
                     let p = unsafe { shadow.unsafe_get_pixel(x, y) };
                     *r = p[0];

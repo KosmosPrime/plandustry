@@ -219,7 +219,9 @@ impl Renderable for Schematic<'_> {
         }
         #[cfg(debug_assertions)]
         println!("finishing up");
-        image::imageops::overlay(&mut bg, canvas.shadow(), 0, 0);
+        #[cfg(feature = "schem_shadow")]
+        canvas.shadow();
+        image::imageops::overlay(&mut bg, &canvas, 0, 0);
         bg
     }
 }
@@ -282,7 +284,9 @@ impl Renderable for Map<'_> {
                 );
             }
         }
-        image::imageops::overlay(&mut floor, top.shadow(), 0, 0);
+        #[cfg(feature = "map_shadow")]
+        top.shadow();
+        image::imageops::overlay(&mut floor, &top, 0, 0);
         floor
     }
 }
