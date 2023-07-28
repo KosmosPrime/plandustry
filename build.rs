@@ -15,8 +15,7 @@ fn main() {
     let o = std::env::var("OUT_DIR").unwrap();
     let mut f = File::create(Path::new(&o).join("asset")).unwrap();
     let mut n = 1usize;
-    f.write_all(b"fn put(map: &DashMap<String, RgbaImage>) {")
-        .unwrap();
+    f.write_all(b"phf::phf_map! {").unwrap();
     let mut s = String::new(); // idk write_all / write wasnt working
     for e in walkdir.into_iter().filter_map(|e| e.ok()) {
         let path = e.path();
@@ -29,7 +28,7 @@ fn main() {
             let mut f = File::create(Path::new(&o).join(n.to_string())).unwrap();
             f.write_all(&p.into_raw()).unwrap();
             println!("writing {path:?}");
-            s+= &format!("\tmap.insert(String::from(\"{path}\"), RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!(\"OUT_DIR\"), \"/{n}\")).to_vec()).unwrap());\n");
+            s += &format!("\t\"{path}\" => r!(LazyLock::new(|| RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!(\"OUT_DIR\"), \"/{n}\")).to_vec()).unwrap())),\n");
             n += 1;
         }
     }

@@ -1,31 +1,30 @@
 //! schematic drawing
-use dashmap::mapref::one::Ref;
-use dashmap::DashMap;
-pub(crate) use image::{DynamicImage, RgbaImage};
-use std::ops::{Deref, DerefMut};
-use std::sync::LazyLock;
-
 pub(crate) use super::autotile::*;
 use crate::block::environment::METAL_FLOOR;
 use crate::block::Rotation;
 use crate::team::SHARDED;
 pub(crate) use crate::utils::ImageUtils;
 use crate::Map;
+pub(crate) use image::{DynamicImage, RgbaImage};
 pub(crate) use std::borrow::{Borrow, BorrowMut};
+use std::ops::{Deref, DerefMut};
+use std::sync::LazyLock;
 
 use super::schematic::Schematic;
 use super::GridPos;
 
-type Cache = DashMap<String, RgbaImage>;
-include!(concat!(env!("OUT_DIR"), "/asset")); // put function from here
-static CACHE: LazyLock<Cache> = LazyLock::new(|| {
-    let mut map = Cache::new();
-    put(&mut map);
-    map
-});
+macro_rules! r {
+    ($v:expr) => {{
+        static TMP: LazyLock<RgbaImage> = $v;
+        &TMP
+    }};
+}
+
+type Cache = phf::Map<&'static str, &'static LazyLock<RgbaImage>>;
+static CACHE: Cache = include!(concat!(env!("OUT_DIR"), "/asset"));
 
 pub enum ImageHolder {
-    Borrow(Ref<'static, String, RgbaImage>),
+    Borrow(&'static RgbaImage),
     Own(RgbaImage),
 }
 
@@ -50,7 +49,7 @@ impl Borrow<RgbaImage> for ImageHolder {
     fn borrow(&self) -> &RgbaImage {
         match self {
             Self::Own(x) => x,
-            Self::Borrow(x) => x.value(),
+            Self::Borrow(x) => x,
         }
     }
 }
@@ -80,8 +79,8 @@ impl DerefMut for ImageHolder {
     }
 }
 
-impl From<Ref<'static, String, RgbaImage>> for ImageHolder {
-    fn from(value: Ref<'static, String, RgbaImage>) -> Self {
+impl From<&'static RgbaImage> for ImageHolder {
+    fn from(value: &'static RgbaImage) -> Self {
         Self::Borrow(value)
     }
 }
@@ -92,9 +91,9 @@ impl From<RgbaImage> for ImageHolder {
     }
 }
 
-pub(crate) fn try_load(name: &str) -> Option<Ref<'static, String, RgbaImage>> {
+pub(crate) fn try_load(name: &str) -> Option<&'static RgbaImage> {
     let key = name.to_string();
-    CACHE.get(&key)
+    CACHE.get(&key).map(|v| LazyLock::force(v))
 }
 
 pub(crate) fn load(name: &str) -> ImageHolder {
