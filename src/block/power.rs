@@ -10,16 +10,15 @@ make_simple!(NuclearGeneratorBlock => |_, _, _, buff: &mut DataRead| read_nuclea
 make_simple!(ImpactReactorBlock => |_, _, _, buff: &mut DataRead| read_impact(buff));
 make_simple!(HeaterGeneratorBlock => |_, _, _, buff: &mut DataRead| read_heater(buff));
 make_simple!(BatteryBlock);
-make_simple!(DiodeBlock, |_, _, _, _, _, rot: Rotation| {
-	let base = load("power", "diode").unwrap();
-	if rot == Rotation::Right {
-		return Some(ImageHolder::from(base));
-	}
-	let mut base = base.clone();
-	let mut top = load("power", "diode-arrow").unwrap().clone();
-	top.rotate(rot.rotated(false).count());
-	base.overlay(&top);
-	Some(ImageHolder::from(base))
+make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation| {
+    let mut base = load("diode");
+    if rot == Rotation::Right {
+        return base;
+    }
+    let mut top = load("diode-arrow");
+    top.rotate(rot.rotated(false).count());
+    base.overlay(&top);
+    base
 });
 
 make_register! {
@@ -130,6 +129,16 @@ impl BlockLogic for ConnectorBlock {
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Point2Array(Self::get_state(state).clone()))
     }
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
+    }
 }
 
 #[derive(Debug, Error)]
@@ -205,6 +214,16 @@ impl BlockLogic for LampBlock {
                 expect: DynType::Int,
             }),
         }
+    }
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
     }
 
     fn clone_state(&self, state: &State) -> State {

@@ -13,24 +13,17 @@ use crate::utils::ImageUtils;
 make_simple!(LiquidBlock);
 make_simple!(
     ConduitBlock,
-    |_, _, name, _, ctx: Option<&RenderingContext>, rot| {
+    |_, name, _, ctx: Option<&RenderingContext>, rot| {
         let ctx = ctx.unwrap();
         let mask = mask(ctx, rot, name);
         let (index, rot, flip) = mask2rotations(mask, rot);
-        let tile = rotations2tile(
-            (index, rot, flip),
-            "liquid",
-            "conduits",
-            &format!("{name}-top"),
-        );
-        let mut bottom = load("liquid", &format!("conduits/conduit-bottom-{index}"))
-            .unwrap()
-            .to_owned();
+        let tile = rotations2tile((index, rot, flip), &format!("{name}-top"));
+        let mut bottom = load(&format!("conduit-bottom-{index}"));
         flrot(flip, rot, &mut bottom);
         bottom.tint(image::Rgb([74, 75, 83]));
         bottom.overlay(tile.borrow());
         // TODO caps. stopped trying bcz too complex
-        Some(ImageHolder::from(bottom))
+        bottom
     },
     true
 );
@@ -122,23 +115,22 @@ impl BlockLogic for FluidBlock {
 
     fn draw(
         &self,
-        category: &str,
         name: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
-    ) -> Option<ImageHolder> {
-        let mut p = load(category, name).unwrap().clone();
+    ) -> ImageHolder {
+        let mut p = load(name);
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load("distribution", "center").unwrap().clone();
+                let mut top = load("center");
                 p.overlay(top.tint(s.color()));
-                return Some(ImageHolder::Own(p));
+                return p;
             }
         }
-        let mut null = load("distribution", "cross-full").unwrap().clone();
+        let mut null = load("cross-full");
         null.overlay(&p);
-        Some(ImageHolder::Own(null))
+        null
     }
 
     /// format:

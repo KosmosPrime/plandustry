@@ -12,8 +12,7 @@ use crate::data::{self, CompressError, DataRead, DataWrite};
 
 make_simple!(LogicBlock);
 make_simple!(
-    MemoryBlock,
-    |_, _, _, _, _, _| None,
+    MemoryBlock =>
     |_, _, _, buff: &mut DataRead| {
         // format:
         // - iterate [`u32`]
@@ -147,12 +146,11 @@ impl BlockLogic for CanvasBlock {
     /// i thought about drawing the borders and stuff but it felt like too much work
     fn draw(
         &self,
-        c: &str,
         n: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
-    ) -> Option<ImageHolder> {
+    ) -> ImageHolder {
         if let Some(state) = state {
             let state = self.clone_state(state);
             let p = state.downcast::<RgbImage>().unwrap();
@@ -169,15 +167,18 @@ impl BlockLogic for CanvasBlock {
                 .into_rgba8()
                 .scale((self.size as u32 * 32) - 14)
             };
-            let mut borders = load(c, n).unwrap().to_owned();
+            let mut borders = load(n);
             borders.overlay_at(&p, 7, 7);
-            return Some(ImageHolder::from(borders));
+            return borders;
         }
 
-        Some(ImageHolder::from(RgbaImage::new(
-            self.size as u32 * 32,
-            self.size as u32 * 32,
-        )))
+        let mut def = RgbaImage::new(self.size as u32 * 32, self.size as u32 * 32);
+        for image::Rgba([r, g, b, _]) in def.pixels_mut() {
+            *r = PALETTE[0][0];
+            *g = PALETTE[0][1];
+            *b = PALETTE[0][2];
+        }
+        ImageHolder::from(def)
     }
 
     /// format:
@@ -226,6 +227,16 @@ impl BlockLogic for MessageLogic {
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)
+    }
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
     }
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
@@ -323,21 +334,19 @@ impl BlockLogic for SwitchLogic {
     fn draw(
         &self,
         _: &str,
-        _: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
-    ) -> Option<ImageHolder> {
-        let base = load("logic", "switch").unwrap();
+    ) -> ImageHolder {
+        let mut base = load("switch");
         if let Some(state) = state {
             if *Self::get_state(state) {
-                let mut base = base.clone();
-                let on = load("logic", "switch-on").unwrap();
+                let on = load("switch-on");
                 base.overlay(&on);
-                return Some(ImageHolder::from(base));
+                return base;
             }
         }
-        Some(ImageHolder::from(base))
+        base
     }
 }
 
@@ -393,6 +402,16 @@ fn read_decompressed(buff: &mut DataRead) -> Result<ProcessorState, ProcessorDes
 
 impl BlockLogic for ProcessorLogic {
     impl_block!();
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
+    }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)

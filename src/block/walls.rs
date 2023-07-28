@@ -2,31 +2,26 @@
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
-use crate::data::renderer::{load, read_with, ImageHolder, TOP};
+use crate::data::renderer::{load, read_with};
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
-make_simple!(WallBlock, |_, _, name, _, _, _| {
+make_simple!(WallBlock, |_, name, _, _, _| {
     macro_rules! pick {
         ($name: literal => load $n: literal) => {{
             let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-            Some(ImageHolder::from(load(
-                "walls",
-                &format!("{}{}", $name, rand.next_range(1usize..$n)),
-            )))
+            load(&format!("{}{}", $name, rand.next_range(1usize..$n)))
         }};
     }
     match name {
         "thruster" => {
-            const SFX: &[&str; 1] = &[TOP];
-            Some(ImageHolder::from(read_with(
-                "turrets", "thruster", SFX, 4u32,
-            )))
+            const SFX: &[&str; 1] = &["-top"];
+            read_with("thruster", SFX, 4u32)
         }
         "scrap-wall" => pick!("scrap-wall" => load 5),
         "scrap-wall-large" => pick!("scrap-wall-large" => load 3),
         "scrap-wall-huge" => pick!("scrap-wall-huge" => load 3),
-        _ => Some(ImageHolder::from(load("walls", name))),
+        _ => load(name),
     }
 });
 
@@ -85,6 +80,16 @@ impl DoorBlock {
 
 impl BlockLogic for DoorBlock {
     impl_block!();
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
+    }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Boolean(false))

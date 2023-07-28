@@ -8,9 +8,9 @@ use crate::item;
 
 make_simple!(
     ConveyorBlock,
-    |_, _, name, _, ctx: Option<&RenderingContext>, rot: Rotation| {
+    |_, name, _, ctx: Option<&RenderingContext>, rot: Rotation| {
         let ctx = ctx.unwrap(); // we set want_context to true
-        Some(tile(ctx, "distribution", "conveyors", name, rot))
+        tile(ctx, name, rot)
     },
     |_, _, _, buff: &mut DataRead| {
         // format:
@@ -31,9 +31,9 @@ make_simple!(
 
 make_simple!(
     DuctBlock,
-    |_, _, name, _, ctx: Option<&RenderingContext>, rot| {
+    |_, name, _, ctx: Option<&RenderingContext>, rot| {
         let ctx = ctx.unwrap();
-        Some(tile(ctx, "distribution", "ducts", name, rot))
+        tile(ctx, name, rot)
     },
     |_, _, _, buff: &mut DataRead| {
         // format:
@@ -43,35 +43,25 @@ make_simple!(
     true
 );
 
-make_simple!(
-    JunctionBlock,
-    |_, _, _, _, _, _| None,
-    |_, _, _, buff: &mut DataRead| { read_directional_item_buffer(buff) },
-    false
-);
-
-make_simple!(SimpleDuctBlock, |_, _, name, _, _, rot: Rotation| {
-    let mut base = load("distribution/ducts", "duct-base").unwrap().clone();
-    let mut top = load("distribution/ducts", name).unwrap().clone();
+make_simple!(JunctionBlock => |_, _, _, buff: &mut DataRead| { read_directional_item_buffer(buff) });
+make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation| {
+    let mut base = load("duct-base");
+    let mut top = load(name);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
-    Some(ImageHolder::from(base))
+    base
 });
 
 fn draw_stack(
     _: &StackConveyor,
-    _: &str,
     name: &str,
     _: Option<&State>,
     ctx: Option<&RenderingContext>,
     rot: Rotation,
-) -> Option<ImageHolder> {
+) -> ImageHolder {
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
-    // clone to not hold lock
-    let edge = load("distribution/stack-conveyors", &format!("{name}-edge"))
-        .unwrap()
-        .clone();
+    let edge = load(&format!("{name}-edge"));
     let edgify = |skip, to: &mut RgbaImage| {
         for i in 0..4 {
             if i == skip {
@@ -82,45 +72,40 @@ fn draw_stack(
             to.overlay(&edge);
         }
     };
-    let gimme = |n: u8| {
-        load("distribution/stack-conveyors", &format!("{name}-{n}"))
-            .unwrap()
-            .clone()
-    };
+    let gimme = |n: u8| load(&format!("{name}-{n}"));
     let empty = ctx.cross[rot.count() as usize].map_or(true, |(v, _)| v.name != name);
     // mindustry says fuck this and just draws the arrow convs in schems but im better than that
-    Some(ImageHolder::from(
-        if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
-            // end
-            let mut base = gimme(2);
-            edgify(rot.mirrored(true, true).rotated(false).count(), &mut base);
-            base
-        } else if mask == B0000 && empty {
-            // single
-            let mut base = gimme(0);
-            base.rotate(rot.rotated(false).count());
-            edgify(5, &mut base);
-            base
-        } else if mask == B0000 {
-            // input
-            let mut base = gimme(1);
-            edgify(rot.rotated(false).count(), &mut base);
-            base
-        } else {
-            // directional
-            let mut base = gimme(0);
-            let going = rot.rotated(false).count();
-            base.rotate(going);
-            for [r, i] in [[3, 0b1000], [0, 0b0100], [1, 0b0010], [2, 0b0001]] {
-                if (mask.into_u8() & i) == 0 && (going != r || empty) {
-                    let mut edge = edge.clone();
-                    edge.rotate(r);
-                    base.overlay(&edge);
-                }
+
+    if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
+        // end
+        let mut base = gimme(2);
+        edgify(rot.mirrored(true, true).rotated(false).count(), &mut base);
+        base
+    } else if mask == B0000 && empty {
+        // single
+        let mut base = gimme(0);
+        base.rotate(rot.rotated(false).count());
+        edgify(5, &mut base);
+        base
+    } else if mask == B0000 {
+        // input
+        let mut base = gimme(1);
+        edgify(rot.rotated(false).count(), &mut base);
+        base
+    } else {
+        // directional
+        let mut base = gimme(0);
+        let going = rot.rotated(false).count();
+        base.rotate(going);
+        for [r, i] in [[3, 0b1000], [0, 0b0100], [1, 0b0010], [2, 0b0001]] {
+            if (mask.into_u8() & i) == 0 && (going != r || empty) {
+                let mut edge = edge.clone();
+                edge.rotate(r);
+                base.overlay(&edge);
             }
-            base
-        },
-    ))
+        }
+        base
+    }
 }
 
 make_simple!(
@@ -231,60 +216,43 @@ impl BlockLogic for ItemBlock {
 
     fn draw(
         &self,
-        _: &str,
         name: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         rot: Rotation,
-    ) -> Option<ImageHolder> {
-        let mut p = load(
-            match name {
-                "unloader" => "storage",
-                "duct-router" | "duct-unloader" => "distribution/ducts",
-                _ => "distribution",
-            },
-            name,
-        )
-        .unwrap()
-        .clone();
+    ) -> ImageHolder {
+        let mut p = load(name);
         if let Some(state) = state {
             if let Some(s) = Self::get_state(state) {
-                let mut top = load(
-                    match name {
-                        "unloader" => "storage",
-                        _ => "distribution",
-                    },
-                    match name {
-                        "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
-                        _ => "center",
-                    },
-                )
-                .unwrap()
-                .clone();
+                let mut top = load(match name {
+                    "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
+                    "unloader" => "unloader-center",
+                    _ => "center",
+                });
                 p.overlay(top.tint(s.color()));
-                return Some(ImageHolder::from(p));
+                return p;
             }
         }
         if matches!(name, "unloader" | "unit-cargo-unload-point") {
-            return Some(ImageHolder::from(p));
+            return p;
         }
-        if matches!(name, "duct-unloader" | "duct-router") {
-            let mut null = load("distribution/ducts", "top").unwrap().to_owned();
-            null.rotate(rot.rotated(false).count());
-            if name == "duct-unloader" {
-                let mut top = load("distribution/ducts", "duct-unloader-top")
-                    .unwrap()
-                    .to_owned();
-                // this rotate call could be omitted if rotation == Right to save a clone
-                top.rotate(rot.rotated(false).count());
-                null.overlay(&top);
-            }
-            p.overlay(&null);
-            Some(ImageHolder::from(p))
+        if name == "duct-router" {
+            let mut arrow = load("top");
+            arrow.rotate(rot.rotated(false).count());
+            p.overlay(&arrow);
+            p
+        } else if name == "duct-unloader" {
+            let mut top = load("duct-unloader-top");
+            top.rotate(rot.rotated(false).count());
+            p.overlay(&top);
+            let mut arrow = load("top");
+            arrow.rotate(rot.rotated(false).count());
+            p.overlay(&arrow);
+            p
         } else {
-            let mut null = load("distribution", "cross-full").unwrap().clone();
+            let mut null = load("cross-full");
             null.overlay(&p);
-            Some(ImageHolder::from(null))
+            null
         }
     }
 
@@ -485,6 +453,17 @@ impl BlockLogic for BridgeBlock {
             _ => unreachable!(), // surely no forget
         }
         Ok(())
+    }
+
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
     }
 }
 

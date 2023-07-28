@@ -44,8 +44,7 @@ make_register! {
 }
 
 make_simple!(
-    ProductionBlock,
-    |_, _, _, _, _, _| None,
+    ProductionBlock =>
     |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
@@ -56,8 +55,7 @@ make_simple!(
 );
 
 make_simple!(
-    HeatCrafter,
-    |_, _, _, _, _, _| None,
+    HeatCrafter =>
     |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`

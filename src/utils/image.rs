@@ -1,5 +1,5 @@
 use fast_image_resize as fr;
-use image::{Rgb, Rgba, RgbaImage};
+use image::{imageops, Rgb, Rgba, RgbaImage};
 use std::num::NonZeroU32;
 
 pub trait ImageUtils {
@@ -13,6 +13,10 @@ pub trait ImageUtils {
     fn overlay_at(&mut self, with: &Self, x: u32, y: u32) -> &mut Self;
     /// rotate
     fn rotate(&mut self, times: u8) -> &mut Self;
+    /// flip along the horizontal axis
+    fn flip_h(&mut self) -> &mut Self;
+    /// flip along the vertical axis
+    fn flip_v(&mut self) -> &mut Self;
     /// shadow
     #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn shadow(&mut self) -> &mut Self;
@@ -78,12 +82,12 @@ impl ImageUtils for RgbaImage {
         let local = std::mem::take(self);
         let mut own = local.into_raw();
         let other = with.as_raw();
-        if own.len() % 4 != 0 || other.len() % 4 != 0 {
-            unsafe { std::hint::unreachable_unchecked(); }
-        }
-        for (i, other_pixels) in other.chunks_exact(4).enumerate() {
+        for (i, other_pixels) in unsafe { other.as_chunks_unchecked::<4>() }
+            .iter()
+            .enumerate()
+        {
             if other_pixels[3] > 128 {
-                let own_pixels = &mut own[i * 4..i * 4 + 4];
+                let own_pixels = unsafe { own.get_unchecked_mut(i * 4..i * 4 + 4) };
                 own_pixels.copy_from_slice(other_pixels);
             }
         }
@@ -148,6 +152,18 @@ impl ImageUtils for RgbaImage {
                 }
             }
         }
+        self
+    }
+
+    #[inline(always)]
+    fn flip_h(&mut self) -> &mut Self {
+        imageops::flip_horizontal_in_place(self);
+        self
+    }
+
+    #[inline(always)]
+    fn flip_v(&mut self) -> &mut Self {
+        imageops::flip_vertical_in_place(self);
         self
     }
 }

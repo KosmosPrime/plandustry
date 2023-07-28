@@ -11,15 +11,18 @@ macro_rules! register_env {
             $($field => EnvironmentBlock::new($size, true, &[]);)*
         );
 
-        make_simple!(EnvironmentBlock, |_, _, name, _, _, _| {
+        make_simple!(EnvironmentBlock, |_, name, _, _, _| {
             let mut rand = StdRand::seed(ClockSeed::default().next_u64());
             match name {
                 $($field => {
                     #[allow(clippy::reversed_empty_ranges)]
-                    if $variations == 1 { Some(ImageHolder::Borrow(load("environment", $field).unwrap())) }
-                    else if $variations == 0 { return None }
-                    else { Some(ImageHolder::Borrow(load("environment", &format!("{}{}", $field, rand.next_range(1usize..$variations))).unwrap())) }
-                   },)*
+                    match $variations {
+                        2..=6 => load(&format!("{}{}", $field, rand.next_range(1usize..$variations))),
+                        1 => load($field),
+                        0 => ImageHolder::from(RgbaImage::new($size * 32, $size * 32)),
+                        _ => unreachable!(),
+                    }
+                },)*
                 _ => { unreachable!() }
             }
           });

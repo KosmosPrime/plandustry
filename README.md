@@ -1,4 +1,7 @@
 # mindus
+
+![msrv](https://img.shields.io/badge/msrv-nightly-blue?style=for-the-badge&logo=rust)
+
 Mindus is a library for working with [Mindustry](https://github.com/Anuken/Mindustry) formats.
 
 ## Usage

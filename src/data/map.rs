@@ -122,14 +122,6 @@ impl<'l> Tile<'l> {
         self.build.as_ref()
     }
 
-    /// check if this tile contains a building.
-    pub fn has_building(&self) -> bool {
-        if let Some(b) = &self.build {
-            return b.block.has_building();
-        }
-        false
-    }
-
     /// size of this tile
     ///
     /// ._.
@@ -143,16 +135,16 @@ impl<'l> Tile<'l> {
     }
 
     pub fn floor_image(&self, context: Option<&RenderingContext>) -> ImageHolder {
-        let mut i = self.floor.image(None, context, Rotation::Up).own();
+        let mut i = self.floor.image(None, context, Rotation::Up);
         if let Some(ore) = self.ore {
             i.overlay(ore.image(None, context, Rotation::Up).borrow());
         }
-        ImageHolder::from(i)
+        i
     }
 
     pub fn build_image(&self, context: Option<&RenderingContext>) -> ImageHolder {
         // building covers floore
-        let Some(b)= &self.build else {
+        let Some(b) = &self.build else {
             unreachable!();
         };
         b.image(context)

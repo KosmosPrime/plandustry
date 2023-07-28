@@ -5,35 +5,25 @@ use crate::block::*;
 
 make_simple!(
     DrillBlock,
-    |_, _, name, _, _, rot: Rotation| {
+    |_, name, _, _, rot: Rotation| {
         if matches!(name, "large-plasma-bore" | "plasma-bore") {
-            let mut base = load("drills", name).unwrap().clone();
-            let top = load("drills", &format!("{name}-top")).unwrap();
-            if rot == Rotation::Right {
-                base.overlay(&top);
-            } else {
-                let mut top = top.clone();
-                top.rotate(rot.rotated(false).count());
-                base.overlay(&top);
-            }
-            return Some(ImageHolder::from(base));
+            let mut base = load(name);
+            let mut top = load(&format!("{name}-top"));
+            top.rotate(rot.rotated(false).count());
+            base.overlay(&top);
+            return base;
         }
-        Some(ImageHolder::Borrow(load("drills", name).unwrap()))
+        load(name)
     },
-    |_, _, _, buff: &mut DataRead| { read_drill(buff) }
+    |_, _, _, buff: &mut DataRead| read_drill(buff)
 );
 make_simple!(ExtractorBlock);
-make_simple!(WallCrafter, |_, _, _, _, _, rot: Rotation| {
-    let mut base = load("drills", "cliff-crusher").unwrap().clone();
-    let top = load("drills", "cliff-crusher-top").unwrap();
-    if rot == Rotation::Right {
-        base.overlay(&top);
-    } else {
-        let mut top = top.clone();
-        top.rotate(rot.rotated(false).count());
-        base.overlay(&top);
-    }
-    Some(ImageHolder::from(base))
+make_simple!(WallCrafter, |_, _, _, _, rot: Rotation| {
+    let mut base = load("cliff-crusher");
+    let mut top = load("cliff-crusher-top");
+    top.rotate(rot.rotated(false).count());
+    base.overlay(&top);
+    base
 });
 
 make_register! {

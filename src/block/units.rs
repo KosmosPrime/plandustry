@@ -33,86 +33,58 @@ use crate::unit;
 //     )
 // }
 
-make_simple!(
-    ConstructorBlock,
-    |me: &Self, _, name, _, _, rot: Rotation| {
-        let mut base = load("units", name).unwrap().to_owned();
-        let times = rot.rotated(false).count();
-        {
-            let out = load(
-                "payload",
-                &match name {
-                    "additive-reconstructor"
-                    | "multiplicative-reconstructor"
-                    | "exponential-reconstructor"
-                    | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
-                    _ => format!("factory-out-{}-dark", me.size),
-                },
-            )
-            .unwrap();
-            if times != 0 {
-                let mut out = out.clone();
-                out.rotate(times);
-                base.overlay(&out);
-            } else {
-                base.overlay(&out);
-            }
-        }
-        {
-            let input = load(
-                "payload",
-                &match name {
-                    "additive-reconstructor"
-                    | "multiplicative-reconstructor"
-                    | "exponential-reconstructor"
-                    | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
-                    _ => format!("factory-in-{}-dark", me.size),
-                },
-            )
-            .unwrap();
-            if times != 0 {
-                let mut input = input.clone();
-                input.rotate(times);
-                base.overlay(&input);
-            } else {
-                base.overlay(&input);
-            }
-        }
-        // TODO: the context cross is too small
-        // for i in 0..4u8 {
-        //     if let Some((b, rot)) = dbg!(ctx.cross[i as usize]) {
-        //         if rot.mirrored(true, true) != ctx.rotation &&  match rot {
-        //             Rotation::Up => i == 3,
-        //             Rotation::Right => i == 4,
-        //             Rotation::Down => i == 0,
-        //             Rotation::Left => i == 2,
-        //         } && is_pay(b.name())
-        //         {
-        //             let r = unsafe { std::mem::transmute::<u8, Rotation>(i) }
-        //                 .mirrored(true, true)
-        //                 .rotated(false);
-        //             let mut input = input.clone();
-        //             input.rotate(r.count());
-        //             base.overlay(&input);
-        //         }
-        //     }
-        // }
-    
-            base.overlay(&load("units", &format!("{name}-top")).unwrap());
-        
-        if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
-            let side = load("units", &format!("{name}-side")).unwrap();
-            if times != 0 {
-                let mut side = side.clone();
-                side.rotate(times);
-                base.overlay(&side);
-            } else {
-                base.overlay(&side);
-            }
-        }
-        Some(ImageHolder::from(base))
+make_simple!(ConstructorBlock, |me: &Self, name, _, _, rot: Rotation| {
+    let mut base = load(name);
+    let times = rot.rotated(false).count();
+
+    let mut out = load(&match name {
+        "additive-reconstructor"
+        | "multiplicative-reconstructor"
+        | "exponential-reconstructor"
+        | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
+        _ => format!("factory-out-{}-dark", me.size),
+    });
+    out.rotate(times);
+    base.overlay(&out);
+
+    let mut input = load(&match name {
+        "additive-reconstructor"
+        | "multiplicative-reconstructor"
+        | "exponential-reconstructor"
+        | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
+        _ => format!("factory-in-{}-dark", me.size),
+    });
+    input.rotate(times);
+    base.overlay(&input);
+
+    // TODO: the context cross is too small
+    // for i in 0..4u8 {
+    //     if let Some((b, rot)) = dbg!(ctx.cross[i as usize]) {
+    //         if rot.mirrored(true, true) != ctx.rotation &&  match rot {
+    //             Rotation::Up => i == 3,
+    //             Rotation::Right => i == 4,
+    //             Rotation::Down => i == 0,
+    //             Rotation::Left => i == 2,
+    //         } && is_pay(b.name())
+    //         {
+    //             let r = unsafe { std::mem::transmute::<u8, Rotation>(i) }
+    //                 .mirrored(true, true)
+    //                 .rotated(false);
+    //             let mut input = input.clone();
+    //             input.rotate(r.count());
+    //             base.overlay(&input);
+    //         }
+    //     }
+    // }
+
+    base.overlay(&load(&format!("{name}-top")));
+    if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
+        let mut side = load(&format!("{name}-side"));
+        side.rotate(times);
+        base.overlay(&side);
     }
-);
+    base
+});
 make_simple!(UnitBlock);
 make_simple!(RepairTurret => |_, _, _, buff: &mut DataRead| {
    buff.skip(4) // rotation: [`f32`]
@@ -231,45 +203,25 @@ impl BlockLogic for AssemblerBlock {
 
     fn draw(
         &self,
-        _: &str,
         name: &str,
         _: Option<&State>,
         _: Option<&RenderingContext>,
         rot: Rotation,
-    ) -> Option<ImageHolder> {
-        let mut base = load("units", name).unwrap().to_owned();
-        let out = load(
-            "payload",
-            match name {
-                "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
-                _ => "factory-out-3-dark",
-            },
-        )
-        .unwrap();
-        let times = rot.rotated(false).count();
-        if times != 0 {
-            let mut out = out.clone();
-            out.rotate(times);
-            base.overlay(&out);
-        } else {
-            base.overlay(&out);
-        }
-        base.overlay(
-            &load(
-                match name {
-                    "ground-factory" | "air-factory" | "naval-factory" => "payload",
-                    _ => "units",
-                },
-                &match name {
-                    "ground-factory" | "air-factory" | "naval-factory" => {
-                        format!("factory-top-{}", self.size)
-                    }
-                    _ => format!("{name}-top"),
-                },
-            )
-            .unwrap()
-        );
-        Some(ImageHolder::from(base))
+    ) -> ImageHolder {
+        let mut base = load(name);
+        let mut out = load(match name {
+            "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
+            _ => "factory-out-3-dark",
+        });
+        out.rotate(rot.rotated(false).count());
+        base.overlay(&out);
+        base.overlay(&load(&match name {
+            "ground-factory" | "air-factory" | "naval-factory" => {
+                format!("factory-top-{}", self.size)
+            }
+            _ => format!("{name}-top"),
+        }));
+        base
     }
 
     /// format:

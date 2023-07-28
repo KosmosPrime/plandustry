@@ -2,7 +2,6 @@ use super::renderer::*;
 use super::GridPos;
 use crate::block::{Block, Rotation};
 use bobbin_bits::U4;
-use image::imageops::{flip_horizontal_in_place as flip_h, flip_vertical_in_place as flip_v};
 
 #[cfg(test)]
 macro_rules! dir {
@@ -93,19 +92,8 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
     s
 }
 
-pub fn tile(
-    ctx: &RenderingContext<'_>,
-    category: &str,
-    subcategory: &str,
-    name: &str,
-    rot: Rotation,
-) -> ImageHolder {
-    rotations2tile(
-        mask2rotations(mask(ctx, rot, name), rot),
-        category,
-        subcategory,
-        name,
-    )
+pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation) -> ImageHolder {
+    rotations2tile(mask2rotations(mask(ctx, rot, name), rot), name)
 }
 
 pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
@@ -221,27 +209,19 @@ pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
 pub const FLIP_X: u8 = 1;
 pub const FLIP_Y: u8 = 2;
 
-pub fn flrot(flip: u8, rot: u8, with: &mut RgbaImage) {
+pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder) {
     if (flip & FLIP_X) != 0 {
-        flip_h(with);
+        with.flip_h();
     }
     if (flip & FLIP_Y) != 0 {
-        flip_v(with);
+        with.flip_v();
     }
     with.rotate(rot);
-    // let mut from = from.own();
-    // from.rotate(rot);
-    // ImageHolder::from(from)
 }
 
 /// TODO figure out if a flip is cheaper than a rotate_270
-pub fn rotations2tile(
-    (index, rot, flip): (u8, u8, u8),
-    category: &str,
-    subcategory: &str,
-    name: &str,
-) -> ImageHolder {
-    let mut p = ImageHolder::from(load(category, &format!("{subcategory}/{name}-{index}")));
+pub fn rotations2tile((index, rot, flip): (u8, u8, u8), name: &str) -> ImageHolder {
+    let mut p = load(&format!("{name}-{index}"));
     flrot(flip, rot, p.borrow_mut());
     p
 }

@@ -1,13 +1,9 @@
 //! schematic drawing
 use dashmap::mapref::one::Ref;
 use dashmap::DashMap;
-use image::codecs::png::PngDecoder;
 pub(crate) use image::{DynamicImage, RgbaImage};
-use std::io::{BufReader, Cursor};
 use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
-use zip::ZipArchive;
+use std::sync::LazyLock;
 
 pub(crate) use super::autotile::*;
 use crate::block::environment::METAL_FLOOR;
@@ -20,13 +16,16 @@ pub(crate) use std::borrow::{Borrow, BorrowMut};
 use super::schematic::Schematic;
 use super::GridPos;
 
-type Cache = DashMap<PathBuf, RgbaImage>;
-fn cache() -> &'static Cache {
-    CACHE.get_or_init(Cache::new)
-}
+type Cache = DashMap<String, RgbaImage>;
+include!(concat!(env!("OUT_DIR"), "/asset")); // put function from here
+static CACHE: LazyLock<Cache> = LazyLock::new(|| {
+    let mut map = Cache::new();
+    put(&mut map);
+    map
+});
 
 pub enum ImageHolder {
-    Borrow(Ref<'static, PathBuf, RgbaImage>),
+    Borrow(Ref<'static, String, RgbaImage>),
     Own(RgbaImage),
 }
 
@@ -36,6 +35,14 @@ impl ImageHolder {
             Self::Own(x) => x,
             Self::Borrow(x) => x.clone(),
         }
+    }
+
+    pub fn rotate(&mut self, times: u8) {
+        if times == 0 {
+            return;
+        }
+        let p: &mut RgbaImage = self.borrow_mut();
+        p.rotate(times);
     }
 }
 
@@ -73,14 +80,8 @@ impl DerefMut for ImageHolder {
     }
 }
 
-impl From<Option<Ref<'static, PathBuf, RgbaImage>>> for ImageHolder {
-    fn from(value: Option<Ref<'static, PathBuf, RgbaImage>>) -> Self {
-        Self::Borrow(value.unwrap())
-    }
-}
-
-impl From<Ref<'static, PathBuf, RgbaImage>> for ImageHolder {
-    fn from(value: Ref<'static, PathBuf, RgbaImage>) -> Self {
+impl From<Ref<'static, String, RgbaImage>> for ImageHolder {
+    fn from(value: Ref<'static, String, RgbaImage>) -> Self {
         Self::Borrow(value)
     }
 }
@@ -91,69 +92,36 @@ impl From<RgbaImage> for ImageHolder {
     }
 }
 
-static CACHE: OnceLock<Cache> = OnceLock::new();
-pub(crate) fn load(category: &str, name: &str) -> Option<Ref<'static, PathBuf, RgbaImage>> {
-    let key = Path::new(category).join(name);
-    use dashmap::mapref::entry::Entry::*;
-    Some(match cache().entry(key) {
-        Occupied(v) => v.into_ref().downgrade(),
-        Vacant(entry) => {
-            let mut p = Path::new("blocks").join(category).join(name);
-            p.set_extension("png");
-            let Some(i) = load_raw(p) else {
-                return None;
-            };
-            entry.insert(i).downgrade()
-        }
-    })
+pub(crate) fn try_load(name: &str) -> Option<Ref<'static, String, RgbaImage>> {
+    let key = name.to_string();
+    CACHE.get(&key)
 }
 
-#[cfg(not(unix))]
-const P: &str = "target/out";
-#[cfg(unix)]
-const P: &str = "/tmp/mindus-tmp";
-
-fn load_raw(f: impl AsRef<Path>) -> Option<RgbaImage> {
-    let f = std::fs::File::open(Path::new(P).join(f)).ok()?;
-    let r = PngDecoder::new(BufReader::new(f)).unwrap();
-    let p = DynamicImage::from_decoder(r).unwrap().into_rgba8();
-    assert!(p.width() != 0);
-    assert!(p.height() != 0);
-    Some(p)
+pub(crate) fn load(name: &str) -> ImageHolder {
+    ImageHolder::from(
+        try_load(name)
+            .ok_or_else(|| format!("failed to load {name}"))
+            .unwrap(),
+    )
 }
 
-fn load_zip() {
-    if !Path::new(P).exists() {
-        let mut zip = ZipArchive::new(Cursor::new(
-            include_bytes!(concat!(env!("OUT_DIR"), "/asset")).to_vec(),
-        ))
-        .unwrap();
-        zip.extract(P).unwrap();
-    }
-}
-pub const TOP: &str = "-top";
 const SUFFIXES: &[&str; 9] = &[
-    "-bottom", "-mid", "-base", "", "-left", "-right", TOP, "-over", "-team",
+    "-bottom", "-mid", "-base", "", "-left", "-right", "-top", "-over", "-team",
 ];
-pub(crate) fn read<S>(category: &str, name: &str, size: S) -> RgbaImage
+pub(crate) fn read<S>(name: &str, size: S) -> ImageHolder
 where
     S: Into<u32> + Copy,
 {
-    read_with(category, name, SUFFIXES, size)
+    read_with(name, SUFFIXES, size)
 }
 
-pub(crate) fn read_with<S>(
-    category: &str,
-    name: &str,
-    suffixes: &'static [&'static str],
-    size: S,
-) -> RgbaImage
+pub(crate) fn read_with<S>(name: &str, suffixes: &'static [&'static str], size: S) -> ImageHolder
 where
     S: Into<u32> + Copy,
 {
     let mut c = RgbaImage::new(size.into() * 32, size.into() * 32);
     for suffix in suffixes {
-        if let Some(p) = load(category, &format!("{name}{suffix}")) {
+        if let Some(p) = try_load(&format!("{name}{suffix}")) {
             if suffix == &"-team" {
                 c.overlay(p.clone().tint(SHARDED.color()));
                 continue;
@@ -161,7 +129,7 @@ where
             c.overlay(&p);
         }
     }
-    c
+    ImageHolder::from(c)
 }
 
 /// trait for renderable objects
@@ -180,7 +148,6 @@ impl Renderable for Schematic<'_> {
     /// let output /*: RgbaImage */ = s.render();
     /// ```
     fn render(&self) -> RgbaImage {
-        load_zip();
         // fill background
         let mut bg = RgbaImage::new(
             ((self.width + 2) * 32) as u32,
@@ -225,7 +192,6 @@ impl Renderable for Schematic<'_> {
 
 impl Renderable for Map<'_> {
     fn render(&self) -> RgbaImage {
-        load_zip();
         let scale = if self.width + self.height < 2000 {
             8
         } else {
@@ -291,7 +257,6 @@ impl Renderable for Map<'_> {
 
 #[test]
 fn all_blocks() {
-    load_zip();
     use crate::block::content::Type;
     use crate::content::Content;
     let reg = crate::block::build_registry();
@@ -308,7 +273,7 @@ fn all_blocks() {
             continue;
         }
 
-        let t = reg.get(dbg!(t.get_name())).unwrap();
+        let t = reg.get(t.get_name()).unwrap();
         t.image(
             None,
             Some(&RenderingContext {

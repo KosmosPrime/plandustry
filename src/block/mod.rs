@@ -59,14 +59,11 @@ pub trait BlockLogic {
     #[allow(unused_variables)]
     fn draw(
         &self,
-        category: &str,
         name: &str,
         state: Option<&State>,
         context: Option<&RenderingContext>,
         rot: Rotation,
-    ) -> Option<ImageHolder> {
-        None
-    }
+    ) -> ImageHolder;
 
     fn want_context(&self) -> bool {
         false
@@ -163,7 +160,6 @@ impl SerializeError {
 
 /// a block. put it in stuff!
 pub struct Block {
-    category: Cow<'static, str>,
     name: Cow<'static, str>,
     pub(crate) logic: BoxAccess<'static, dyn BlockLogic + Sync>,
 }
@@ -178,15 +174,10 @@ impl Block {
     #[must_use]
     /// create a new block
     pub const fn new(
-        category: Cow<'static, str>,
         name: Cow<'static, str>,
         logic: BoxAccess<'static, dyn BlockLogic + Sync>,
     ) -> Self {
-        Self {
-            category,
-            name,
-            logic,
-        }
+        Self { name, logic }
     }
 
     /// this blocks name
@@ -209,18 +200,7 @@ impl Block {
         context: Option<&RenderingContext>,
         rot: Rotation,
     ) -> ImageHolder {
-        if let Some(p) = self
-            .logic
-            .as_ref()
-            .draw(&self.category, &self.name, state, context, rot)
-        {
-            return p;
-        }
-        ImageHolder::Own(read(&self.category, &self.name, self.get_size()))
-    }
-
-    pub fn has_building(&self) -> bool {
-        &self.category != "environment"
+        self.logic.as_ref().draw(&self.name, state, context, rot)
     }
 
     /// size.
@@ -448,9 +428,6 @@ macro_rules! make_register {
 	($($field:literal => $logic:expr;)+) => { paste::paste! {
 		$(
 			pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
-                std::borrow::Cow::Borrowed(
-                    const_str::split!(module_path!(), "::")[2]
-                ),
 				std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic));
 		)+
 

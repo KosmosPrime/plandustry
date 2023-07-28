@@ -39,20 +39,19 @@ make_register! {
 
 fn draw_turret(
     me: &impl BlockLogic,
-    _: &str,
     name: &str,
     _: Option<&State>,
     _: Option<&RenderingContext>,
     _: Rotation,
-) -> Option<ImageHolder> {
+) -> ImageHolder {
     let path = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
-        | "scathe" | "malign" | "smite" => format!("bases/reinforced-block-{}", me.get_size()),
-        _ => format!("bases/block-{}", me.get_size()),
+        | "scathe" | "malign" | "smite" => format!("reinforced-block-{}", me.get_size()),
+        _ => format!("block-{}", me.get_size()),
     };
-    let mut base = load("turrets", &path).unwrap().value().clone();
-    base.overlay(load("turrets", name).unwrap().value());
-    Some(ImageHolder::from(base))
+    let mut base = load(&path);
+    base.overlay(&load(name));
+    base
 }
 
 make_simple!(Turret, draw_turret, |_, _, _, buff: &mut DataRead| {

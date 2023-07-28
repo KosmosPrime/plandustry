@@ -22,7 +22,7 @@ macro_rules! state_impl {
 
 pub(crate) use state_impl;
 
-/// draw is called with self, category, name, state, context, rotation
+/// draw is called with self, name, state, context, rotation
 /// read is called with build, reg, entity_mapping, buff
 macro_rules! make_simple {
     ($name: ident, $draw: expr, $read: expr, $wants_context: literal) => {
@@ -86,13 +86,13 @@ macro_rules! make_simple {
 
             fn draw(
                 &self,
-                category: &str,
                 name: &str,
                 state: Option<&crate::block::State>,
                 context: Option<&crate::data::renderer::RenderingContext>,
                 rot: crate::block::Rotation,
-            ) -> Option<crate::data::renderer::ImageHolder> {
-                $draw(self, category, name, state, context, rot)
+            ) -> crate::data::renderer::ImageHolder {
+                #[allow(clippy::redundant_closure_call)]
+                $draw(self, name, state, context, rot)
             }
 
             fn want_context(&self) -> bool {
@@ -106,6 +106,7 @@ macro_rules! make_simple {
                 entity_mapping: &crate::data::map::EntityMapping,
                 buff: &mut crate::data::DataRead,
             ) -> Result<(), crate::data::ReadError> {
+                #[allow(clippy::redundant_closure_call)]
                 $read(build, reg, entity_mapping, buff)
             }
         }
@@ -120,12 +121,16 @@ macro_rules! make_simple {
         crate::block::simple::make_simple!($name, $draw, $read, false);
     };
     ($name: ident => $read: expr) => {
-        crate::block::simple::make_simple!($name, |_, _, _, _, _, _| None, $read);
+        crate::block::simple::make_simple!(
+            $name,
+            |m: &Self, n: &str, _, _, _| crate::data::renderer::read(n, m.get_size()),
+            $read
+        );
     };
     ($name: ident) => {
         crate::block::simple::make_simple!(
             $name,
-            |_, _, _, _, _, _| None,
+            |m: &Self, n: &str, _, _, _| crate::data::renderer::read(n, m.get_size()),
             |_, _, _, _| Ok(()),
             false
         );

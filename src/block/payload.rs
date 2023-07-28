@@ -13,12 +13,8 @@ use crate::unit;
 use super::BlockRegistry;
 
 make_simple!(SimplePayloadBlock);
-make_simple!(
-    PayloadConveyor,
-    |_, _, _, _, _, _| None,
-    read_payload_conveyor
-);
-// make_simple!(PayloadRouter, |_, _, _, _, _, _| None, read_payload_router);
+make_simple!(PayloadConveyor => read_payload_conveyor);
+// make_simple!(PayloadRouter => read_payload_router);
 
 make_register! {
     "payload-conveyor" => PayloadConveyor::new(3, false, cost!(Copper: 10, Graphite: 10));
@@ -69,6 +65,16 @@ impl PayloadBlock {
 
 impl BlockLogic for PayloadBlock {
     impl_block!();
+
+    fn draw(
+        &self,
+        name: &str,
+        _: Option<&State>,
+        _: Option<&RenderingContext>,
+        _: Rotation,
+    ) -> ImageHolder {
+        read(name, self.size)
+    }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)
@@ -189,8 +195,8 @@ fn read_payload(
         UNIT => {
             let u = buff.read_u8()?;
             let Some(_u) = entity_mapping.get(&u) else {
-                    return Err(ReadError::Expected("map entry"));
-                };
+                return Err(ReadError::Expected("map entry"));
+            };
             // unit::Type::try_from(u).unwrap_or(unit::Type::Alpha).read(todo!());
         }
         _ => return Err(ReadError::Expected("0 | 1")),
