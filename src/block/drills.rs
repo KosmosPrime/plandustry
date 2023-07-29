@@ -5,22 +5,22 @@ use crate::block::*;
 
 make_simple!(
     DrillBlock,
-    |_, name, _, _, rot: Rotation| {
+    |_, name, _, _, rot: Rotation, s| {
         if matches!(name, "large-plasma-bore" | "plasma-bore") {
-            let mut base = load(name);
-            let mut top = load(&format!("{name}-top"));
+            let mut base = load(name, s);
+            let mut top = load(&format!("{name}-top"), s);
             top.rotate(rot.rotated(false).count());
             base.overlay(&top);
             return base;
         }
-        load(name)
+        load(name, s)
     },
     |_, _, _, buff: &mut DataRead| read_drill(buff)
 );
 make_simple!(ExtractorBlock);
-make_simple!(WallCrafter, |_, _, _, _, rot: Rotation| {
-    let mut base = load("cliff-crusher");
-    let mut top = load("cliff-crusher-top");
+make_simple!(WallCrafter, |_, _, _, _, rot: Rotation, s| {
+    let mut base = load("cliff-crusher", s);
+    let mut top = load("cliff-crusher-top", s);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
     base

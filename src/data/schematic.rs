@@ -59,8 +59,13 @@ impl<'l> Placement<'l> {
     }
 
     /// draws this placement in particular
-    pub fn image(&self, context: Option<&RenderingContext>, rot: Rotation) -> ImageHolder {
-        self.block.image(self.get_state(), context, rot)
+    pub fn image(
+        &self,
+        context: Option<&RenderingContext>,
+        rot: Rotation,
+        s: Scale,
+    ) -> ImageHolder {
+        self.block.image(self.get_state(), context, rot, s)
     }
 
     /// set the state

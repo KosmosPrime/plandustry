@@ -8,10 +8,7 @@ use crate::item;
 
 make_simple!(
     ConveyorBlock,
-    |_, name, _, ctx: Option<&RenderingContext>, rot: Rotation| {
-        let ctx = ctx.unwrap(); // we set want_context to true
-        tile(ctx, name, rot)
-    },
+    |_, name, _, ctx: Option<&RenderingContext>, rot, s| tile(ctx.unwrap(), name, rot, s),
     |_, _, _, buff: &mut DataRead| {
         // format:
         // - amount: `i32`
@@ -31,10 +28,7 @@ make_simple!(
 
 make_simple!(
     DuctBlock,
-    |_, name, _, ctx: Option<&RenderingContext>, rot| {
-        let ctx = ctx.unwrap();
-        tile(ctx, name, rot)
-    },
+    |_, name, _, ctx: Option<&RenderingContext>, rot, s| tile(ctx.unwrap(), name, rot, s),
     |_, _, _, buff: &mut DataRead| {
         // format:
         // - rec_dir: `i8`
@@ -43,10 +37,10 @@ make_simple!(
     true
 );
 
-make_simple!(JunctionBlock => |_, _, _, buff: &mut DataRead| { read_directional_item_buffer(buff) });
-make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation| {
-    let mut base = load("duct-base");
-    let mut top = load(name);
+make_simple!(JunctionBlock => |_, _, _, buff| { read_directional_item_buffer(buff) });
+make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
+    let mut base = load("duct-base", s);
+    let mut top = load(name, s);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
     base
@@ -58,10 +52,11 @@ fn draw_stack(
     _: Option<&State>,
     ctx: Option<&RenderingContext>,
     rot: Rotation,
+    s: Scale,
 ) -> ImageHolder {
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
-    let edge = load(&format!("{name}-edge"));
+    let edge = load(&format!("{name}-edge"), s);
     let edgify = |skip, to: &mut RgbaImage| {
         for i in 0..4 {
             if i == skip {
@@ -72,7 +67,7 @@ fn draw_stack(
             to.overlay(&edge);
         }
     };
-    let gimme = |n: u8| load(&format!("{name}-{n}"));
+    let gimme = |n: u8| load(&format!("{name}-{n}"), s);
     let empty = ctx.cross[rot.count() as usize].map_or(true, |(v, _)| v.name != name);
     // mindustry says fuck this and just draws the arrow convs in schems but im better than that
 
@@ -220,16 +215,20 @@ impl BlockLogic for ItemBlock {
         state: Option<&State>,
         _: Option<&RenderingContext>,
         rot: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        let mut p = load(name);
+        let mut p = load(name, s);
         if let Some(state) = state {
-            if let Some(s) = Self::get_state(state) {
-                let mut top = load(match name {
-                    "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
-                    "unloader" => "unloader-center",
-                    _ => "center",
-                });
-                p.overlay(top.tint(s.color()));
+            if let Some(item) = Self::get_state(state) {
+                let mut top = load(
+                    match name {
+                        "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
+                        "unloader" => "unloader-center",
+                        _ => "center",
+                    },
+                    s,
+                );
+                p.overlay(top.tint(item.color()));
                 return p;
             }
         }
@@ -237,20 +236,20 @@ impl BlockLogic for ItemBlock {
             return p;
         }
         if name == "duct-router" {
-            let mut arrow = load("top");
+            let mut arrow = load("top", s);
             arrow.rotate(rot.rotated(false).count());
             p.overlay(&arrow);
             p
         } else if name == "duct-unloader" {
-            let mut top = load("duct-unloader-top");
+            let mut top = load("duct-unloader-top", s);
             top.rotate(rot.rotated(false).count());
             p.overlay(&top);
-            let mut arrow = load("top");
+            let mut arrow = load("top", s);
             arrow.rotate(rot.rotated(false).count());
             p.overlay(&arrow);
             p
         } else {
-            let mut null = load("cross-full");
+            let mut null = load("cross-full", s);
             null.overlay(&p);
             null
         }
@@ -455,15 +454,15 @@ impl BlockLogic for BridgeBlock {
         Ok(())
     }
 
-
     fn draw(
         &self,
         name: &str,
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 }
 

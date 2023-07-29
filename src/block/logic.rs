@@ -150,29 +150,33 @@ impl BlockLogic for CanvasBlock {
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
         if let Some(state) = state {
             let state = self.clone_state(state);
             let p = state.downcast::<RgbImage>().unwrap();
-            // SAFETY: canvas_size cannot be 0, so width & height musnt be 0, and size cannot be 0
-            let p = unsafe {
-                DynamicImage::from(
-                    RgbImage::from_raw(
-                        self.canvas_size as u32,
-                        self.canvas_size as u32,
-                        p.into_raw(),
-                    )
-                    .unwrap(),
-                )
-                .into_rgba8()
-                .scale((self.size as u32 * 32) - 14)
+            let offset = match s {
+                Scale::Full => 7,
+                // Scale::Half => 3,
+                Scale::Quarter => 2,
+                Scale::Eigth => 1,
             };
-            let mut borders = load(n);
-            borders.overlay_at(&p, 7, 7);
+            let p = DynamicImage::from(
+                RgbImage::from_raw(
+                    self.canvas_size as u32,
+                    self.canvas_size as u32,
+                    p.into_raw(),
+                )
+                .unwrap(),
+            )
+            .into_rgba8()
+            .scale((s * self.size as u32) - offset * 2);
+            let mut borders = load(n, s);
+            borders.overlay_at(&p, offset, offset);
             return borders;
         }
 
-        let mut def = RgbaImage::new(self.size as u32 * 32, self.size as u32 * 32);
+        let mut def = RgbaImage::new(s * self.size as u32, s * self.size as u32);
         for image::Rgba([r, g, b, _]) in def.pixels_mut() {
             *r = PALETTE[0][0];
             *g = PALETTE[0][1];
@@ -235,8 +239,9 @@ impl BlockLogic for MessageLogic {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
@@ -337,11 +342,12 @@ impl BlockLogic for SwitchLogic {
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        let mut base = load("switch");
+        let mut base = load("switch", s);
         if let Some(state) = state {
             if *Self::get_state(state) {
-                let on = load("switch-on");
+                let on = load("switch-on", s);
                 base.overlay(&on);
                 return base;
             }
@@ -409,8 +415,9 @@ impl BlockLogic for ProcessorLogic {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {

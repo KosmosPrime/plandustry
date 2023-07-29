@@ -13,25 +13,60 @@ fn main() {
     println!("cargo:rerun-if-changed=assets/");
     println!("cargo:rerun-if-changed=build.rs");
     let o = std::env::var("OUT_DIR").unwrap();
-    let mut f = File::create(Path::new(&o).join("asset")).unwrap();
-    let mut n = 1usize;
-    f.write_all(b"phf::phf_map! {").unwrap();
-    let mut s = String::new(); // idk write_all / write wasnt working
+    let o = Path::new(&o);
+    let mut full = File::create(o.join("full.rs")).unwrap();
+    // let mut half = File::create(o.join("half.rs")).unwrap();
+    let mut quar = File::create(o.join("quar.rs")).unwrap();
+    let mut eigh = File::create(o.join("eigh.rs")).unwrap();
+    let mut n = 2usize;
+    for mut f in [&full, &eigh, &quar] {
+        f.write_all(b"phf::phf_map! {\n").unwrap();
+    }
     for e in walkdir.into_iter().filter_map(|e| e.ok()) {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
             let p = DynamicImage::from_decoder(PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap()).unwrap().into_rgba8();
-            let x = p.width();
-            let y = p.height();
             let path = path.with_extension("");
             let path = path.file_name().unwrap().to_str().unwrap();
-            let mut f = File::create(Path::new(&o).join(n.to_string())).unwrap();
-            f.write_all(&p.into_raw()).unwrap();
-            println!("writing {path:?}");
-            s += &format!("\t\"{path}\" => r!(LazyLock::new(|| RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!(\"OUT_DIR\"), \"/{n}\")).to_vec()).unwrap())),\n");
+            macro_rules! writ {
+                ($ext:ident / $scale:literal) => {
+                    let mut buf = File::create(o.join(n.to_string() + "-" + stringify!($ext))).unwrap();
+                    let new = if $scale == 1 {
+                        p.clone()
+                    } else {
+                        // boulders
+                        let (mx, my) = if p.width() + p.height() == 48+48 {
+                            (32, 32)
+                        // vents
+                        } else if path.contains("vent") {
+                            (32, 32)
+                        } else {
+                            (p.height(), p.width())
+                        };
+                        image::imageops::resize(
+                            &p,
+                            mx / $scale,
+                            my / $scale,
+                            image::imageops::Nearest,
+                        )
+                    };
+                    let x = new.width();
+                    let y = new.height();
+                    buf.write_all(&new.into_raw()).unwrap();
+                    writeln!($ext, 
+                        r#" "{path}" => r!(LazyLock::new(|| RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap())),"#,
+                        stringify!($ext)
+                    ).unwrap();
+                };
+            }
+            writ!(full / 1);
+            // writ!(half + 0.5);
+            writ!(quar / 4);
+            writ!(eigh / 8);
             n += 1;
         }
     }
-    f.write_all(s.as_bytes()).unwrap();
-    f.write_all(b"}").unwrap();
+    for mut f in [full, eigh, quar] {
+        f.write_all(b"}").unwrap();
+    }
 }

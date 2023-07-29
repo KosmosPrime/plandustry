@@ -63,6 +63,7 @@ pub trait BlockLogic {
         state: Option<&State>,
         context: Option<&RenderingContext>,
         rot: Rotation,
+        scale: Scale,
     ) -> ImageHolder;
 
     fn want_context(&self) -> bool {
@@ -199,8 +200,11 @@ impl Block {
         state: Option<&State>,
         context: Option<&RenderingContext>,
         rot: Rotation,
+        scale: Scale,
     ) -> ImageHolder {
-        self.logic.as_ref().draw(&self.name, state, context, rot)
+        self.logic
+            .as_ref()
+            .draw(&self.name, state, context, rot, scale)
     }
 
     /// size.

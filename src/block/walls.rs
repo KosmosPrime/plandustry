@@ -6,22 +6,22 @@ use crate::data::renderer::{load, read_with};
 use tinyrand::{Rand, RandRange, Seeded, StdRand};
 use tinyrand_std::clock_seed::ClockSeed;
 
-make_simple!(WallBlock, |_, name, _, _, _| {
+make_simple!(WallBlock, |_, name, _, _, _, s| {
     macro_rules! pick {
         ($name: literal => load $n: literal) => {{
             let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-            load(&format!("{}{}", $name, rand.next_range(1usize..$n)))
+            load(&format!("{}{}", $name, rand.next_range(1usize..$n)), s)
         }};
     }
     match name {
         "thruster" => {
             const SFX: &[&str; 1] = &["-top"];
-            read_with("thruster", SFX, 4u32)
+            read_with("thruster", SFX, 4u32, s)
         }
         "scrap-wall" => pick!("scrap-wall" => load 5),
         "scrap-wall-large" => pick!("scrap-wall-large" => load 3),
         "scrap-wall-huge" => pick!("scrap-wall-huge" => load 3),
-        _ => load(name),
+        _ => load(name, s),
     }
 });
 
@@ -87,8 +87,9 @@ impl BlockLogic for DoorBlock {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {

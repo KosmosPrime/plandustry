@@ -90,9 +90,10 @@ macro_rules! make_simple {
                 state: Option<&crate::block::State>,
                 context: Option<&crate::data::renderer::RenderingContext>,
                 rot: crate::block::Rotation,
+                scale: crate::data::renderer::Scale,
             ) -> crate::data::renderer::ImageHolder {
                 #[allow(clippy::redundant_closure_call)]
-                $draw(self, name, state, context, rot)
+                $draw(self, name, state, context, rot, scale)
             }
 
             fn want_context(&self) -> bool {
@@ -123,14 +124,14 @@ macro_rules! make_simple {
     ($name: ident => $read: expr) => {
         crate::block::simple::make_simple!(
             $name,
-            |m: &Self, n: &str, _, _, _| crate::data::renderer::read(n, m.get_size()),
+            |m: &Self, n, _, _, _, s| crate::data::renderer::read(n, m.get_size(), s),
             $read
         );
     };
     ($name: ident) => {
         crate::block::simple::make_simple!(
             $name,
-            |m: &Self, n: &str, _, _, _| crate::data::renderer::read(n, m.get_size()),
+            |m: &Self, n, _, _, _, s| crate::data::renderer::read(n, m.get_size(), s),
             |_, _, _, _| Ok(()),
             false
         );

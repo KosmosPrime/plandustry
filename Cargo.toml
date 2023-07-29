@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "1.4.6"
+version = "1.4.7"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -21,7 +21,6 @@ image = { version = "0.24", features = ["png"], default-features = false }
 color-hex = "0.2"
 tinyrand = "0.5"
 tinyrand-std = "0.5"
-fast_image_resize = "2.7"
 thiserror = "1.0"
 bobbin-bits = "0.1"
 blurslice = { version = "0.1", optional = true }

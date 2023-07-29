@@ -1,6 +1,4 @@
-use fast_image_resize as fr;
 use image::{imageops, Rgb, Rgba, RgbaImage};
-use std::num::NonZeroU32;
 
 pub trait ImageUtils {
     /// Tint this image with the color
@@ -24,9 +22,7 @@ pub trait ImageUtils {
     #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn silhouette(&mut self) -> &mut Self;
     /// scale a image
-    ///
-    /// SAFETY: to and width and height cannot be 0.
-    unsafe fn scale(self, to: u32) -> Self;
+    fn scale(&self, to: u32) -> Self;
 }
 
 impl ImageUtils for RgbaImage {
@@ -82,10 +78,8 @@ impl ImageUtils for RgbaImage {
         let local = std::mem::take(self);
         let mut own = local.into_raw();
         let other = with.as_raw();
-        for (i, other_pixels) in unsafe { other.as_chunks_unchecked::<4>() }
-            .iter()
-            .enumerate()
-        {
+        assert!(own.len() % 4 == 0 && other.len() % 4 == 0);
+        for (i, other_pixels) in other.array_chunks::<4>().enumerate() {
             if other_pixels[3] > 128 {
                 let own_pixels = unsafe { own.get_unchecked_mut(i * 4..i * 4 + 4) };
                 own_pixels.copy_from_slice(other_pixels);
@@ -95,23 +89,8 @@ impl ImageUtils for RgbaImage {
         self
     }
 
-    unsafe fn scale(self, to: u32) -> Self {
-        debug_assert_ne!(to, 0);
-        debug_assert_ne!(self.width(), 0);
-        debug_assert_ne!(self.height(), 0);
-        let to = NonZeroU32::new_unchecked(to);
-        let src = fr::Image::from_vec_u8(
-            NonZeroU32::new_unchecked(self.width()),
-            NonZeroU32::new_unchecked(self.height()),
-            self.into_vec(),
-            fr::PixelType::U8x4,
-        )
-        .unwrap();
-        let mut dst = fr::Image::new(to, to, fr::PixelType::U8x4);
-        fr::Resizer::new(fr::ResizeAlg::Nearest)
-            .resize(&src.view(), &mut dst.view_mut())
-            .unwrap();
-        RgbaImage::from_raw(to.get(), to.get(), dst.into_vec()).unwrap()
+    fn scale(&self, to: u32) -> Self {
+        imageops::resize(self, to, to, imageops::Nearest)
     }
 
     #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]

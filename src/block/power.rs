@@ -10,12 +10,12 @@ make_simple!(NuclearGeneratorBlock => |_, _, _, buff: &mut DataRead| read_nuclea
 make_simple!(ImpactReactorBlock => |_, _, _, buff: &mut DataRead| read_impact(buff));
 make_simple!(HeaterGeneratorBlock => |_, _, _, buff: &mut DataRead| read_heater(buff));
 make_simple!(BatteryBlock);
-make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation| {
-    let mut base = load("diode");
+make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation, s| {
+    let mut base = load("diode",s);
     if rot == Rotation::Right {
         return base;
     }
-    let mut top = load("diode-arrow");
+    let mut top = load("diode-arrow",s);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
     base
@@ -136,8 +136,9 @@ impl BlockLogic for ConnectorBlock {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 }
 
@@ -222,8 +223,9 @@ impl BlockLogic for LampBlock {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 
     fn clone_state(&self, state: &State) -> State {

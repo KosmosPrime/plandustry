@@ -72,8 +72,9 @@ impl BlockLogic for PayloadBlock {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        read(name, self.size)
+        read(name, self.size, s)
     }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {

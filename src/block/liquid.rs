@@ -13,12 +13,12 @@ use crate::utils::ImageUtils;
 make_simple!(LiquidBlock);
 make_simple!(
     ConduitBlock,
-    |_, name, _, ctx: Option<&RenderingContext>, rot| {
+    |_, name, _, ctx: Option<&RenderingContext>, rot, s| {
         let ctx = ctx.unwrap();
         let mask = mask(ctx, rot, name);
         let (index, rot, flip) = mask2rotations(mask, rot);
-        let tile = rotations2tile((index, rot, flip), &format!("{name}-top"));
-        let mut bottom = load(&format!("conduit-bottom-{index}"));
+        let tile = rotations2tile((index, rot, flip), &format!("{name}-top"), s);
+        let mut bottom = load(&format!("conduit-bottom-{index}"), s);
         flrot(flip, rot, &mut bottom);
         bottom.tint(image::Rgb([74, 75, 83]));
         bottom.overlay(tile.borrow());
@@ -119,16 +119,17 @@ impl BlockLogic for FluidBlock {
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        let mut p = load(name);
+        let mut p = load(name, s);
         if let Some(state) = state {
-            if let Some(s) = Self::get_state(state) {
-                let mut top = load("center");
-                p.overlay(top.tint(s.color()));
+            if let Some(liq) = Self::get_state(state) {
+                let mut top = load("center", s);
+                p.overlay(top.tint(liq.color()));
                 return p;
             }
         }
-        let mut null = load("cross-full");
+        let mut null = load("cross-full", s);
         null.overlay(&p);
         null
     }

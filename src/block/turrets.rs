@@ -43,14 +43,15 @@ fn draw_turret(
     _: Option<&State>,
     _: Option<&RenderingContext>,
     _: Rotation,
+    s: Scale,
 ) -> ImageHolder {
     let path = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
         | "scathe" | "malign" | "smite" => format!("reinforced-block-{}", me.get_size()),
         _ => format!("block-{}", me.get_size()),
     };
-    let mut base = load(&path);
-    base.overlay(&load(name));
+    let mut base = load(&path, s);
+    base.overlay(&load(name, s));
     base
 }
 

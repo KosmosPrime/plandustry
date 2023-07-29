@@ -33,27 +33,38 @@ use crate::unit;
 //     )
 // }
 
-make_simple!(ConstructorBlock, |me: &Self, name, _, _, rot: Rotation| {
-    let mut base = load(name);
+make_simple!(ConstructorBlock, |me: &Self,
+                                name,
+                                _,
+                                _,
+                                rot: Rotation,
+                                s| {
+    let mut base = load(name, s);
     let times = rot.rotated(false).count();
 
-    let mut out = load(&match name {
-        "additive-reconstructor"
-        | "multiplicative-reconstructor"
-        | "exponential-reconstructor"
-        | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
-        _ => format!("factory-out-{}-dark", me.size),
-    });
+    let mut out = load(
+        &match name {
+            "additive-reconstructor"
+            | "multiplicative-reconstructor"
+            | "exponential-reconstructor"
+            | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
+            _ => format!("factory-out-{}-dark", me.size),
+        },
+        s,
+    );
     out.rotate(times);
     base.overlay(&out);
 
-    let mut input = load(&match name {
-        "additive-reconstructor"
-        | "multiplicative-reconstructor"
-        | "exponential-reconstructor"
-        | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
-        _ => format!("factory-in-{}-dark", me.size),
-    });
+    let mut input = load(
+        &match name {
+            "additive-reconstructor"
+            | "multiplicative-reconstructor"
+            | "exponential-reconstructor"
+            | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
+            _ => format!("factory-in-{}-dark", me.size),
+        },
+        s,
+    );
     input.rotate(times);
     base.overlay(&input);
 
@@ -77,9 +88,9 @@ make_simple!(ConstructorBlock, |me: &Self, name, _, _, rot: Rotation| {
     //     }
     // }
 
-    base.overlay(&load(&format!("{name}-top")));
+    base.overlay(&load(&format!("{name}-top"), s));
     if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
-        let mut side = load(&format!("{name}-side"));
+        let mut side = load(&format!("{name}-side"), s);
         side.rotate(times);
         base.overlay(&side);
     }
@@ -207,20 +218,27 @@ impl BlockLogic for AssemblerBlock {
         _: Option<&State>,
         _: Option<&RenderingContext>,
         rot: Rotation,
+        s: Scale,
     ) -> ImageHolder {
-        let mut base = load(name);
-        let mut out = load(match name {
-            "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
-            _ => "factory-out-3-dark",
-        });
+        let mut base = load(name, s);
+        let mut out = load(
+            match name {
+                "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
+                _ => "factory-out-3-dark",
+            },
+            s,
+        );
         out.rotate(rot.rotated(false).count());
         base.overlay(&out);
-        base.overlay(&load(&match name {
-            "ground-factory" | "air-factory" | "naval-factory" => {
-                format!("factory-top-{}", self.size)
-            }
-            _ => format!("{name}-top"),
-        }));
+        base.overlay(&load(
+            &match name {
+                "ground-factory" | "air-factory" | "naval-factory" => {
+                    format!("factory-top-{}", self.size)
+                }
+                _ => format!("{name}-top"),
+            },
+            s,
+        ));
         base
     }
 

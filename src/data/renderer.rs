@@ -20,8 +20,11 @@ macro_rules! r {
     }};
 }
 
-type Cache = phf::Map<&'static str, &'static LazyLock<RgbaImage>>;
-static CACHE: Cache = include!(concat!(env!("OUT_DIR"), "/asset"));
+type Images = phf::Map<&'static str, &'static LazyLock<RgbaImage>>;
+static FULL: Images = include!(concat!(env!("OUT_DIR"), "/full.rs"));
+// static HALF: Images = include!(concat!(env!("OUT_DIR"), "/half.rs"));
+static QUAR: Images = include!(concat!(env!("OUT_DIR"), "/quar.rs"));
+static EIGH: Images = include!(concat!(env!("OUT_DIR"), "/eigh.rs"));
 
 pub enum ImageHolder {
     Borrow(&'static RgbaImage),
@@ -91,14 +94,44 @@ impl From<RgbaImage> for ImageHolder {
     }
 }
 
-pub(crate) fn try_load(name: &str) -> Option<&'static RgbaImage> {
-    let key = name.to_string();
-    CACHE.get(&key).map(|v| LazyLock::force(v))
+#[derive(Debug, Copy, Clone)]
+pub enum Scale {
+    Full,
+    // Half,
+    Quarter,
+    Eigth,
 }
 
-pub(crate) fn load(name: &str) -> ImageHolder {
+impl Scale {
+    fn px(self) -> u8 {
+        match self {
+            Self::Full => 32,
+            Self::Quarter => 32 / 4,
+            Self::Eigth => 32 / 8,
+        }
+    }
+}
+
+impl std::ops::Mul<u32> for Scale {
+    type Output = u32;
+    fn mul(self, rhs: u32) -> u32 {
+        self.px() as u32 * rhs
+    }
+}
+
+pub(crate) fn try_load(name: &str, scale: Scale) -> Option<&'static RgbaImage> {
+    let key = name.to_string();
+    match scale {
+        Scale::Quarter => QUAR.get(&key).map(|v| LazyLock::force(v)),
+        Scale::Eigth => EIGH.get(&key).map(|v| LazyLock::force(v)),
+        Scale::Full => FULL.get(&key).map(|v| LazyLock::force(v)),
+        // Scale::Half => HALF.get(&key).map(|v| LazyLock::force(v)),
+    }
+}
+
+pub(crate) fn load(name: &str, scale: Scale) -> ImageHolder {
     ImageHolder::from(
-        try_load(name)
+        try_load(name, scale)
             .ok_or_else(|| format!("failed to load {name}"))
             .unwrap(),
     )
@@ -107,20 +140,28 @@ pub(crate) fn load(name: &str) -> ImageHolder {
 const SUFFIXES: &[&str; 9] = &[
     "-bottom", "-mid", "-base", "", "-left", "-right", "-top", "-over", "-team",
 ];
-pub(crate) fn read<S>(name: &str, size: S) -> ImageHolder
+pub(crate) fn read<S>(name: &str, size: S, scale: Scale) -> ImageHolder
 where
     S: Into<u32> + Copy,
 {
-    read_with(name, SUFFIXES, size)
+    read_with(name, SUFFIXES, size, scale)
 }
 
-pub(crate) fn read_with<S>(name: &str, suffixes: &'static [&'static str], size: S) -> ImageHolder
+pub(crate) fn read_with<S>(
+    name: &str,
+    suffixes: &'static [&'static str],
+    size: S,
+    scale: Scale,
+) -> ImageHolder
 where
     S: Into<u32> + Copy,
 {
-    let mut c = RgbaImage::new(size.into() * 32, size.into() * 32);
+    let mut c = RgbaImage::new(
+        size.into() * scale.px() as u32,
+        size.into() * scale.px() as u32,
+    );
     for suffix in suffixes {
-        if let Some(p) = try_load(&format!("{name}{suffix}")) {
+        if let Some(p) = try_load(&format!("{name}{suffix}"), scale) {
             if suffix == &"-team" {
                 c.overlay(p.clone().tint(SHARDED.color()));
                 continue;
@@ -152,7 +193,11 @@ impl Renderable for Schematic<'_> {
             ((self.width + 2) * 32) as u32,
             ((self.height + 2) * 32) as u32,
         );
-        bg.repeat(METAL_FLOOR.image(None, None, Rotation::Up).borrow());
+        bg.repeat(
+            METAL_FLOOR
+                .image(None, None, Rotation::Up, Scale::Full)
+                .borrow(),
+        );
         let mut canvas = RgbaImage::new(
             ((self.width + 2) * 32) as u32,
             ((self.height + 2) * 32) as u32,
@@ -174,8 +219,12 @@ impl Renderable for Schematic<'_> {
             let x = x as u32 - ((tile.block.get_size() - 1) / 2) as u32;
             let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
             canvas.overlay_at(
-                tile.image(ctx.as_ref(), tile.get_rotation().unwrap_or(Rotation::Up))
-                    .borrow(),
+                tile.image(
+                    ctx.as_ref(),
+                    tile.get_rotation().unwrap_or(Rotation::Up),
+                    Scale::Full,
+                )
+                .borrow(),
                 (x + 1) * 32,
                 (y + 1) * 32,
             );
@@ -192,12 +241,12 @@ impl Renderable for Schematic<'_> {
 impl Renderable for Map<'_> {
     fn render(&self) -> RgbaImage {
         let scale = if self.width + self.height < 2000 {
-            8
+            Scale::Quarter
         } else {
-            4
+            Scale::Eigth
         };
-        let mut floor = RgbaImage::new(self.width as u32 * scale, self.height as u32 * scale);
-        let mut top = RgbaImage::new(self.width as u32 * scale, self.height as u32 * scale);
+        let mut floor = RgbaImage::new(scale * self.width as u32, scale * self.height as u32);
+        let mut top = RgbaImage::new(scale * self.width as u32, scale * self.height as u32);
         for (x, y, j, tile) in self.tiles.iter().enumerate().map(|(j, t)| {
             (
                 (j % self.width),
@@ -208,12 +257,11 @@ impl Renderable for Map<'_> {
             )
         }) {
             // draw the floor first.
-            floor.overlay_at(
-                // SAFETY: [`load_raw`] forces nonzero image size
-                unsafe { &tile.floor_image(None).own().scale(scale) },
-                x as u32 * scale,
-                y as u32 * scale,
-            );
+            let img = tile.floor_image(None, scale);
+            // println!("draw {tile:?} ({x}, {y}) + {scale:?}");
+            // assert_eq!(img.width(), scale.px() as u32);
+            // assert_eq!(img.height(), scale.px() as u32);
+            floor.overlay_at(&img, scale * x as u32, scale * y as u32);
             if let Some(build) = tile.build() {
                 let s = build.block.get_size();
                 let x = x - ((s - 1) / 2) as usize;
@@ -233,17 +281,10 @@ impl Renderable for Map<'_> {
                     };
                     Some(rctx)
                 })();
-                top.overlay_at(
-                    // SAFETY: tile.size can never be 0, and [`load_raw`] forces nonzero.
-                    unsafe {
-                        &tile
-                            .build_image(ctx.as_ref())
-                            .own()
-                            .scale(tile.size() as u32 * scale)
-                    },
-                    x as u32 * scale,
-                    y as u32 * scale,
-                );
+                let img = tile.build_image(ctx.as_ref(), scale);
+                // assert_eq!(img.width(), scale * build.block.get_size() as u32);
+                // assert_eq!(img.height(), scale * build.block.get_size() as u32);
+                top.overlay_at(&img, scale * x as u32, scale * y as u32);
             }
         }
         #[cfg(feature = "map_shadow")]
@@ -284,6 +325,7 @@ fn all_blocks() {
                 },
             }),
             Rotation::Up,
+            Scale::Quarter,
         );
     }
 }

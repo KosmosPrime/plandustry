@@ -92,8 +92,8 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
     s
 }
 
-pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation) -> ImageHolder {
-    rotations2tile(mask2rotations(mask(ctx, rot, name), rot), name)
+pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation, s: Scale) -> ImageHolder {
+    rotations2tile(mask2rotations(mask(ctx, rot, name), rot), name, s)
 }
 
 pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
@@ -220,8 +220,8 @@ pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder) {
 }
 
 /// TODO figure out if a flip is cheaper than a rotate_270
-pub fn rotations2tile((index, rot, flip): (u8, u8, u8), name: &str) -> ImageHolder {
-    let mut p = load(&format!("{name}-{index}"));
+pub fn rotations2tile((index, rot, flip): (u8, u8, u8), name: &str, scale: Scale) -> ImageHolder {
+    let mut p = load(&format!("{name}-{index}"), scale);
     flrot(flip, rot, p.borrow_mut());
     p
 }
