@@ -636,7 +636,6 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
         })?;
         // skip custom chunks
         buff.skip_chunk()?;
-        println!("desered");
         Ok(m.unwrap())
     }
 
