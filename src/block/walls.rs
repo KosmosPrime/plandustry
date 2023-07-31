@@ -3,26 +3,13 @@ use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::{load, read_with};
-use tinyrand::RandRange;
-use tinyrand_std::thread_rand;
 
 make_simple!(WallBlock, |_, name, _, _, _, s| {
-    macro_rules! pick {
-        ($name: literal => load $n: literal) => {{
-            load(
-                &format!("{}{}", $name, thread_rand().next_range(1usize..$n)),
-                s,
-            )
-        }};
-    }
     match name {
         "thruster" => {
             const SFX: &[&str; 1] = &["-top"];
             read_with("thruster", SFX, 4u32, s)
         }
-        "scrap-wall" => pick!("scrap-wall" => load 5),
-        "scrap-wall-large" => pick!("scrap-wall-large" => load 3),
-        "scrap-wall-huge" => pick!("scrap-wall-huge" => load 3),
         _ => load(name, s),
     }
 });
