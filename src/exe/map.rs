@@ -14,7 +14,12 @@ pub fn main(args: Args) {
             match ms.deserialize(&mut DataRead::new(&s)) {
                 Err(e) => print_err!(e, "fail"),
                 Ok(m) => {
-                    m.render().save("x.png").unwrap();
+                	let o = m.render();
+                	if let Ok(v) = std::env::var("SAVE") {
+                		if v == "1" {
+                			o.save("x.png").unwrap();
+                		}
+                	}
                 }
             }
         }
