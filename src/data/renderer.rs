@@ -298,6 +298,15 @@ impl Renderable for Map<'_> {
     }
 }
 
+/// Loads all the images into memory
+pub fn warmup() {
+    for map in [&FULL, &QUAR, &EIGH] {
+        for val in map.values() {
+            LazyLock::force(val);
+        }
+    }
+}
+
 #[test]
 fn all_blocks() {
     use crate::block::content::Type;
