@@ -2,8 +2,9 @@
 use crate::block::make_register;
 use crate::block::simple::make_simple;
 use crate::data::renderer::*;
-use tinyrand::{Rand, RandRange, Seeded, StdRand};
-use tinyrand_std::clock_seed::ClockSeed;
+use tinyrand::RandRange;
+use tinyrand_std::thread_rand;
+
 
 macro_rules! register_env {
     ($($field:literal: $size:literal @ $variations:literal;)+) => {
@@ -12,12 +13,11 @@ macro_rules! register_env {
         );
 
         make_simple!(EnvironmentBlock, |_, name, _, _, _, s| {
-            let mut rand = StdRand::seed(ClockSeed::default().next_u64());
             match name {
                 $($field => {
                     #[allow(clippy::reversed_empty_ranges)]
                     match $variations {
-                        2..=6 => load(&format!("{}{}", $field, rand.next_range(1usize..$variations)), s),
+                        2..=6 => load(&format!("{}{}", $field, thread_rand().next_range(1usize..$variations)), s),
                         1 => load($field, s),
                         0 => ImageHolder::from(RgbaImage::new(s * $size, s * $size)),
                         _ => unreachable!(),
