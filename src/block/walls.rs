@@ -3,14 +3,16 @@ use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
 use crate::data::renderer::{load, read_with};
-use tinyrand::{Rand, RandRange, Seeded, StdRand};
-use tinyrand_std::clock_seed::ClockSeed;
+use tinyrand::RandRange;
+use tinyrand_std::thread_rand;
 
 make_simple!(WallBlock, |_, name, _, _, _, s| {
     macro_rules! pick {
         ($name: literal => load $n: literal) => {{
-            let mut rand = StdRand::seed(ClockSeed::default().next_u64());
-            load(&format!("{}{}", $name, rand.next_range(1usize..$n)), s)
+            load(
+                &format!("{}{}", $name, thread_rand().next_range(1usize..$n)),
+                s,
+            )
         }};
     }
     match name {

@@ -15,12 +15,16 @@ use super::GridPos;
 
 macro_rules! r {
     ($v:expr) => {{
-        static TMP: LazyLock<RgbaImage> = $v;
+        static TMP: LazyLock<RgbaImage> = LazyLock::new(|| $v);
         &TMP
     }};
 }
 
 type Images = phf::Map<&'static str, &'static LazyLock<RgbaImage>>;
+static EMPTY_FULL: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(32, 32));
+static EMPTY_QUAR: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(8, 8));
+static EMPTY_EIGH: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(4, 4));
+
 static FULL: Images = include!(concat!(env!("OUT_DIR"), "/full.rs"));
 // static HALF: Images = include!(concat!(env!("OUT_DIR"), "/half.rs"));
 static QUAR: Images = include!(concat!(env!("OUT_DIR"), "/quar.rs"));
@@ -120,12 +124,11 @@ impl std::ops::Mul<u32> for Scale {
 }
 
 pub(crate) fn try_load(name: &str, scale: Scale) -> Option<&'static RgbaImage> {
-    let key = name.to_string();
     match scale {
-        Scale::Quarter => QUAR.get(&key).map(|v| LazyLock::force(v)),
-        Scale::Eigth => EIGH.get(&key).map(|v| LazyLock::force(v)),
-        Scale::Full => FULL.get(&key).map(|v| LazyLock::force(v)),
-        // Scale::Half => HALF.get(&key).map(|v| LazyLock::force(v)),
+        Scale::Quarter => QUAR.get(&name).map(|v| LazyLock::force(v)),
+        Scale::Eigth => EIGH.get(&name).map(|v| LazyLock::force(v)),
+        Scale::Full => FULL.get(&name).map(|v| LazyLock::force(v)),
+        // Scale::Half => HALF.get(&name).map(|v| LazyLock::force(v)),
     }
 }
 
