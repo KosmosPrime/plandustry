@@ -61,7 +61,7 @@ fn main() {
                     let y = new.height();
                     buf.write_all(&new.into_raw()).unwrap();
                     writeln!($ext,
-                        r#"  "{path}" => r!(RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap()),"#,
+                        r#"  "{path}" => r!(unsafe {{ RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap_unchecked() }}),"#,
                         stringify!($ext)
                     ).unwrap();
                 };
