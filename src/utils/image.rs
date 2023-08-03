@@ -63,9 +63,10 @@ impl ImageUtils for RgbaImage {
     fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
-                let get = with.get_pixel(i, j);
+            	use image::{GenericImageView, GenericImage};
+                let get = unsafe { with.unsafe_get_pixel(i, j) };
                 if get[3] > 128 {
-                    self.put_pixel(i + x, j + y, *get);
+                    unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
                 }
             }
         }
@@ -78,14 +79,16 @@ impl ImageUtils for RgbaImage {
         let local = std::mem::take(self);
         let mut own = local.into_raw();
         let other = with.as_raw();
-        assert!(own.len() % 4 == 0 && other.len() % 4 == 0);
+        if own.len() % 4 != 0 || other.len() % 4 != 0 {
+        	unsafe { std::hint::unreachable_unchecked() };
+        }
         for (i, other_pixels) in other.array_chunks::<4>().enumerate() {
             if other_pixels[3] > 128 {
                 let own_pixels = unsafe { own.get_unchecked_mut(i * 4..i * 4 + 4) };
                 own_pixels.copy_from_slice(other_pixels);
             }
         }
-        *self = image::RgbaImage::from_raw(w, h, own).unwrap();
+        *self = unsafe { image::RgbaImage::from_raw(w, h, own).unwrap_unchecked() };
         self
     }
 
