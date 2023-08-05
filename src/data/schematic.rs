@@ -660,8 +660,7 @@ impl<'l> SchematicSerializer<'l> {
     /// assert!(s.get(1, 1).unwrap().unwrap().block.name() == "payload-router");
     /// ```
     pub fn deserialize_base64(&mut self, data: &str) -> Result<Schematic<'l>, R64Error> {
-        let mut buff = Vec::<u8>::new();
-        buff.resize(data.len() / 4 * 3 + 1, 0);
+        let mut buff = vec![0; data.len() / 4 * 3 + 1];
         let n_out = base64::decode(data.as_bytes(), buff.as_mut())?;
         Ok(self.deserialize(&mut DataRead::new(&buff[..n_out]))?)
     }
@@ -672,9 +671,7 @@ impl<'l> SchematicSerializer<'l> {
         self.serialize(&mut buff, data)?;
         let buff = buff.get_written();
         // round up because of padding
-        let required = 4 * (buff.len() / 3 + usize::from(buff.len() % 3 != 0));
-        let mut text = Vec::<u8>::new();
-        text.resize(required, 0);
+        let mut text = vec![0; 4 * (buff.len() / 3 + usize::from(buff.len() % 3 != 0))];
         let n_out = base64::encode(buff, text.as_mut())?;
         // trailing zeros are valid UTF8, but not valid base64
         assert_eq!(n_out, text.len());

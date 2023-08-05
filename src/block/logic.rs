@@ -386,8 +386,7 @@ fn read_decompressed(buff: &mut DataRead) -> Result<ProcessorState, ProcessorDes
     if !(0..=500 * 1024).contains(&code_len) {
         return Err(ProcessorDeserializeError::CodeLength(code_len));
     }
-    let mut code = vec![];
-    code.resize(code_len, 0);
+    let mut code = vec![0; code_len];
     buff.read_bytes(&mut code)?;
     let code = String::from_utf8(code)?;
     let link_cnt = buff.read_u32()? as usize;

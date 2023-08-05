@@ -1,14 +1,20 @@
-use image::{imageops, Rgb, Rgba, RgbaImage};
+use image::*;
+
+pub trait Overlay<W> {
+    /// Overlay with onto self at coordinates x, y, without blending
+    fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
+}
+
+pub trait RepeatNew {
+    /// Repeat with over self
+    fn repeated(with: &Self, x: u32, y: u32) -> Self;
+}
 
 pub trait ImageUtils {
     /// Tint this image with the color
     fn tint(&mut self, color: Rgb<u8>) -> &mut Self;
-    /// Repeat with over self
-    fn repeat(&mut self, with: &Self) -> &mut Self;
     /// Overlay with onto self (does not blend)
     fn overlay(&mut self, with: &Self) -> &mut Self;
-    /// Overlay with onto self at coordinates x, y, without blending
-    fn overlay_at(&mut self, with: &Self, x: u32, y: u32) -> &mut Self;
     /// rotate
     fn rotate(&mut self, times: u8) -> &mut Self;
     /// flip along the horizontal axis
@@ -16,13 +22,72 @@ pub trait ImageUtils {
     /// flip along the vertical axis
     fn flip_v(&mut self) -> &mut Self;
     /// shadow
-    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn shadow(&mut self) -> &mut Self;
     /// silhouette
-    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn silhouette(&mut self) -> &mut Self;
     /// scale a image
     fn scale(&self, to: u32) -> Self;
+}
+
+impl Overlay<RgbImage> for RgbImage {
+    fn overlay_at(&mut self, with: &RgbImage, x: u32, y: u32) -> &mut Self {
+        for j in 0..with.height() {
+            for i in 0..with.width() {
+                #[cfg(debug_assertions)]
+                {
+                    let get = *with.get_pixel(i, j);
+                    self.put_pixel(i + x, j + y, get);
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    let get = unsafe { with.unsafe_get_pixel(i, j) };
+                    unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
+                }
+            }
+        }
+        self
+    }
+}
+
+impl Overlay<RgbaImage> for RgbImage {
+    fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
+        for j in 0..with.height() {
+            for i in 0..with.width() {
+                let get = unsafe { with.unsafe_get_pixel(i, j) };
+                // solidity
+                if get[3] > 128 {
+                    unsafe { self.unsafe_put_pixel(i + x, j + y, Rgb([get[0], get[1], get[2]])) };
+                }
+            }
+        }
+        self
+    }
+}
+
+impl Overlay<RgbaImage> for RgbaImage {
+    fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
+        for j in 0..with.height() {
+            for i in 0..with.width() {
+                let get = unsafe { with.unsafe_get_pixel(i, j) };
+                if get[3] > 128 {
+                    unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
+                }
+            }
+        }
+        self
+    }
+}
+
+impl RepeatNew for RgbImage {
+    fn repeated(with: &Self, x: u32, y: u32) -> Self {
+        let mut img = RgbImage::new(x, y); // could probably optimize this a ton but eh
+        for x in 0..(x / with.width()) {
+            for y in 0..(y / with.height()) {
+                img.overlay_at(with, x * with.width(), y * with.height());
+            }
+        }
+        img
+    }
 }
 
 impl ImageUtils for RgbaImage {
@@ -51,28 +116,6 @@ impl ImageUtils for RgbaImage {
         self
     }
 
-    fn repeat(&mut self, with: &RgbaImage) -> &mut Self {
-        for x in 0..(self.width() / with.width()) {
-            for y in 0..(self.height() / with.height()) {
-                self.overlay_at(with, x * with.width(), y * with.height());
-            }
-        }
-        self
-    }
-
-    fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
-        for j in 0..with.height() {
-            for i in 0..with.width() {
-                use image::{GenericImage, GenericImageView};
-                let get = unsafe { with.unsafe_get_pixel(i, j) };
-                if get[3] > 128 {
-                    unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
-                }
-            }
-        }
-        self
-    }
-
     fn overlay(&mut self, with: &RgbaImage) -> &mut Self {
         if self.len() % 4 != 0 || with.len() % 4 != 0 {
             unsafe { std::hint::unreachable_unchecked() };
@@ -90,7 +133,6 @@ impl ImageUtils for RgbaImage {
         imageops::resize(self, to, to, imageops::Nearest)
     }
 
-    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn silhouette(&mut self) -> &mut Self {
         for pixel in self.pixels_mut() {
             if pixel[3] < 128 {
@@ -102,7 +144,6 @@ impl ImageUtils for RgbaImage {
         self
     }
 
-    #[cfg(any(feature = "map_shadow", feature = "schem_shadow"))]
     fn shadow(&mut self) -> &mut Self {
         let mut shadow = self.clone();
         shadow.silhouette();
@@ -118,8 +159,6 @@ impl ImageUtils for RgbaImage {
             for y in 0..shadow.height() {
                 let Rgba([r, g, b, a]) = self.get_pixel_mut(x, y);
                 if *a == 0 {
-                    use image::GenericImageView;
-                    // SAFETY: yes
                     let p = unsafe { shadow.unsafe_get_pixel(x, y) };
                     *r = p[0];
                     *g = p[0];

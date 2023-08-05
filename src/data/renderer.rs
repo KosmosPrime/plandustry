@@ -3,9 +3,11 @@ pub(crate) use super::autotile::*;
 use crate::block::environment::METAL_FLOOR;
 use crate::block::Rotation;
 use crate::team::SHARDED;
-pub(crate) use crate::utils::ImageUtils;
+pub(crate) use crate::utils::{ImageUtils, Overlay, Repeat};
 use crate::Map;
-pub(crate) use image::{DynamicImage, RgbaImage};
+pub(crate) use image::{
+    DynamicImage, GenericImage, GenericImageView, Pixel, Rgb, RgbImage, Rgba, RgbaImage,
+};
 pub(crate) use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut};
 use std::sync::LazyLock;
@@ -125,9 +127,9 @@ impl std::ops::Mul<u32> for Scale {
 
 pub(crate) fn try_load(name: &str, scale: Scale) -> Option<&'static RgbaImage> {
     match scale {
-        Scale::Quarter => QUAR.get(&name).map(|v| LazyLock::force(v)),
-        Scale::Eigth => EIGH.get(&name).map(|v| LazyLock::force(v)),
-        Scale::Full => FULL.get(&name).map(|v| LazyLock::force(v)),
+        Scale::Quarter => QUAR.get(name).map(|v| LazyLock::force(v)),
+        Scale::Eigth => EIGH.get(name).map(|v| LazyLock::force(v)),
+        Scale::Full => FULL.get(name).map(|v| LazyLock::force(v)),
         // Scale::Half => HALF.get(&name).map(|v| LazyLock::force(v)),
     }
 }
@@ -169,7 +171,7 @@ where
                 c.overlay(p.clone().tint(SHARDED.color()));
                 continue;
             }
-            c.overlay(&p);
+            c.overlay(p);
         }
     }
     ImageHolder::from(c)
@@ -177,29 +179,31 @@ where
 
 /// trait for renderable objects
 pub trait Renderable {
-    /// creates a picture of a schematic. Bridges and node connections are not drawn.
-    fn render(&self) -> RgbaImage;
+    /// create a picture
+    fn render(&self) -> RgbImage;
 }
 
 impl Renderable for Schematic<'_> {
+    /// creates a picture of a schematic. Bridges and node connections are not drawn.
     /// ```
     /// use mindus::*;
     /// let mut s = Schematic::new(2, 3);
     /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
     /// s.put(0, 2, &block::distribution::ROUTER);
     /// s.put(1, 2, &block::walls::COPPER_WALL);
-    /// let output /*: RgbaImage */ = s.render();
+    /// let output /*: RgbImage */ = s.render();
     /// ```
-    fn render(&self) -> RgbaImage {
+    fn render(&self) -> RgbImage {
         // fill background
-        let mut bg = RgbaImage::new(
+        let mut bg = RgbImage::repeated(
+            &DynamicImage::from(
+                METAL_FLOOR
+                    .image(None, None, Rotation::Up, Scale::Full)
+                    .own(),
+            )
+            .into_rgb8(),
             ((self.width + 2) * 32) as u32,
             ((self.height + 2) * 32) as u32,
-        );
-        bg.repeat(
-            METAL_FLOOR
-                .image(None, None, Rotation::Up, Scale::Full)
-                .borrow(),
         );
         let mut canvas = RgbaImage::new(
             ((self.width + 2) * 32) as u32,
@@ -232,23 +236,36 @@ impl Renderable for Schematic<'_> {
                 (y + 1) * 32,
             );
         }
-
-        #[cfg(feature = "schem_shadow")]
-        image::imageops::overlay(&mut bg, canvas.shadow(), 0, 0);
-        #[cfg(not(feature = "schem_shadow"))]
-        bg.overlay(&canvas);
+        canvas.shadow();
+        for x in 0..canvas.width() {
+            for y in 0..canvas.height() {
+                let p2 = unsafe { canvas.unsafe_get_pixel(x, y) };
+                let Rgb([r2, g2, b2]) = unsafe { bg.unsafe_get_pixel(x, y) };
+                let mut p = Rgba([r2, g2, b2, u8::MAX]);
+                p.blend(&p2);
+                let Rgba([r, g, b, a]) = p;
+                let a = a as f32 / 255.;
+                let p = Rgb([
+                    (((r as f32 / 255.) * a) * 255.) as u8,
+                    (((g as f32 / 255.) * a) * 255.) as u8,
+                    (((b as f32 / 255.) * a) * 255.) as u8,
+                ]);
+                unsafe { bg.unsafe_put_pixel(x, y, p) };
+            }
+        }
         bg
     }
 }
 
 impl Renderable for Map<'_> {
-    fn render(&self) -> RgbaImage {
+    fn render(&self) -> RgbImage {
         let scale = if self.width + self.height < 2000 {
             Scale::Quarter
         } else {
             Scale::Eigth
         };
-        let mut floor = RgbaImage::new(scale * self.width as u32, scale * self.height as u32);
+        // todo combine these (beware of floor drawing atop buildings) (planned solution:? ptr blocks)
+        let mut floor = RgbImage::new(scale * self.width as u32, scale * self.height as u32);
         let mut top = RgbaImage::new(scale * self.width as u32, scale * self.height as u32);
         for (x, y, j, tile) in self.tiles.iter().enumerate().map(|(j, t)| {
             (
@@ -260,19 +277,16 @@ impl Renderable for Map<'_> {
             )
         }) {
             // draw the floor first.
-            let img = tile.floor_image(None, scale);
+            let img: &RgbaImage = &tile.floor_image(None, scale);
             // println!("draw {tile:?} ({x}, {y}) + {scale:?}");
             // assert_eq!(img.width(), scale.px() as u32);
             // assert_eq!(img.height(), scale.px() as u32);
-            floor.overlay_at(&img, scale * x as u32, scale * y as u32);
+            floor.overlay_at(img, scale * x as u32, scale * y as u32);
             if let Some(build) = tile.build() {
                 let s = build.block.get_size();
                 let x = x - ((s - 1) / 2) as usize;
                 let y = y - (s / 2) as usize;
-                let ctx = (|| {
-                    if !build.block.wants_context() {
-                        return None;
-                    }
+                let ctx = if build.block.wants_context() {
                     let pctx = PositionContext {
                         position: GridPos(x, y),
                         width: self.width,
@@ -283,22 +297,21 @@ impl Renderable for Map<'_> {
                         position: pctx,
                     };
                     Some(rctx)
-                })();
-                let img = tile.build_image(ctx.as_ref(), scale);
+                } else {
+                    None
+                };
+                let img: &RgbaImage = &tile.build_image(ctx.as_ref(), scale);
                 // assert_eq!(img.width(), scale * build.block.get_size() as u32);
                 // assert_eq!(img.height(), scale * build.block.get_size() as u32);
-                top.overlay_at(&img, scale * x as u32, scale * y as u32);
+                top.overlay_at(img, scale * x as u32, scale * y as u32);
             }
         }
-        #[cfg(feature = "map_shadow")]
-        image::imageops::overlay(&mut floor, top.shadow(), 0, 0);
-        #[cfg(not(feature = "map_shadow"))]
-        floor.overlay(&top);
+        floor.overlay_at(&top, 0, 0);
         floor
     }
 }
 
-/// Loads all the images into memory
+/// Loads all the images into memory (about 300mb)
 pub fn warmup() {
     for map in [&FULL, &QUAR, &EIGH] {
         for val in map.values() {
