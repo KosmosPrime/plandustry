@@ -1,17 +1,16 @@
 //! grass
 use crate::block::make_register;
 use crate::block::simple::make_simple;
-use crate::data::renderer::*;
 
 macro_rules! register_env {
     ($($field:literal: $size:literal;)+) => {
         make_register!(
-            $($field => EnvironmentBlock::new($size, true, &[]);)*
+            $($field -> EnvironmentBlock::new($size, true, &[]);)*
         );
     };
 }
 
-make_simple!(EnvironmentBlock, |_, name, _, _, _, s| load(name, s));
+make_simple!(EnvironmentBlock);
 
 register_env! {
     "darksand": 1;
@@ -164,7 +163,6 @@ register_env! {
     "red-stone-boulder": 1;
     "rhyolite-boulder": 1;
     "sand-boulder": 1;
-    "yellow-sand-boulder": 1;
     "pur-bush": 1;
     "tendrils": 1;
     // these are tall but uh (TODO layering)

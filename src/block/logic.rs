@@ -23,21 +23,21 @@ make_simple!(
 );
 
 make_register! {
-    "reinforced-message" => MessageLogic::new(1, true, cost!(Graphite: 10, Beryllium: 5));
-    "message" => MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
+    "reinforced-message" -> MessageLogic::new(1, true, cost!(Graphite: 10, Beryllium: 5));
+    "message" -> MessageLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
     "switch" => SwitchLogic::new(1, true, cost!(Copper: 5, Graphite: 5));
-    "micro-processor" => ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));
-    "logic-processor" => ProcessorLogic::new(2, true, cost!(Lead: 320, Graphite: 60, Thorium: 50, Silicon: 80));
-    "hyper-processor" => ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
-    "memory-cell" => MemoryBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
-    "memory-bank" => MemoryBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
-    "logic-display" => LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
-    "large-logic-display" => LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
+    "micro-processor" -> ProcessorLogic::new(1, true, cost!(Copper: 90, Lead: 50, Silicon: 50));
+    "logic-processor" -> ProcessorLogic::new(2, true, cost!(Lead: 320, Graphite: 60, Thorium: 50, Silicon: 80));
+    "hyper-processor" -> ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
+    "memory-cell" -> MemoryBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
+    "memory-bank" -> MemoryBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
+    "logic-display" -> LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
+    "large-logic-display" -> LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
     "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
     // editor only
-    "world-processor" => LogicBlock::new(1, true, &[]);
-    "world-message" => MessageLogic::new(1, true, &[]);
-    "world-cell" => MemoryBlock::new(1, true, &[]);
+    "world-processor" -> LogicBlock::new(1, true, &[]);
+    "world-message" -> MessageLogic::new(1, true, &[]);
+    "world-cell" -> MemoryBlock::new(1, true, &[]);
 }
 
 pub struct CanvasBlock {
@@ -146,7 +146,7 @@ impl BlockLogic for CanvasBlock {
     /// i thought about drawing the borders and stuff but it felt like too much work
     fn draw(
         &self,
-        n: &str,
+        _: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
@@ -171,7 +171,7 @@ impl BlockLogic for CanvasBlock {
             )
             .into_rgba8()
             .scale((s * self.size as u32) - offset * 2);
-            let mut borders = load(n, s);
+            let mut borders = load!("canvas", s);
             borders.overlay_at(&p, offset, offset);
             return borders;
         }
@@ -235,13 +235,13 @@ impl BlockLogic for MessageLogic {
 
     fn draw(
         &self,
-        name: &str,
+        _: &str,
         _: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
-        s: Scale,
+        _: Scale,
     ) -> ImageHolder {
-        load(name, s)
+        unreachable!()
     }
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
@@ -344,10 +344,10 @@ impl BlockLogic for SwitchLogic {
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        let mut base = load("switch", s);
+        let mut base = load!("switch", s);
         if let Some(state) = state {
             if *Self::get_state(state) {
-                let on = load("switch-on", s);
+                let on = load!("switch-on", s);
                 base.overlay(&on);
                 return base;
             }
@@ -407,17 +407,6 @@ fn read_decompressed(buff: &mut DataRead) -> Result<ProcessorState, ProcessorDes
 
 impl BlockLogic for ProcessorLogic {
     impl_block!();
-
-    fn draw(
-        &self,
-        name: &str,
-        _: Option<&State>,
-        _: Option<&RenderingContext>,
-        _: Rotation,
-        s: Scale,
-    ) -> ImageHolder {
-        load(name, s)
-    }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
         Ok(DynData::Empty)

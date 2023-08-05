@@ -17,7 +17,7 @@ make_simple!(
         let ctx = ctx.unwrap();
         let mask = mask(ctx, rot, name);
         let (index, rot, flip) = mask2rotations(mask, rot);
-        let tile = rotations2tile((index, rot, flip), &format!("{name}-top"), s);
+        let tile = rotations2tile((index, rot, flip), "conduit", s);
         // TODO caps. stopped trying bcz too complex
         tile
     },
@@ -25,28 +25,28 @@ make_simple!(
 );
 
 make_register! {
-    "reinforced-pump" => LiquidBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
-    "mechanical-pump" => LiquidBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
-    "rotary-pump" => LiquidBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
-    "impulse-pump" => LiquidBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
+    "reinforced-pump" -> LiquidBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
+    "mechanical-pump" -> LiquidBlock::new(1, true, cost!(Copper: 15, Metaglass: 10));
+    "rotary-pump" -> LiquidBlock::new(2, true, cost!(Copper: 70, Metaglass: 50, Titanium: 35, Silicon: 20));
+    "impulse-pump" -> LiquidBlock::new(3, true, cost!(Copper: 80, Metaglass: 90, Titanium: 40, Thorium: 35, Silicon: 30));
     "conduit" => ConduitBlock::new(1, false, cost!(Metaglass: 1));
     "pulse-conduit" => ConduitBlock::new(1, false, cost!(Metaglass: 1, Titanium: 2));
     "plated-conduit" => ConduitBlock::new(1, false, cost!(Metaglass: 1, Thorium: 2, Plastanium: 1));
-    "liquid-router" => LiquidBlock::new(1, true, cost!(Metaglass: 2, Graphite: 4));
-    "liquid-container" => LiquidBlock::new(2, true, cost!(Metaglass: 15, Titanium: 10));
-    "liquid-tank" => LiquidBlock::new(3, true, cost!(Metaglass: 40, Titanium: 30));
-    "liquid-junction" => LiquidBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
-    "bridge-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4), 4, true);
-    "phase-conduit" => BridgeBlock::new(1, true, cost!(Metaglass: 20, Titanium: 10, Silicon: 7, PhaseFabric: 5), 12, true);
+    "liquid-router" -> LiquidBlock::new(1, true, cost!(Metaglass: 2, Graphite: 4));
+    "liquid-container" -> LiquidBlock::new(2, true, cost!(Metaglass: 15, Titanium: 10));
+    "liquid-tank" -> LiquidBlock::new(3, true, cost!(Metaglass: 40, Titanium: 30));
+    "liquid-junction" -> LiquidBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4));
+    "bridge-conduit" -> BridgeBlock::new(1, true, cost!(Metaglass: 8, Graphite: 4), 4, true);
+    "phase-conduit" -> BridgeBlock::new(1, true, cost!(Metaglass: 20, Titanium: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "reinforced-conduit" => ConduitBlock::new(1, false, cost!(Beryllium: 2));
-    "reinforced-liquid-junction" => LiquidBlock::new(1, true, cost!(Graphite: 4, Beryllium: 8));
+    "reinforced-liquid-junction" -> LiquidBlock::new(1, true, cost!(Graphite: 4, Beryllium: 8));
     "reinforced-bridge-conduit" => BridgeBlock::new(1, true, cost!(Graphite: 8, Beryllium: 20), 4, true);
-    "reinforced-liquid-router" => LiquidBlock::new(1, true, cost!(Graphite: 8, Beryllium: 4));
-    "reinforced-liquid-container" => LiquidBlock::new(2, true, cost!(Tungsten: 10, Beryllium: 16));
-    "reinforced-liquid-tank" => LiquidBlock::new(3, true, cost!(Tungsten: 40, Beryllium: 50));
+    "reinforced-liquid-router" -> LiquidBlock::new(1, true, cost!(Graphite: 8, Beryllium: 4));
+    "reinforced-liquid-container" -> LiquidBlock::new(2, true, cost!(Tungsten: 10, Beryllium: 16));
+    "reinforced-liquid-tank" -> LiquidBlock::new(3, true, cost!(Tungsten: 40, Beryllium: 50));
     // sandbox only
     "liquid-source" => FluidBlock::new(1, true, &[]);
-    "liquid-void" => LiquidBlock::new(1, true, &[]);
+    "liquid-void" -> LiquidBlock::new(1, true, &[]);
 }
 
 pub struct FluidBlock {
@@ -111,21 +111,21 @@ impl BlockLogic for FluidBlock {
 
     fn draw(
         &self,
-        name: &str,
+        _: &str,
         state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        let mut p = load(name, s);
+        let mut p = load!("liquid-source", s);
         if let Some(state) = state {
             if let Some(liq) = Self::get_state(state) {
-                let mut top = load("center", s);
+                let mut top = load!("center", s);
                 p.overlay(top.tint(liq.color()));
                 return p;
             }
         }
-        let mut null = load("cross-full", s);
+        let mut null = load!("cross-full", s);
         null.overlay(&p);
         null
     }

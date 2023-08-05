@@ -11,19 +11,20 @@ make_simple!(ImpactReactorBlock => |_, _, _, buff: &mut DataRead| read_impact(bu
 make_simple!(
     Neoplasia,
     |_, _, _, _, rot: Rotation, scl| {
-        let mut base = load("neoplasia-reactor", scl);
-        base.overlay(load("neoplasia-reactor-top", scl).rotate(rot.rotated(false).count()));
+        let mut base = load!("neoplasia-reactor", scl);
+        // TODO 2 tops
+        base.overlay(load!("neoplasia-reactor-top", scl).rotate(rot.rotated(false).count()));
         base
     },
     |_, _, _, buff: &mut DataRead| read_heater(buff)
 );
 make_simple!(BatteryBlock);
 make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation, s| {
-    let mut base = load("diode", s);
+    let mut base = load!("diode", s);
     if rot == Rotation::Right {
         return base;
     }
-    let mut top = load("diode-arrow", s);
+    let mut top = load!("diode-arrow", s);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
     base
@@ -31,35 +32,35 @@ make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation, s| {
 
 make_register! {
     // illuminator == power ?????
-    "illuminator" => LampBlock::new(1, true, cost!(Lead: 8, Graphite: 12, Silicon: 8));
-    "power-node" => ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
-    "power-node-large" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
-    "surge-tower" => ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
+    "illuminator" -> LampBlock::new(1, true, cost!(Lead: 8, Graphite: 12, Silicon: 8));
+    "power-node" -> ConnectorBlock::new(1, true, cost!(Copper: 1, Lead: 3), 10);
+    "power-node-large" -> ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
+    "surge-tower" -> ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
     "diode" => DiodeBlock::new(1, false, cost!(Metaglass: 10, Silicon: 10, Plastanium: 5));
-    "battery" => BatteryBlock::new(1, true, cost!(Copper: 5, Lead: 20));
-    "battery-large" => BatteryBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
-    "combustion-generator" => GeneratorBlock::new(1, true, cost!(Copper: 25, Lead: 15));
-    "thermal-generator" => GeneratorBlock::new(2, true, cost!(Copper: 40, Lead: 50, Metaglass: 40, Graphite: 35, Silicon: 35));
-    "steam-generator" => GeneratorBlock::new(2, true, cost!(Copper: 35, Lead: 40, Graphite: 25, Silicon: 30));
-    "differential-generator" => GeneratorBlock::new(3, true, cost!(Copper: 70, Lead: 100, Metaglass: 50, Titanium: 50, Silicon: 65));
-    "rtg-generator" => GeneratorBlock::new(2, true, cost!(Lead: 100, Thorium: 50, Silicon: 75, Plastanium: 75, PhaseFabric: 25));
-    "solar-panel" => GeneratorBlock::new(1, true, cost!(Lead: 10, Silicon: 15));
-    "solar-panel-large" => GeneratorBlock::new(3, true, cost!(Lead: 80, Silicon: 110, PhaseFabric: 15));
-    "thorium-reactor" => NuclearGeneratorBlock::new(3, true, cost!(Lead: 300, Metaglass: 50, Graphite: 150, Thorium: 150, Silicon: 200));
-    "impact-reactor" => ImpactReactorBlock::new(4, true,
+    "battery" -> BatteryBlock::new(1, true, cost!(Copper: 5, Lead: 20));
+    "battery-large" -> BatteryBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
+    "combustion-generator" -> GeneratorBlock::new(1, true, cost!(Copper: 25, Lead: 15));
+    "thermal-generator" -> GeneratorBlock::new(2, true, cost!(Copper: 40, Lead: 50, Metaglass: 40, Graphite: 35, Silicon: 35));
+    "steam-generator" -> GeneratorBlock::new(2, true, cost!(Copper: 35, Lead: 40, Graphite: 25, Silicon: 30));
+    "differential-generator" -> GeneratorBlock::new(3, true, cost!(Copper: 70, Lead: 100, Metaglass: 50, Titanium: 50, Silicon: 65));
+    "rtg-generator" -> GeneratorBlock::new(2, true, cost!(Lead: 100, Thorium: 50, Silicon: 75, Plastanium: 75, PhaseFabric: 25));
+    "solar-panel" -> GeneratorBlock::new(1, true, cost!(Lead: 10, Silicon: 15));
+    "solar-panel-large" -> GeneratorBlock::new(3, true, cost!(Lead: 80, Silicon: 110, PhaseFabric: 15));
+    "thorium-reactor" -> NuclearGeneratorBlock::new(3, true, cost!(Lead: 300, Metaglass: 50, Graphite: 150, Thorium: 150, Silicon: 200));
+    "impact-reactor" -> ImpactReactorBlock::new(4, true,
         cost!(Lead: 500, Metaglass: 250, Graphite: 400, Thorium: 100, Silicon: 300, SurgeAlloy: 250));
-    "beam-node" => ConnectorBlock::new(1, true, cost!(Beryllium: 8), 4);
-    "beam-tower" => ConnectorBlock::new(3, true, cost!(Beryllium: 30, Oxide: 10, Silicon: 10), 12);
-    "turbine-condenser" => GeneratorBlock::new(3, true, cost!(Beryllium: 60));
-    "chemical-combustion-chamber" => GeneratorBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
-    "pyrolysis-generator" => GeneratorBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
-    "flux-reactor" => GeneratorBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
+    "beam-node" -> ConnectorBlock::new(1, true, cost!(Beryllium: 8), 4);
+    "beam-tower" -> ConnectorBlock::new(3, true, cost!(Beryllium: 30, Oxide: 10, Silicon: 10), 12);
+    "turbine-condenser" -> GeneratorBlock::new(3, true, cost!(Beryllium: 60));
+    "chemical-combustion-chamber" -> GeneratorBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
+    "pyrolysis-generator" -> GeneratorBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
+    "flux-reactor" -> GeneratorBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
     "neoplasia-reactor" => Neoplasia::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
     // editor only
-    "beam-link" => ConnectorBlock::new(3, true, &[], 12);
+    "beam-link" -> ConnectorBlock::new(3, true, &[], 12);
     // sandbox only
-    "power-source" => ConnectorBlock::new(1, true, &[], 100);
-    "power-void" => GeneratorBlock::new(1, true, &[]);
+    "power-source" -> ConnectorBlock::new(1, true, &[], 100);
+    "power-void" -> GeneratorBlock::new(1, true, &[]);
 }
 
 pub struct ConnectorBlock {
@@ -136,17 +137,6 @@ impl BlockLogic for ConnectorBlock {
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(DynData::Point2Array(Self::get_state(state).clone()))
-    }
-
-    fn draw(
-        &self,
-        name: &str,
-        _: Option<&State>,
-        _: Option<&RenderingContext>,
-        _: Rotation,
-        s: Scale,
-    ) -> ImageHolder {
-        load(name, s)
     }
 }
 
@@ -225,25 +215,10 @@ impl BlockLogic for LampBlock {
         }
     }
 
-    fn draw(
-        &self,
-        name: &str,
-        _: Option<&State>,
-        _: Option<&RenderingContext>,
-        _: Rotation,
-        s: Scale,
-    ) -> ImageHolder {
-        load(name, s)
-    }
-
     fn clone_state(&self, state: &State) -> State {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
-
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         let state = Self::get_state(state);

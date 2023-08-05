@@ -8,6 +8,7 @@ use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
+use std::sync::LazyLock;
 
 use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
@@ -64,7 +65,9 @@ pub trait BlockLogic {
         context: Option<&RenderingContext>,
         rot: Rotation,
         scale: Scale,
-    ) -> ImageHolder;
+    ) -> ImageHolder {
+        unimplemented!("{name}")
+    }
 
     fn want_context(&self) -> bool {
         false
@@ -161,6 +164,7 @@ impl SerializeError {
 
 /// a block. put it in stuff!
 pub struct Block {
+    image: Option<[&'static LazyLock<RgbaImage>; 3]>,
     name: Cow<'static, str>,
     pub(crate) logic: BoxAccess<'static, dyn BlockLogic + Sync>,
 }
@@ -177,8 +181,9 @@ impl Block {
     pub const fn new(
         name: Cow<'static, str>,
         logic: BoxAccess<'static, dyn BlockLogic + Sync>,
+        image: Option<[&'static LazyLock<RgbaImage>; 3]>,
     ) -> Self {
-        Self { name, logic }
+        Self { name, logic, image }
     }
 
     /// this blocks name
@@ -202,6 +207,11 @@ impl Block {
         rot: Rotation,
         scale: Scale,
     ) -> ImageHolder {
+        if let Some(imgs) = self.image {
+            return ImageHolder::from(LazyLock::force(unsafe {
+                imgs.get_unchecked(scale as usize)
+            }));
+        }
         self.logic
             .as_ref()
             .draw(&self.name, state, context, rot, scale)
@@ -429,16 +439,26 @@ pub type BlockRegistry<'l> = crate::registry::Registry<'l, Block>;
 pub type RegisterError<'l> = crate::registry::RegisterError<'l, Block>;
 
 macro_rules! make_register {
-	($($field:literal => $logic:expr;)+) => { paste::paste! {
+	($($field:literal $op:tt $logic:expr;)+) => { paste::paste! {
 		$(
-			pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
-				std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic));
-		)+
+            $crate::block::make_register!(impl $field $op $logic);
+        )+
 
 		pub(crate) fn register(reg: &mut $crate::block::BlockRegistry<'_>) {
-			$(assert!(reg.register(&[<$field:snake:upper>]).is_ok(), "duplicate block {:?}", $field);)+
+            // get the static we make
+			$(assert!(reg.register(&[<$field:snake:upper>]).is_ok());)+
 		}
     }};
+    (impl $field: literal => $logic: expr) => {
+        paste::paste! { pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
+            std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic), None
+        ); }
+    };
+    (impl $field: literal -> $logic: expr) => {
+        paste::paste! { pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
+            std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic), Some(crate::data::renderer::load!($field))
+        ); }
+    }
 }
 pub(crate) use make_register;
 

@@ -33,40 +33,33 @@ use crate::unit;
 //     )
 // }
 
-make_simple!(ConstructorBlock, |me: &Self,
-                                name,
-                                _,
-                                _,
-                                rot: Rotation,
-                                s| {
-    let mut base = load(name, s);
+make_simple!(ConstructorBlock, |_, name, _, _, rot: Rotation, s| {
+    let mut base = load!(from name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator" | "tank-assembler" | "ship-assembler" | "mech-assembler"], s);
     let times = rot.rotated(false).count();
     if !name.contains("assembler") {
-        let mut out = load(
-            &match name {
-                "additive-reconstructor"
-                | "multiplicative-reconstructor"
-                | "exponential-reconstructor"
-                | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
-                _ => format!("factory-out-{}-dark", me.size),
-            },
-            s,
-        );
-        out.rotate(times);
-        base.overlay(&out);
+        let mut out = load!(s -> match name {
+            "additive-reconstructor" => "factory-out-3",
+            "multiplicative-reconstructor" => "factory-out-5",
+            "tank-refabricator" | "mech-refabricator" | "ship-refabricator" =>
+                "factory-out-3-dark",
+            "exponential-reconstructor" => "factory-out-7",
+            "prime-refabricator" | "tank-assembler" | "ship-assembler" | "mech-assembler" =>
+                "factory-out-5-dark",
+            "tetrative-reconstructor" => "factory-out-9",
+        });
+        base.overlay(out.rotate(times));
 
-        let mut input = load(
-            &match name {
-                "additive-reconstructor"
-                | "multiplicative-reconstructor"
-                | "exponential-reconstructor"
-                | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
-                _ => format!("factory-in-{}-dark", me.size),
-            },
-            s,
-        );
-        input.rotate(times);
-        base.overlay(&input);
+        let mut r#in = load!(s -> match name {
+            "additive-reconstructor" => "factory-in-3",
+            "multiplicative-reconstructor" => "factory-in-5",
+            "tank-refabricator" | "mech-refabricator" | "ship-refabricator" =>
+                "factory-in-3-dark",
+            "exponential-reconstructor" => "factory-in-7",
+            "prime-refabricator" | "tank-assembler" | "ship-assembler" | "mech-assembler" =>
+                "factory-in-5-dark",
+            "tetrative-reconstructor" => "factory-in-9",
+        });
+        base.overlay(r#in.rotate(times));
     }
 
     // TODO: the context cross is too small
@@ -89,24 +82,21 @@ make_simple!(ConstructorBlock, |me: &Self,
     //     }
     // }
 
-    base.overlay(&load(&format!("{name}-top"), s));
+    base.overlay(load!(concat top => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator" | "tank-assembler" | "ship-assembler" | "mech-assembler"], s).borrow());
     if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
         base.overlay(
-            load(
-                match rot {
-                    Rotation::Up | Rotation::Right => match name {
-                        "mech-assembler" => "mech-assembler-side1",
-                        "tank-assembler" => "tank-assembler-side1",
-                        _ => "ship-assembler-side1",
-                    },
-                    _ => match name {
-                        "mech-assembler" => "mech-assembler-side2",
-                        "tank-assembler" => "tank-assembler-side2",
-                        _ => "ship-assembler-side2",
-                    },
-                },
-                s,
-            )
+            match rot {
+                Rotation::Up | Rotation::Right => load!(s -> match name {
+                    "mech-assembler" => "mech-assembler-side1",
+                    "tank-assembler" => "tank-assembler-side1",
+                    "ship-assembler" => "ship-assembler-side1",
+                }),
+                _ => load!(s -> match name {
+                    "mech-assembler" => "mech-assembler-side2",
+                    "tank-assembler" => "tank-assembler-side2",
+                    "ship-assembler" => "ship-assembler-side2",
+                }),
+            }
             .rotate(times),
         );
     }
@@ -114,23 +104,20 @@ make_simple!(ConstructorBlock, |me: &Self,
 });
 make_simple!(UnitRepairTower);
 make_simple!(AssemblerModule, |_, _, _, _, rot: Rotation, scl| {
-    let mut base = load("basic-assembler-module", scl);
+    let mut base = load!("basic-assembler-module", scl);
     base.overlay(
-        load(
-            match rot {
-                Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
-                _ => "basic-assembler-module-side2",
-            },
-            scl,
-        )
+        load!(scl -> match rot {
+            Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
+            _ => "basic-assembler-module-side2",
+        })
         .rotate(rot.rotated(false).count()),
     );
     base
 });
 make_simple!(
     RepairTurret => |scl| {
-        let mut bot = load("block-2", scl);
-        let top = load("repair-turret", scl);
+        let mut bot = load!("block-2", scl);
+        let top = load!("repair-turret", scl);
         bot.overlay(&top);
         bot
     },
@@ -166,7 +153,7 @@ make_register! {
     "ship-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 100, Oxide: 200, Tungsten: 500, Silicon: 800, Thorium: 400));
     "mech-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 200, Thorium: 600, Oxide: 200, Tungsten: 500, Silicon: 900)); // smh collaris
     "basic-assembler-module" => AssemblerModule::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
-    "unit-repair-tower" => UnitRepairTower::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
+    "unit-repair-tower" -> UnitRepairTower::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
 
 }
 
@@ -258,25 +245,22 @@ impl BlockLogic for AssemblerBlock {
         rot: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        let mut base = load(name, s);
-        let mut out = load(
-            match name {
-                "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
-                _ => "factory-out-3-dark",
-            },
-            s,
-        );
+        let mut base = load!(from name which is ["ground-factory" | "air-factory" | "naval-factory" | "tank-fabricator" | "ship-fabricator" | "mech-fabricator"], s);
+        let mut out = load!(s -> match name {
+            "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
+            _ => "factory-out-3-dark",
+        });
         out.rotate(rot.rotated(false).count());
         base.overlay(&out);
-        base.overlay(&load(
-            &match name {
-                "ground-factory" | "air-factory" | "naval-factory" => {
-                    format!("factory-top-{}", self.size)
-                }
-                _ => format!("{name}-top"),
-            },
-            s,
-        ));
+        base.overlay(
+            load!(s -> match name {
+                "ground-factory" | "air-factory" | "naval-factory" => "factory-top-3",
+                "tank-fabricator" => "tank-fabricator-top",
+                "ship-fabricator" => "ship-fabricator-top",
+                "mech-fabricator" => "mech-fabricator-top",
+            })
+            .borrow(),
+        );
         base
     }
 

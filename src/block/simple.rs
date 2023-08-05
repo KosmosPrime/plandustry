@@ -122,19 +122,7 @@ macro_rules! make_simple {
         crate::block::simple::make_simple!($name, $draw, $read, false);
     };
     ($name: ident => $read: expr) => {
-        crate::block::simple::make_simple!(
-            $name,
-            |_, n, _, _, _, s| crate::data::renderer::load(n, s),
-            $read
-        );
-    };
-    ($name: ident) => {
-        crate::block::simple::make_simple!(
-            $name,
-            |_, n, _, _, _, s| crate::data::renderer::load(n, s),
-            |_, _, _, _| Ok(()),
-            false
-        );
+        crate::block::simple::make_simple!($name, |_, n, _, _, _, _| unimplemented!("{n}"), $read);
     };
     ($name: ident => $draw: expr, $read: expr) => {
         crate::block::simple::make_simple!($name, |_, _, _, _, _, scl| $draw(scl), $read);
@@ -145,6 +133,9 @@ macro_rules! make_simple {
             |_, _, _, _, _, scl| $draw(scl),
             |_, _, _, _| Ok(())
         );
+    };
+    ($name: ident) => {
+        crate::block::simple::make_simple!($name, |_, n, _, _, _, _| unimplemented!("{n}"));
     };
 }
 pub(crate) use make_simple;

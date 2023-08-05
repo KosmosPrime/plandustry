@@ -7,6 +7,23 @@ use std::iter::Iterator;
 use std::path::Path;
 use walkdir::WalkDir;
 
+macro_rules! wr {
+    ($dst:expr => $($arg:tt)*) => { writeln!($dst, $($arg)*).unwrap() };
+}
+
+fn kebab2bigsnek(kebab: &str) -> String {
+    let mut n = String::new();
+    n.reserve(kebab.len());
+    for c in kebab.chars() {
+        if c == '-' {
+            n.push('_');
+        } else {
+            n.push(c.to_ascii_uppercase());
+        }
+    }
+    n
+}
+
 fn main() {
     let _ = std::fs::remove_dir_all("target/out");
     let walkdir = WalkDir::new("assets");
@@ -18,17 +35,30 @@ fn main() {
     // let mut half = File::create(o.join("half.rs")).unwrap();
     let mut quar = File::create(o.join("quar.rs")).unwrap();
     let mut eigh = File::create(o.join("eigh.rs")).unwrap();
-    let mut n = 2usize;
-    for mut f in [&full, &eigh, &quar] {
-        f.write_all(b"phf::phf_map! {\n").unwrap();
+    let mut n = 4usize;
+
+    wr!(full => "pub mod full {{");
+    wr!(full => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(32, 32));");
+
+    wr!(quar => "pub mod quar {{");
+    wr!(quar => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(8, 8));");
+
+    wr!(eigh => "pub mod eigh {{");
+    wr!(eigh => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(4, 4));");
+
+    for mut file in [&full, &quar, &eigh] {
+        file.write_all(b"macro_rules!img{($v:expr)=>{{static TMP:LazyLock<RgbaImage>=LazyLock::new(||$v);&TMP}};}\n").unwrap();
+        wr!(file => "use ::{{image::RgbaImage, std::sync::LazyLock}};");
     }
     for i in 1..=16 {
         n += 1;
-        writeln!(full, r#"  "build{}" => &EMPTY_FULL,"#, i).unwrap();
-        writeln!(quar, r#"  "build{}" => &EMPTY_QUAR,"#, i).unwrap();
-        writeln!(eigh, r#"  "build{}" => &EMPTY_EIGH,"#, i).unwrap();
+        wr!(full => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
+        wr!(quar => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
+        wr!(eigh => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
     }
 
+    let mut warmup = File::create(o.join("warmup.rs")).unwrap();
+    wr!(warmup => "pub fn warmup() {{");
     for e in walkdir.into_iter().filter_map(|e| e.ok()) {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
@@ -38,7 +68,7 @@ fn main() {
                 continue;
             }
             let path = path.with_extension("");
-            let path = path.file_name().unwrap().to_str().unwrap();
+            let path = kebab2bigsnek(path.file_name().unwrap().to_str().unwrap());
             macro_rules! writ {
                 ($ext:ident / $scale:literal) => {
                     let mut buf = File::create(o.join(n.to_string() + "-" + stringify!($ext))).unwrap();
@@ -64,20 +94,25 @@ fn main() {
                     let x = new.width();
                     let y = new.height();
                     buf.write_all(&new.into_raw()).unwrap();
-                    writeln!($ext,
-                        r#"  "{path}" => r!(unsafe {{ RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap_unchecked() }}),"#,
+                    wr!($ext =>
+                        r#"pub static {path}: &LazyLock<RgbaImage> = img!(unsafe {{ RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap_unchecked() }});"#,
                         stringify!($ext)
-                    ).unwrap();
+                    );
                 };
             }
             writ!(full / 1);
             // writ!(half + 0.5);
             writ!(quar / 4);
             writ!(eigh / 8);
+            wr!(warmup => "LazyLock::force({path});");
             n += 1;
         }
     }
+    warmup.write_all(b"}").unwrap();
     for mut f in [full, eigh, quar] {
+        // brazillian literal
+        f.write_all(br#"include!(concat!(env!("OUT_DIR"), "/warmup.rs"));"#)
+            .unwrap();
         f.write_all(b"}").unwrap();
     }
 }

@@ -1,7 +1,7 @@
 use image::*;
 
 pub trait Overlay<W> {
-    /// Overlay with onto self at coordinates x, y, without blending
+    /// Overlay with => self at coordinates x, y, without blending
     fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
 }
 
@@ -13,7 +13,7 @@ pub trait RepeatNew {
 pub trait ImageUtils {
     /// Tint this image with the color
     fn tint(&mut self, color: Rgb<u8>) -> &mut Self;
-    /// Overlay with onto self (does not blend)
+    /// Overlay with => self (does not blend)
     fn overlay(&mut self, with: &Self) -> &mut Self;
     /// rotate
     fn rotate(&mut self, times: u8) -> &mut Self;

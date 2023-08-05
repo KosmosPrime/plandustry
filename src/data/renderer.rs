@@ -1,5 +1,7 @@
 //! schematic drawing
 pub(crate) use super::autotile::*;
+use super::schematic::Schematic;
+use super::GridPos;
 use crate::block::environment::METAL_FLOOR;
 use crate::block::Rotation;
 pub(crate) use crate::utils::{ImageUtils, Overlay, Repeat};
@@ -9,27 +11,9 @@ pub(crate) use image::{
 };
 pub(crate) use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut};
-use std::sync::LazyLock;
-
-use super::schematic::Schematic;
-use super::GridPos;
-
-macro_rules! r {
-    ($v:expr) => {{
-        static TMP: LazyLock<RgbaImage> = LazyLock::new(|| $v);
-        &TMP
-    }};
-}
-
-type Images = phf::Map<&'static str, &'static LazyLock<RgbaImage>>;
-static EMPTY_FULL: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(32, 32));
-static EMPTY_QUAR: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(8, 8));
-static EMPTY_EIGH: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(4, 4));
-
-static FULL: Images = include!(concat!(env!("OUT_DIR"), "/full.rs"));
-// static HALF: Images = include!(concat!(env!("OUT_DIR"), "/half.rs"));
-static QUAR: Images = include!(concat!(env!("OUT_DIR"), "/quar.rs"));
-static EIGH: Images = include!(concat!(env!("OUT_DIR"), "/eigh.rs"));
+include!(concat!(env!("OUT_DIR"), "/full.rs"));
+include!(concat!(env!("OUT_DIR"), "/quar.rs"));
+include!(concat!(env!("OUT_DIR"), "/eigh.rs"));
 
 pub enum ImageHolder {
     Borrow(&'static RgbaImage),
@@ -101,6 +85,7 @@ impl From<RgbaImage> for ImageHolder {
 }
 
 #[derive(Debug, Copy, Clone)]
+#[repr(u8)]
 pub enum Scale {
     Full,
     // Half,
@@ -125,22 +110,57 @@ impl std::ops::Mul<u32> for Scale {
     }
 }
 
-pub(crate) fn try_load(name: &str, scale: Scale) -> Option<&'static RgbaImage> {
-    match scale {
-        Scale::Quarter => QUAR.get(name).map(|v| LazyLock::force(v)),
-        Scale::Eigth => EIGH.get(name).map(|v| LazyLock::force(v)),
-        Scale::Full => FULL.get(name).map(|v| LazyLock::force(v)),
-        // Scale::Half => HALF.get(&name).map(|v| LazyLock::force(v)),
-    }
-}
-
-#[track_caller]
-pub(crate) fn load(name: &str, scale: Scale) -> ImageHolder {
-    let Some(i) = try_load(name, scale) else {
-        panic!("failed to load {name}")
+#[macro_export]
+macro_rules! load {
+    ($name:literal, $scale:ident) => { paste::paste! {
+        ImageHolder::from(std::sync::LazyLock::force(match $scale {
+            crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$name:snake:upper>],
+            crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$name:snake:upper>],
+            crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$name:snake:upper>],
+        }))
+    } };
+    ($name: literal) => { paste::paste! {
+        [crate::data::renderer::full::[<$name:snake:upper>], crate::data::renderer::quar::[<$name:snake:upper>], crate::data::renderer::eigh::[<$name:snake:upper>]]
+    } };
+    (from $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => {
+        crate::data::renderer::load!($scale -> match $v {
+            $($k => $k,)+
+        })
     };
-    ImageHolder::from(i)
+    // turn load!(s -> match x { "v" => "y" }) into match x { "v" => load!("y", s) }
+    ($scale:ident -> match $v:ident { $($k:pat => $nam:literal $(,)?)+ }) => {
+        match $v {
+            $($k => crate::data::renderer::load!($nam, $scale),)+
+            #[allow(unreachable_patterns)]
+            n => unreachable!("{n:?}"),
+        }
+    };
+    (concat $x:expr => $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
+        match $v {
+            $($k =>
+                ImageHolder::from(std::sync::LazyLock::force(match $scale {
+                    crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$k:snake:upper _ $x:snake:upper>],
+                    crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$k:snake:upper _ $x:snake:upper>],
+                    crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$k:snake:upper _ $x:snake:upper>],
+                })),
+            )+
+            #[allow(unreachable_patterns)]
+            n => unreachable!("{n:?}"),
+        }
+    } };
+    // (concat $x:expr, to $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
+    //     match $v {
+    //         $($k =>
+    //             ImageHolder::from(**match $scale {
+    //                 crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$k:snake:upper $x:snake:upper>],
+    //                 crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$k:snake:upper $x:snake:upper>],
+    //                 crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$k:snake:upper $x:snake:upper>],
+    //             }),
+    //         )+
+    //     }
+    // } }
 }
+pub(crate) use load;
 
 /// trait for renderable objects
 pub trait Renderable {
@@ -278,11 +298,9 @@ impl Renderable for Map<'_> {
 
 /// Loads all the images into memory (about 300mb)
 pub fn warmup() {
-    for map in [&FULL, &QUAR, &EIGH] {
-        for val in map.values() {
-            LazyLock::force(val);
-        }
-    }
+    full::warmup();
+    quar::warmup();
+    eigh::warmup();
 }
 
 #[test]

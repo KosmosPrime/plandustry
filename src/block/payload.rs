@@ -15,39 +15,32 @@ use super::BlockRegistry;
 make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
     match n {
         "deconstructor" | "small-deconstructor" | "payload-void" => {
-            let mut base = load(n, scl);
-            let mut r#in = load(
-                match n {
-                    "small-deconstructor" => "factory-in-3",
-                    _ => "factory-in-5",
-                },
-                scl,
+            let mut base = load!(from n which is ["deconstructor" | "small-deconstructor" | "payload-void"], scl);
+            let mut r#in = load!(scl -> match n {
+                "small-deconstructor" => "factory-in-3",
+                _ => "factory-in-5",
+            });
+            base.overlay(r#in.rotate(r.rotated(false).count())).overlay(
+                load!(scl -> match n {
+                    "small-deconstructor" => "small-deconstructor-top",
+                    "deconstructor" => "deconstructor-top",
+                    _ => "payload-void-top",
+                })
+                .borrow(),
             );
-            base.overlay(r#in.rotate(r.rotated(false).count()))
-                .overlay(&load(
-                    match n {
-                        "small-deconstructor" => "small-deconstructor-top",
-                        "deconstructor" => "deconstructor-top",
-                        _ => "payload-void-top",
-                    },
-                    scl,
-                ));
             base
         }
         // "payload-loader" | "payload-unloader"
         _ => {
-            let mut base = load(n, scl);
-            let mut input = load("factory-in-3-dark", scl);
-            let mut output = load("factory-out-3-dark", scl);
+            let mut base = load!(from n which is ["payload-loader" | "payload-unloader"], scl);
+            let mut input = load!("factory-in-3-dark", scl);
+            let mut output = load!("factory-out-3-dark", scl);
             base.overlay(input.rotate(r.rotated(false).count()))
                 .overlay(output.rotate(r.rotated(false).count()))
-                .overlay(&load(
-                    match n {
-                        "payload-loader" => "payload-loader-top",
-                        _ => "payload-unloader-top",
-                    },
-                    scl,
-                ));
+                .overlay(
+                    load!(concat top => n which is ["payload-loader" | "payload-unloader"], scl)
+                        .borrow(),
+                );
             base
         }
     }
@@ -55,7 +48,8 @@ make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
 make_simple!(
     PayloadConveyor,
     |_, n, _, _, r: Rotation, s| {
-        let mut base = load(n, s);
+        let mut base =
+            load!(from n which is ["payload-conveyor" | "reinforced-payload-conveyor"], s);
         base.rotate(r.rotated(false).count());
         base
     },
@@ -68,8 +62,8 @@ make_register! {
     "payload-router" => PayloadBlock::new(3, false, cost!(Copper: 10, Graphite: 15));
     "reinforced-payload-conveyor" => PayloadConveyor::new(3, false, cost!(Tungsten: 10));
     "reinforced-payload-router" => PayloadBlock::new(3, false, cost!(Tungsten: 15));
-    "payload-mass-driver" => BridgeBlock::new(3, true, cost!(Tungsten: 120, Silicon: 120, Graphite: 50), 700, false);
-    "large-payload-mass-driver" => BridgeBlock::new(5, true, cost!(Thorium: 200, Tungsten: 200, Silicon: 200, Graphite: 100, Oxide: 30), 1100, false);
+    "payload-mass-driver" -> BridgeBlock::new(3, true, cost!(Tungsten: 120, Silicon: 120, Graphite: 50), 700, false);
+    "large-payload-mass-driver" -> BridgeBlock::new(5, true, cost!(Thorium: 200, Tungsten: 200, Silicon: 200, Graphite: 100, Oxide: 30), 1100, false);
     "small-deconstructor" => SimplePayloadBlock::new(3, true, cost!(Beryllium: 100, Silicon: 100, Oxide: 40, Graphite: 80));
     "deconstructor" => SimplePayloadBlock::new(5, true, cost!(Beryllium: 250, Oxide: 100, Silicon: 250, Carbide: 250));
     "constructor" => PayloadBlock::new(3, true, cost!(Silicon: 100, Beryllium: 150, Tungsten: 80));
@@ -123,41 +117,23 @@ impl BlockLogic for PayloadBlock {
     ) -> ImageHolder {
         match name {
             "payload-router" | "reinforced-payload-router" => {
-                let mut base = load(name, s);
+                let mut base =
+                    load!(from name which is ["payload-router" | "reinforced-payload-router"], s);
                 base.rotate(r.rotated(false).count());
-                let over = load(
-                    match name {
-                        "payload-router" => "payload-router-over",
-                        _ => "reinforced-payload-router-over",
-                    },
-                    s,
-                );
+                let over = load!(concat over => name which is ["payload-router" | "reinforced-payload-router"], s);
                 base.overlay(&over);
                 base
             }
-            // "constructor" | "large-constructor" | "payload-source"
             _ => {
-                let mut base = load(name, s);
-                let mut out = load(
-                    match name {
-                        "constructor" => "factory-out-3",
-                        "large-constructor" => "factory-out-5-dark",
-                        _ => "factory-out-5",
-                    },
-                    s,
-                );
+                let mut base = load!(from name which is ["constructor" | "large-constructor" | "payload-source"], s);
+                let mut out = load!(s -> match name {
+                    "constructor" => "factory-out-3",
+                    "large-constructor" => "factory-out-5-dark",
+                    _ => "factory-out-5",
+                });
                 out.rotate(r.rotated(false).count());
                 base.overlay(&out);
-
-                base.overlay(&load(
-                    match name {
-                        "constructor" => "constructor-top",
-                        "large-constructor" => "large-constructor-top",
-                        _ => "payload-source-top",
-                    },
-                    s,
-                ));
-
+                base.overlay(load!(concat top => name which is ["constructor" | "large-constructor" | "payload-source"], s).borrow());
                 base
             }
         }
@@ -192,10 +168,6 @@ impl BlockLogic for PayloadBlock {
         let state = Self::get_state(state);
         Box::new(Self::create_state(*state))
     }
-
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         match Self::get_state(state) {

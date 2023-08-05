@@ -39,8 +39,8 @@ make_simple!(
 
 make_simple!(JunctionBlock => |_, _, _, buff| { read_directional_item_buffer(buff) });
 make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
-    let mut base = load("duct-base", s);
-    let mut top = load(name, s);
+    let mut base = load!("duct-base", s);
+    let mut top = load!(from name which is ["overflow-duct" "underflow-duct"], s);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
     base
@@ -56,7 +56,7 @@ fn draw_stack(
 ) -> ImageHolder {
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
-    let edge = load(&format!("{name}-edge"), s);
+    let edge = load!(concat edge => name which is ["surge-conveyor" | "plastanium-conveyor"], s);
     let edgify = |skip, to: &mut RgbaImage| {
         for i in 0..4 {
             if i == skip {
@@ -67,7 +67,11 @@ fn draw_stack(
             to.overlay(&edge);
         }
     };
-    let gimme = |n: u8| load(&format!("{name}-{n}"), s);
+    let gimme = |n: u8| match n {
+        0 => load!(concat 0 => name which is ["surge-conveyor" | "plastanium-conveyor"], s),
+        1 => load!(concat 1 => name which is ["surge-conveyor" | "plastanium-conveyor"], s),
+        _ => load!("plastanium-conveyor-2", s),
+    };
     let empty = ctx.cross[rot.count() as usize].map_or(true, |(v, _)| v.name != name);
     // mindustry says fuck this and just draws the arrow convs in schems but im better than that
     if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
@@ -115,8 +119,8 @@ make_simple!(ControlBlock);
 make_simple!(
     SurgeRouter
         / |s| {
-            let mut base = load("surge-router", s);
-            base.overlay(&load("top", s));
+            let mut base = load!("surge-router", s);
+            base.overlay(&load!("top", s));
             base
         }
 );
@@ -128,15 +132,15 @@ make_register! {
     "titanium-conveyor" => ConveyorBlock::new(1, false, cost!(Copper: 1, Lead: 1, Titanium: 1));
     "plastanium-conveyor" => StackConveyor::new(1, false, cost!(Graphite: 1, Silicon: 1, Plastanium: 1));
     "armored-conveyor" => ConveyorBlock::new(1, false, cost!(Metaglass: 1, Thorium: 1, Plastanium: 1));
-    "junction" => JunctionBlock::new(1, true, cost!(Copper: 2));
-    "bridge-conveyor" => BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
-    "phase-conveyor" => BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
+    "junction" -> JunctionBlock::new(1, true, cost!(Copper: 2));
+    "bridge-conveyor" -> BridgeBlock::new(1, false, cost!(Copper: 6, Lead: 6), 4, true);
+    "phase-conveyor" -> BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
     "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
-    "router" => ControlBlock::new(1, true, cost!(Copper: 3));
-    "distributor" => ControlBlock::new(2, true, cost!(Copper: 4, Lead: 4));
-    "overflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
-    "underflow-gate" => ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+    "router" -> ControlBlock::new(1, true, cost!(Copper: 3));
+    "distributor" -> ControlBlock::new(2, true, cost!(Copper: 4, Lead: 4));
+    "overflow-gate" -> ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+    "underflow-gate" -> ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
     "duct" => DuctBlock::new(1, false, cost!(Beryllium: 1));
     "armored-duct" => DuctBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
@@ -147,11 +151,11 @@ make_register! {
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
     "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
     "surge-router" => SurgeRouter::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
-    "unit-cargo-loader" => UnitCargoLoader::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
+    "unit-cargo-loader" -> UnitCargoLoader::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
-    "item-source" => ItemBlock::new(1, true, &[]);
-    "item-void" => ControlBlock::new(1, true, &[]);
+    "item-source" -> ItemBlock::new(1, true, &[]);
+    "item-void" -> ControlBlock::new(1, true, &[]);
 }
 
 pub struct ItemBlock {
@@ -224,17 +228,14 @@ impl BlockLogic for ItemBlock {
         rot: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        let mut p = load(name, s);
+        let mut p = load!(from name which is ["sorter" | "inverted-sorter" | "duct-router" | "duct-unloader" | "unit-cargo-unload-point" | "unloader" | "item-source"], s);
         if let Some(state) = state {
             if let Some(item) = Self::get_state(state) {
-                let mut top = load(
-                    match name {
-                        "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
-                        "unloader" => "unloader-center",
-                        _ => "center",
-                    },
-                    s,
-                );
+                let mut top = load!(s -> match name {
+                    "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
+                    "unloader" => "unloader-center",
+                    _ => "center",
+                });
                 p.overlay(top.tint(item.color()));
                 return p;
             }
@@ -243,20 +244,20 @@ impl BlockLogic for ItemBlock {
             return p;
         }
         if name == "duct-router" {
-            let mut arrow = load("top", s);
+            let mut arrow = load!("top", s);
             arrow.rotate(rot.rotated(false).count());
             p.overlay(&arrow);
             p
         } else if name == "duct-unloader" {
-            let mut top = load("duct-unloader-top", s);
+            let mut top = load!("duct-unloader-top", s);
             top.rotate(rot.rotated(false).count());
             p.overlay(&top);
-            let mut arrow = load("top", s);
+            let mut arrow = load!("top", s);
             arrow.rotate(rot.rotated(false).count());
             p.overlay(&arrow);
             p
         } else {
-            let mut null = load("cross-full", s);
+            let mut null = load!("cross-full", s);
             null.overlay(&p);
             null
         }
@@ -484,25 +485,25 @@ impl BlockLogic for BridgeBlock {
     ) -> ImageHolder {
         match name {
             "mass-driver" => {
-                let mut base = load("mass-driver-base", s);
-                base.overlay(&load("mass-driver", s));
+                let mut base = load!("mass-driver-base", s);
+                base.overlay(&load!("mass-driver", s));
                 base
             }
             "duct-bridge" | "reinforced-bridge-conduit" => {
-                let mut base = load(name, s);
-                let mut arrow = load(
-                    match name {
+                let mut base =
+                    load!(from name which is ["duct-bridge" | "reinforced-bridge-conduit"], s);
+                let mut arrow = load!(
+                    s -> match name {
                         "duct-bridge" => "duct-bridge-dir",
                         _ => "reinforced-bridge-conduit-dir",
-                    },
-                    s,
+                    }
                 );
                 arrow.rotate(r.rotated(false).count());
                 base.overlay(&arrow);
                 base
             }
             // "bridge-conveyor" | "phase-conveyor" | "bridge-conduit" | "phase-conduit" | "payload-mass-driver" | "large-payload-mass-driver"
-            _ => load(name, s),
+            _ => unreachable!(),
         }
     }
 }

@@ -4,7 +4,6 @@ use super::{BlockLogic, Rotation, State};
 use crate::block::make_register;
 use crate::block::simple::cost;
 use crate::data::{renderer::*, DataRead, ReadError};
-use crate::utils::ImageUtils;
 
 make_register! {
     "duo" => ItemTurret::new(1, true, cost!(Copper: 35));
@@ -45,13 +44,22 @@ fn draw_turret(
     _: Rotation,
     s: Scale,
 ) -> ImageHolder {
-    let path = match name {
+    let size = me.get_size();
+    let mut base = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
-        | "scathe" | "malign" | "smite" => format!("reinforced-block-{}", me.get_size()),
-        _ => format!("block-{}", me.get_size()),
+        | "scathe" | "malign" | "smite" => load!(s -> match size {
+            3 => "reinforced-block-3",
+            4 => "reinforced-block-4",
+            5 => "reinforced-block-5",
+        }),
+        _ => load!(s -> match size {
+            1 => "block-1",
+            2 => "block-2",
+            3 => "block-3",
+            4 => "block-4",
+        }),
     };
-    let mut base = load(&path, s);
-    base.overlay(&load(name, s));
+    base.overlay(load!(from name which is ["duo" | "scatter" | "scorch" | "hail" | "wave" | "tsunami" | "lancer" | "arc" | "parallax" | "swarmer" | "salvo" | "segment" | "fuse" | "ripple" | "cyclone" | "foreshadow" | "spectre" | "meltdown" | "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre" | "scathe" | "malign" | "smite"], s).borrow());
     base
 }
 
