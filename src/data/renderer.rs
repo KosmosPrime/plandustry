@@ -2,7 +2,6 @@
 pub(crate) use super::autotile::*;
 use crate::block::environment::METAL_FLOOR;
 use crate::block::Rotation;
-use crate::team::SHARDED;
 pub(crate) use crate::utils::{ImageUtils, Overlay, Repeat};
 use crate::Map;
 pub(crate) use image::{
@@ -45,12 +44,13 @@ impl ImageHolder {
         }
     }
 
-    pub fn rotate(&mut self, times: u8) {
+    pub fn rotate(&mut self, times: u8) -> &mut Self {
         if times == 0 {
-            return;
+            return self;
         }
         let p: &mut RgbaImage = self.borrow_mut();
         p.rotate(times);
+        self
     }
 }
 
@@ -134,47 +134,12 @@ pub(crate) fn try_load(name: &str, scale: Scale) -> Option<&'static RgbaImage> {
     }
 }
 
+#[track_caller]
 pub(crate) fn load(name: &str, scale: Scale) -> ImageHolder {
-    ImageHolder::from(
-        try_load(name, scale)
-            .ok_or_else(|| format!("failed to load {name}"))
-            .unwrap(),
-    )
-}
-
-const SUFFIXES: &[&str; 9] = &[
-    "-bottom", "-mid", "-base", "", "-left", "-right", "-top", "-over", "-team",
-];
-pub(crate) fn read<S>(name: &str, size: S, scale: Scale) -> ImageHolder
-where
-    S: Into<u32> + Copy,
-{
-    read_with(name, SUFFIXES, size, scale)
-}
-
-pub(crate) fn read_with<S>(
-    name: &str,
-    suffixes: &'static [&'static str],
-    size: S,
-    scale: Scale,
-) -> ImageHolder
-where
-    S: Into<u32> + Copy,
-{
-    let mut c = RgbaImage::new(
-        size.into() * scale.px() as u32,
-        size.into() * scale.px() as u32,
-    );
-    for suffix in suffixes {
-        if let Some(p) = try_load(&format!("{name}{suffix}"), scale) {
-            if suffix == &"-team" {
-                c.overlay(p.clone().tint(SHARDED.color()));
-                continue;
-            }
-            c.overlay(p);
-        }
-    }
-    ImageHolder::from(c)
+    let Some(i) = try_load(name, scale) else {
+        panic!("failed to load {name}")
+    };
+    ImageHolder::from(i)
 }
 
 /// trait for renderable objects
@@ -337,8 +302,8 @@ fn all_blocks() {
         {
             continue;
         }
-
-        let t = reg.get(t.get_name()).unwrap();
+        let name = t.get_name();
+        let t = reg.get(name).unwrap();
         t.image(
             None,
             Some(&RenderingContext {

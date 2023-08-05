@@ -13,9 +13,10 @@ make_register! {
     "shock-mine" => DefenseBlock::new(1, true, cost!(Lead: 25, Silicon: 12));
     "radar" => DefenseBlock::new(1, true, cost!(Silicon: 60, Graphite: 50, Beryllium: 10));
     "build-tower" => DefenseBlock::new(3, true, cost!(Silicon: 150, Oxide: 40, Thorium: 60));
+    "shockwave-tower" => DefenseBlock::new(3, true, cost!(SurgeAlloy: 50, Silicon: 150, Oxide: 30, Tungsten: 100));
     // barrier projector
     // editor only
-    "shockwave-tower" => DefenseBlock::new(3, true, cost!(SurgeAlloy: 50, Silicon: 150, Oxide: 30, Tungsten: 100));
+    "barrier-projector" => DefenseBlock::new(3, true, &[]);
     "shield-projector" => DefenseBlock::new(3, true, &[]);
     "large-shield-projector" => DefenseBlock::new(4, true, &[]);
 }

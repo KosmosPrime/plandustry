@@ -33,6 +33,10 @@ fn main() {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
             let p = DynamicImage::from_decoder(PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap()).unwrap().into_rgba8();
+            let f = path.to_str().unwrap();
+            if f.contains("-bottom.png") || f.contains("-liquid.png") || f.contains("-team") {
+                continue;
+            }
             let path = path.with_extension("");
             let path = path.file_name().unwrap().to_str().unwrap();
             macro_rules! writ {

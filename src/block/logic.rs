@@ -241,7 +241,7 @@ impl BlockLogic for MessageLogic {
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        read(name, self.size, s)
+        load(name, s)
     }
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
@@ -416,7 +416,7 @@ impl BlockLogic for ProcessorLogic {
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        read(name, self.size, s)
+        load(name, s)
     }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {

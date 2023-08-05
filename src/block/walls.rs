@@ -2,13 +2,14 @@
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::dynamic::DynType;
-use crate::data::renderer::{load, read_with};
+use crate::data::renderer::load;
 
 make_simple!(WallBlock, |_, name, _, _, _, s| {
     match name {
         "thruster" => {
-            const SFX: &[&str; 1] = &["-top"];
-            read_with("thruster", SFX, 4u32, s)
+            let mut base = load("thruster", s);
+            base.overlay(&load("thruster-top", s));
+            base
         }
         _ => load(name, s),
     }
@@ -73,12 +74,27 @@ impl BlockLogic for DoorBlock {
     fn draw(
         &self,
         name: &str,
-        _: Option<&State>,
+        state: Option<&State>,
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        read(name, self.size, s)
+        if let Some(state) = state {
+            return if *Self::get_state(state) {
+                // TODO check
+                load(
+                    match name {
+                        "door" => "door-open",
+                        "blast-door" => "blast-door-open",
+                        _ => "door-large-open",
+                    },
+                    s,
+                )
+            } else {
+                load(name, s)
+            };
+        }
+        load(name, s)
     }
 
     fn data_from_i32(&self, _: i32, _: GridPos) -> Result<DynData, DataConvertError> {
@@ -100,12 +116,19 @@ impl BlockLogic for DoorBlock {
         Box::new(Self::create_state(*state))
     }
 
-    fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
-
-    fn rotate_state(&self, _: &mut State, _: bool) {}
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         let state = Self::get_state(state);
         Ok(DynData::Boolean(*state))
+    }
+
+    fn read(
+        &self,
+        build: &mut Build,
+        _: &BlockRegistry,
+        _: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        build.state = Some(Self::create_state(buff.read_bool()?));
+        Ok(())
     }
 }

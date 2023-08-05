@@ -41,32 +41,33 @@ make_simple!(ConstructorBlock, |me: &Self,
                                 s| {
     let mut base = load(name, s);
     let times = rot.rotated(false).count();
+    if !name.contains("assembler") {
+        let mut out = load(
+            &match name {
+                "additive-reconstructor"
+                | "multiplicative-reconstructor"
+                | "exponential-reconstructor"
+                | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
+                _ => format!("factory-out-{}-dark", me.size),
+            },
+            s,
+        );
+        out.rotate(times);
+        base.overlay(&out);
 
-    let mut out = load(
-        &match name {
-            "additive-reconstructor"
-            | "multiplicative-reconstructor"
-            | "exponential-reconstructor"
-            | "tetrative-reconstructor" => format!("factory-out-{}", me.size),
-            _ => format!("factory-out-{}-dark", me.size),
-        },
-        s,
-    );
-    out.rotate(times);
-    base.overlay(&out);
-
-    let mut input = load(
-        &match name {
-            "additive-reconstructor"
-            | "multiplicative-reconstructor"
-            | "exponential-reconstructor"
-            | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
-            _ => format!("factory-in-{}-dark", me.size),
-        },
-        s,
-    );
-    input.rotate(times);
-    base.overlay(&input);
+        let mut input = load(
+            &match name {
+                "additive-reconstructor"
+                | "multiplicative-reconstructor"
+                | "exponential-reconstructor"
+                | "tetrative-reconstructor" => format!("factory-in-{}", me.size),
+                _ => format!("factory-in-{}-dark", me.size),
+            },
+            s,
+        );
+        input.rotate(times);
+        base.overlay(&input);
+    }
 
     // TODO: the context cross is too small
     // for i in 0..4u8 {
@@ -90,16 +91,53 @@ make_simple!(ConstructorBlock, |me: &Self,
 
     base.overlay(&load(&format!("{name}-top"), s));
     if matches!(name, "mech-assembler" | "tank-assembler" | "ship-assembler") {
-        let mut side = load(&format!("{name}-side"), s);
-        side.rotate(times);
-        base.overlay(&side);
+        base.overlay(
+            load(
+                match rot {
+                    Rotation::Up | Rotation::Right => match name {
+                        "mech-assembler" => "mech-assembler-side1",
+                        "tank-assembler" => "tank-assembler-side1",
+                        _ => "ship-assembler-side1",
+                    },
+                    _ => match name {
+                        "mech-assembler" => "mech-assembler-side2",
+                        "tank-assembler" => "tank-assembler-side2",
+                        _ => "ship-assembler-side2",
+                    },
+                },
+                s,
+            )
+            .rotate(times),
+        );
     }
     base
 });
-make_simple!(UnitBlock);
-make_simple!(RepairTurret => |_, _, _, buff: &mut DataRead| {
-   buff.skip(4) // rotation: [`f32`]
+make_simple!(UnitRepairTower);
+make_simple!(AssemblerModule, |_, _, _, _, rot: Rotation, scl| {
+    let mut base = load("basic-assembler-module", scl);
+    base.overlay(
+        load(
+            match rot {
+                Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
+                _ => "basic-assembler-module-side2",
+            },
+            scl,
+        )
+        .rotate(rot.rotated(false).count()),
+    );
+    base
 });
+make_simple!(
+    RepairTurret => |scl| {
+        let mut bot = load("block-2", scl);
+        let top = load("repair-turret", scl);
+        bot.overlay(&top);
+        bot
+    },
+    |_, _, _, buff: &mut DataRead| {
+        buff.skip(4) // rotation: [`f32`]
+    }
+);
 
 const GROUND_UNITS: &[unit::Type] = &[unit::Type::Dagger, unit::Type::Crawler, unit::Type::Nova];
 const AIR_UNITS: &[unit::Type] = &[unit::Type::Flare, unit::Type::Mono];
@@ -127,8 +165,8 @@ make_register! {
     "tank-assembler" => ConstructorBlock::new(5, true, cost!(Thorium: 500, Oxide: 150, Carbide: 80, Silicon: 500));
     "ship-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 100, Oxide: 200, Tungsten: 500, Silicon: 800, Thorium: 400));
     "mech-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 200, Thorium: 600, Oxide: 200, Tungsten: 500, Silicon: 900)); // smh collaris
-    "basic-assembler-module" => UnitBlock::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
-    "unit-repair-tower" => UnitBlock::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
+    "basic-assembler-module" => AssemblerModule::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
+    "unit-repair-tower" => UnitRepairTower::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
 
 }
 

@@ -8,14 +8,22 @@ use crate::data::dynamic::DynType;
 make_simple!(GeneratorBlock => |_, _, _, buff: &mut DataRead| read_generator(buff));
 make_simple!(NuclearGeneratorBlock => |_, _, _, buff: &mut DataRead| read_nuclear(buff));
 make_simple!(ImpactReactorBlock => |_, _, _, buff: &mut DataRead| read_impact(buff));
-make_simple!(HeaterGeneratorBlock => |_, _, _, buff: &mut DataRead| read_heater(buff));
+make_simple!(
+    Neoplasia,
+    |_, _, _, _, rot: Rotation, scl| {
+        let mut base = load("neoplasia-reactor", scl);
+        base.overlay(load("neoplasia-reactor-top", scl).rotate(rot.rotated(false).count()));
+        base
+    },
+    |_, _, _, buff: &mut DataRead| read_heater(buff)
+);
 make_simple!(BatteryBlock);
 make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation, s| {
-    let mut base = load("diode",s);
+    let mut base = load("diode", s);
     if rot == Rotation::Right {
         return base;
     }
-    let mut top = load("diode-arrow",s);
+    let mut top = load("diode-arrow", s);
     top.rotate(rot.rotated(false).count());
     base.overlay(&top);
     base
@@ -46,7 +54,7 @@ make_register! {
     "chemical-combustion-chamber" => GeneratorBlock::new(3, true, cost!(Graphite: 40, Tungsten: 40, Oxide: 40, Silicon: 30));
     "pyrolysis-generator" => GeneratorBlock::new(3, true, cost!(Graphite: 50, Carbide: 50, Oxide: 60, Silicon: 50));
     "flux-reactor" => GeneratorBlock::new(5, true, cost!(Graphite: 300, Carbide: 200, Oxide: 100, Silicon: 600, SurgeAlloy: 300));
-    "neoplasia-reactor" => HeaterGeneratorBlock::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
+    "neoplasia-reactor" => Neoplasia::new(5, true, cost!(Tungsten: 1000, Carbide: 300, Oxide: 150, Silicon: 500, PhaseFabric: 300, SurgeAlloy: 200));
     // editor only
     "beam-link" => ConnectorBlock::new(3, true, &[], 12);
     // sandbox only
@@ -138,7 +146,7 @@ impl BlockLogic for ConnectorBlock {
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        read(name, self.size, s)
+        load(name, s)
     }
 }
 
@@ -225,7 +233,7 @@ impl BlockLogic for LampBlock {
         _: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        read(name, self.size, s)
+        load(name, s)
     }
 
     fn clone_state(&self, state: &State) -> State {

@@ -70,7 +70,6 @@ fn draw_stack(
     let gimme = |n: u8| load(&format!("{name}-{n}"), s);
     let empty = ctx.cross[rot.count() as usize].map_or(true, |(v, _)| v.name != name);
     // mindustry says fuck this and just draws the arrow convs in schems but im better than that
-
     if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
         // end
         let mut base = gimme(2);
@@ -113,6 +112,14 @@ make_simple!(
     true
 );
 make_simple!(ControlBlock);
+make_simple!(
+    SurgeRouter
+        / |s| {
+            let mut base = load("surge-router", s);
+            base.overlay(&load("top", s));
+            base
+        }
+);
 // format: id: [`i32`]
 make_simple!(UnitCargoLoader => |_, _, _, buff: &mut DataRead| buff.skip(4));
 
@@ -139,7 +146,7 @@ make_register! {
     "duct-bridge" => BridgeBlock::new(1, true, cost!(Beryllium: 20), 3, true);
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
     "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
-    "surge-router" => ControlBlock::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
+    "surge-router" => SurgeRouter::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
     "unit-cargo-loader" => UnitCargoLoader::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
@@ -433,23 +440,36 @@ impl BlockLogic for BridgeBlock {
     /// (buffered brige)
     /// - become [`read_item_buffer`]
     /// (mass driver) (9b)
-    /// - link: `i32`
-    /// - rotation: `f32`
-    /// - state: `i8`
+    /// - link: [`i32`]
+    /// - rotation: [`f32`]
+    /// - state: [`i8`]
+    /// (payload mass driver) (19b)
+    /// - call [`read_payload_block`](crate::block::payload::read_payload_block)
+    /// - link: [`i32`]
+    /// - rotation: [`f32`]
+    /// - state: [`i8`]
+    /// - reload: [`f32`]
+    /// - charge: [`f32`]
+    /// - loaded: [`bool`]
+    /// - charging: [`bool`]
     fn read(
         &self,
         t: &mut Build,
-        _: &super::BlockRegistry,
-        _: &crate::data::map::EntityMapping,
+        r: &super::BlockRegistry,
+        e: &crate::data::map::EntityMapping,
         buff: &mut crate::data::DataRead,
     ) -> Result<(), crate::data::ReadError> {
         match t.block.name() {
             "bridge-conveyor" => read_buffered_item_bridge(buff)?,
             "phase-conveyor" | "phase-conduit" | "bridge-conduit" => read_item_bridge(buff)?,
             "mass-driver" => buff.skip(9)?,
+            "payload-mass-driver" | "large-payload-mass-driver" => {
+                crate::block::payload::read_payload_block(r, e, buff)?;
+                buff.skip(19)?;
+            }
             // no state?
             "duct-bridge" | "reinforced-bridge-conduit" => {}
-            _ => unreachable!(), // surely no forget
+            n => unreachable!("{n}"), // surely no forget
         }
         Ok(())
     }
@@ -459,10 +479,31 @@ impl BlockLogic for BridgeBlock {
         name: &str,
         _: Option<&State>,
         _: Option<&RenderingContext>,
-        _: Rotation,
+        r: Rotation,
         s: Scale,
     ) -> ImageHolder {
-        read(name, self.size, s)
+        match name {
+            "mass-driver" => {
+                let mut base = load("mass-driver-base", s);
+                base.overlay(&load("mass-driver", s));
+                base
+            }
+            "duct-bridge" | "reinforced-bridge-conduit" => {
+                let mut base = load(name, s);
+                let mut arrow = load(
+                    match name {
+                        "duct-bridge" => "duct-bridge-dir",
+                        _ => "reinforced-bridge-conduit-dir",
+                    },
+                    s,
+                );
+                arrow.rotate(r.rotated(false).count());
+                base.overlay(&arrow);
+                base
+            }
+            // "bridge-conveyor" | "phase-conveyor" | "bridge-conduit" | "phase-conduit" | "payload-mass-driver" | "large-payload-mass-driver"
+            _ => load(name, s),
+        }
     }
 }
 

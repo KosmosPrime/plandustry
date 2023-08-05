@@ -1,6 +1,6 @@
 //! the industry part of mindustry
-use crate::block::make_register;
 use crate::block::simple::{cost, make_simple};
+use crate::block::*;
 use crate::data::DataRead;
 
 make_register! {
@@ -55,7 +55,37 @@ make_simple!(
 );
 
 make_simple!(
-    HeatCrafter =>
+    HeatCrafter,
+    |_, n, _, _, r: Rotation, s| {
+        match n {
+            // TODO i didnt realize the significance of two tops before and kinda deleted them, add them back
+            "phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" => {
+                let mut base = load(n, s);
+                base.overlay(
+                    load(
+                        match r {
+                            Rotation::Up | Rotation::Right => match n {
+                                "phase-heater" => "phase-heater-top1",
+                                "oxidation-chamber" => "oxidation-chamber-top1",
+                                "slag-heater" => "slag-heater-top1",
+                                _ => "electric-heater-top1",
+                            },
+                            _ => match n {
+                                "phase-heater" => "phase-heater-top2",
+                                "oxidation-chamber" => "oxidation-chamber-top2",
+                                "slag-heater" => "slag-heater-top2",
+                                _ => "electric-heater-top2",
+                            },
+                        },
+                        s,
+                    )
+                    .rotate(r.rotated(false).count()),
+                );
+                base
+            }
+            _ => load(n, s),
+        }
+    },
     |_, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`

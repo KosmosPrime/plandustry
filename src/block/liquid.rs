@@ -18,12 +18,8 @@ make_simple!(
         let mask = mask(ctx, rot, name);
         let (index, rot, flip) = mask2rotations(mask, rot);
         let tile = rotations2tile((index, rot, flip), &format!("{name}-top"), s);
-        let mut bottom = load(&format!("conduit-bottom-{index}"), s);
-        flrot(flip, rot, &mut bottom);
-        bottom.tint(image::Rgb([74, 75, 83]));
-        bottom.overlay(tile.borrow());
         // TODO caps. stopped trying bcz too complex
-        bottom
+        tile
     },
     true
 );
