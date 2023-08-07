@@ -32,7 +32,94 @@ mods! {
 
 mod simple;
 
+macro_rules! disp {
+    ($($k:ident,)+) => {
+        use all::{$($k,)+};
+        #[enum_dispatch::enum_dispatch]
+        pub(crate) enum BlockLogicEnum {
+            $($k,)+
+        }
+        #[const_trait]
+        pub trait ConstFrom<T>: Sized {
+             fn fro(value: T) -> Self;
+        }
+        $(
+            impl const ConstFrom<$k> for BlockLogicEnum {
+                fn fro(v: $k) -> Self {
+                    BlockLogicEnum::$k(v)
+                }
+            }
+        )+
+
+        /*impl std::fmt::Debug for BlockLogicEnum {
+            fn fmt(&self, w: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+                match self {
+                    $(BlockLogicEnum::$k { .. } => write!(w, stringify!($k)),)+
+                }
+            }
+        }*/
+    }
+}
+
+disp! {
+    EnvironmentBlock,
+    WallBlock,
+    DuctBlock,
+    BridgeBlock,
+    ItemBlock,
+    BatteryBlock,
+    ProductionBlock,
+    StackConveyor,
+    HeatCrafter,
+    ConnectorBlock,
+    ItemTurret,
+    ExtractorBlock,
+    ControlBlock,
+    LiquidBlock,
+    ConveyorBlock,
+    WallDrillBlock,
+    DrillBlock,
+    NuclearGeneratorBlock,
+    GeneratorBlock,
+    ConduitBlock,
+    HeatedBlock,
+    PointDefenseTurret,
+    JunctionBlock,
+    DefenseBlock,
+    Turret,
+    MemoryBlock,
+    MessageLogic,
+    ConstructorBlock,
+    AssemblerBlock,
+    SimpleDuctBlock,
+    SurgeRouter,
+    UnitCargoLoader,
+    LogicBlock,
+    SimplePayloadBlock,
+    PayloadConveyor,
+    ImpactReactorBlock,
+    Neoplasia,
+    DiodeBlock,
+    HeatConduit,
+    Incinerator,
+    StorageBlock,
+    ContinousTurret,
+    TractorBeamTurret,
+    UnitRepairTower,
+    AssemblerModule,
+    RepairTurret,
+    FluidBlock,
+    CanvasBlock,
+    SwitchLogic,
+    ProcessorLogic,
+    PayloadBlock,
+    LampBlock,
+    DoorBlock,
+    CampaignBlock,
+}
+
 pub type State = Box<dyn Any + Sync + Send>;
+#[enum_dispatch::enum_dispatch(BlockLogicEnum)]
 pub trait BlockLogic {
     /// mindustry blocks are the same width and height
     fn get_size(&self) -> u8;
@@ -164,7 +251,7 @@ impl SerializeError {
 pub struct Block {
     image: Option<[&'static LazyLock<RgbaImage>; 3]>,
     name: &'static str,
-    pub(crate) logic: &'static (dyn BlockLogic + Sync),
+    pub(crate) logic: BlockLogicEnum,
 }
 
 impl PartialEq for Block {
@@ -176,9 +263,9 @@ impl PartialEq for Block {
 impl Block {
     #[must_use]
     /// create a new block
-    pub const fn new(
+    pub(crate) const fn new(
         name: &'static str,
-        logic: &'static (dyn BlockLogic + Sync),
+        logic: BlockLogicEnum,
         image: Option<[&'static LazyLock<RgbaImage>; 3]>,
     ) -> Self {
         Self { name, logic, image }
@@ -257,6 +344,16 @@ impl Block {
 
     pub(crate) fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         self.logic.serialize_state(state)
+    }
+
+    pub(crate) fn read(
+        &self,
+        build: &mut Build,
+        reg: &BlockRegistry,
+        mapping: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        self.logic.read(build, reg, mapping, buff)
     }
 }
 
@@ -446,12 +543,12 @@ macro_rules! make_register {
     }};
     (impl $field: literal => $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
-            $field, &$logic, None
+            $field, <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), None
         ); }
     };
     (impl $field: literal -> $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
-            $field, &$logic, Some(crate::data::renderer::load!($field))
+            $field, <crate::block::BlockLogicEnum as crate::block::ConstFrom<_>>::fro($logic), Some(crate::data::renderer::load!($field))
         ); }
     }
 }

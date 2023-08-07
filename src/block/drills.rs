@@ -8,14 +8,17 @@ make_simple!(
     |_, name, _, _, rot: Rotation, s| {
         let mut base =
             load!(from name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s);
-        let mut top = load!(concat top => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s);
-        top.rotate(rot.rotated(false).count());
-        base.overlay(&top);
+        base.overlay(load!(concat top => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s).rotate(rot.rotated(false).count()));
         base
     },
     |_, _, _, buff: &mut DataRead| read_drill(buff)
 );
 make_simple!(ExtractorBlock);
+make_simple!(WallDrillBlock, |_, _, _, _, rot: Rotation, scl| {
+    let mut base = load!("cliff-crusher", scl);
+    base.overlay(load!("cliff-crusher-top", scl).rotate(rot.rotated(false).count()));
+    base
+});
 
 make_register! {
     "mechanical-drill" -> DrillBlock::new(2, true, cost!(Copper: 12));
@@ -25,7 +28,7 @@ make_register! {
     "water-extractor" -> ExtractorBlock::new(2, true, cost!(Copper: 30, Lead: 30, Metaglass: 30, Graphite: 30));
     "oil-extractor" -> ExtractorBlock::new(3, true, cost!(Copper: 150, Lead: 115, Graphite: 175, Thorium: 115, Silicon: 75));
     "vent-condenser" -> ProductionBlock::new(3, true, cost!(Graphite: 20, Beryllium: 60));
-    "cliff-crusher" -> DrillBlock::new(2, false, cost!(Beryllium: 100, Graphite: 40));
+    "cliff-crusher" -> WallDrillBlock::new(2, false, cost!(Beryllium: 100, Graphite: 40));
     "plasma-bore" => DrillBlock::new(2, false, cost!(Beryllium: 40));
     "large-plasma-bore" => DrillBlock::new(3, false, cost!(Silicon: 100, Oxide: 25, Beryllium: 100, Tungsten: 70));
     "impact-drill" -> DrillBlock::new(4, true, cost!(Silicon: 70, Beryllium: 90, Graphite: 60));

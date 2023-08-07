@@ -24,7 +24,7 @@ make_register! {
     "coal-centrifuge" -> ProductionBlock::new(2, true, cost!(Lead: 30, Graphite: 40, Titanium: 20));
     "incinerator" -> Incinerator::new(1, true, cost!(Lead: 15, Graphite: 5));
     "silicon-arc-furnace" -> ProductionBlock::new(3, true, cost!(Beryllium: 70, Graphite: 80));
-    "electrolyzer" => ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
+    "electrolyzer" -> ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
     "atmospheric-concentrator" -> ProductionBlock::new(3, true, cost!(Oxide: 60, Beryllium: 180, Silicon: 150));
     "oxidation-chamber" => HeatCrafter::new(3, true, cost!(Tungsten: 120, Graphite: 80, Silicon: 100, Beryllium: 120));
     "electric-heater" => HeatCrafter::new(2, false, cost!(Tungsten: 30, Oxide: 30));

@@ -295,7 +295,7 @@ impl<'l> Build<'l> {
             buff.skip(4)?;
         }
         // "overridden by subclasses"
-        self.block.logic.read(self, reg, map, buff)?;
+        self.block.read(self, reg, map, buff)?;
         // implementation not complete, simply error, causing the remaining bytes in the chunk to be skipped (TODO finish impl)
         Err(ReadError::Version(0x0))
         // Ok(())

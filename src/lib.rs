@@ -1,5 +1,5 @@
 //! crate for dealing with mindustry
-#![feature(lazy_cell, array_chunks)]
+#![feature(lazy_cell, array_chunks, const_trait_impl)]
 pub mod block;
 mod content;
 pub mod data;
