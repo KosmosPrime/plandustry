@@ -17,9 +17,9 @@ make_simple!(
         let ctx = ctx.unwrap();
         let mask = mask(ctx, rot, name);
         let (index, rot, flip) = mask2rotations(mask, rot);
-        let tile = rotations2tile((index, rot, flip), "conduit", s);
+        
         // TODO caps. stopped trying bcz too complex
-        tile
+        rotations2tile((index, rot, flip), "conduit", s)
     },
     true
 );

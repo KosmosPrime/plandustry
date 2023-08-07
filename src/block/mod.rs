@@ -5,12 +5,10 @@
 //! with the exception of sandbox, that is.
 use bobbin_bits::U4::{self, *};
 use std::any::Any;
-use std::borrow::Cow;
 use std::error::Error;
 use std::fmt;
 use std::sync::LazyLock;
 
-use crate::access::BoxAccess;
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::{Build, EntityMapping};
 use crate::data::{self, renderer::*, CompressError};
@@ -165,8 +163,8 @@ impl SerializeError {
 /// a block. put it in stuff!
 pub struct Block {
     image: Option<[&'static LazyLock<RgbaImage>; 3]>,
-    name: Cow<'static, str>,
-    pub(crate) logic: BoxAccess<'static, dyn BlockLogic + Sync>,
+    name: &'static str,
+    pub(crate) logic: &'static (dyn BlockLogic + Sync),
 }
 
 impl PartialEq for Block {
@@ -179,8 +177,8 @@ impl Block {
     #[must_use]
     /// create a new block
     pub const fn new(
-        name: Cow<'static, str>,
-        logic: BoxAccess<'static, dyn BlockLogic + Sync>,
+        name: &'static str,
+        logic: &'static (dyn BlockLogic + Sync),
         image: Option<[&'static LazyLock<RgbaImage>; 3]>,
     ) -> Self {
         Self { name, logic, image }
@@ -190,13 +188,13 @@ impl Block {
     /// ```
     /// assert!(mindus::block::distribution::DISTRIBUTOR.name() == "distributor")
     /// ```
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// should you send context to [`image`]?
     pub fn wants_context(&self) -> bool {
-        self.logic.as_ref().want_context()
+        self.logic.want_context()
     }
 
     /// draw this block, with this state
@@ -212,9 +210,7 @@ impl Block {
                 imgs.get_unchecked(scale as usize)
             }));
         }
-        self.logic
-            .as_ref()
-            .draw(&self.name, state, context, rot, scale)
+        self.logic.draw(self.name, state, context, rot, scale)
     }
 
     /// size.
@@ -229,7 +225,7 @@ impl Block {
 
     /// cost
     pub fn get_build_cost(&self) -> Option<ItemStorage> {
-        self.logic.as_ref().create_build_cost()
+        self.logic.create_build_cost()
     }
 
     pub(crate) fn data_from_i32(
@@ -266,14 +262,13 @@ impl Block {
 
 impl fmt::Debug for Block {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name: &str = &self.name;
-        write!(f, "Block<{name:?}>")
+        write!(f, "Block<{:?}>", self.name)
     }
 }
 
 impl RegistryEntry for Block {
     fn get_name(&self) -> &str {
-        &self.name
+        self.name
     }
 }
 
@@ -451,12 +446,12 @@ macro_rules! make_register {
     }};
     (impl $field: literal => $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
-            std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic), None
+            $field, &$logic, None
         ); }
     };
     (impl $field: literal -> $logic: expr) => {
         paste::paste! { pub static [<$field:snake:upper>]: $crate::block::Block = $crate::block::Block::new(
-            std::borrow::Cow::Borrowed($field), $crate::access::Access::Borrowed(&$logic), Some(crate::data::renderer::load!($field))
+            $field, &$logic, Some(crate::data::renderer::load!($field))
         ); }
     }
 }

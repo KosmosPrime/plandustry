@@ -11,7 +11,7 @@ make_simple!(
         let mut top = load!(concat top => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s);
         top.rotate(rot.rotated(false).count());
         base.overlay(&top);
-        return base;
+        base
     },
     |_, _, _, buff: &mut DataRead| read_drill(buff)
 );

@@ -114,9 +114,9 @@ impl std::ops::Mul<u32> for Scale {
 macro_rules! load {
     ($name:literal, $scale:ident) => { paste::paste! {
         ImageHolder::from(std::sync::LazyLock::force(match $scale {
-            crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$name:snake:upper>],
-            crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$name:snake:upper>],
-            crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$name:snake:upper>],
+            $crate::data::renderer::Scale::Quarter => $crate::data::renderer::quar::[<$name:snake:upper>],
+            crate::data::renderer::Scale::Eigth => $crate::data::renderer::eigh::[<$name:snake:upper>],
+            crate::data::renderer::Scale::Full => $crate::data::renderer::full::[<$name:snake:upper>],
         }))
     } };
     ($name: literal) => { paste::paste! {
