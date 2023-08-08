@@ -13,7 +13,7 @@ pub fn main(args: Args) {
     // process schematics from command line
     println!("starting timing");
     let then = Instant::now();
-    warmup();
+    unsafe { warmup() };
     let warmup_took = then.elapsed();
     for curr in args {
         let Ok(s) = std::fs::read(curr) else {
@@ -26,13 +26,13 @@ pub fn main(args: Args) {
                 let deser_took = starting_deser.elapsed();
                 if let Ok(v) = std::env::var("SAVE") {
                     if v == "1" {
-                        m.render().save("x.png").unwrap();
+                        unsafe { m.render() }.save("x.png").unwrap();
                         continue;
                     }
                 }
                 let starting_render = Instant::now();
                 for _ in 0..10 {
-                    m.render();
+                    unsafe { m.render() };
                 }
                 let renders_took = starting_render.elapsed();
                 let took = then.elapsed();

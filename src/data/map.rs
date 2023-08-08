@@ -134,7 +134,7 @@ impl<'l> Tile<'l> {
         1
     }
 
-    pub fn floor_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
+    pub unsafe fn floor_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
         let mut i = self.floor.image(None, context, Rotation::Up, s);
         if let Some(ore) = self.ore {
             i.overlay(ore.image(None, context, Rotation::Up, s).borrow());
@@ -142,7 +142,7 @@ impl<'l> Tile<'l> {
         i
     }
 
-    pub fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
+    pub unsafe fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
         // building covers floore
         let Some(b) = &self.build else {
             unreachable!();
@@ -243,7 +243,7 @@ impl<'l> Build<'l> {
         }
     }
 
-    pub fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
+    pub unsafe fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
         self.block
             .image(self.state.as_ref(), context, self.rotation, s)
     }

@@ -35,7 +35,7 @@ fn main() {
     // let mut half = File::create(o.join("half.rs")).unwrap();
     let mut quar = File::create(o.join("quar.rs")).unwrap();
     let mut eigh = File::create(o.join("eigh.rs")).unwrap();
-    let mut n = 4usize;
+    let mut n = 5usize;
 
     wr!(full => "pub mod full {{");
     wr!(full => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(32, 32));");
@@ -48,7 +48,8 @@ fn main() {
 
     for mut file in [&full, &quar, &eigh] {
         file.write_all(b"macro_rules!img{($v:expr)=>{{static TMP:LazyLock<RgbaImage>=LazyLock::new(||$v);&TMP}};}\n").unwrap();
-        wr!(file => "use ::{{image::RgbaImage, std::sync::LazyLock}};");
+        wr!(file => "use image::RgbaImage;");
+        wr!(file => "use crate::utils::Lock as LazyLock;");
     }
     for i in 1..=16 {
         n += 1;
@@ -58,7 +59,8 @@ fn main() {
     }
 
     let mut warmup = File::create(o.join("warmup.rs")).unwrap();
-    wr!(warmup => "pub fn warmup() {{");
+    wr!(warmup => "/// SAFETY: this function must only be called once.");
+    wr!(warmup => "pub unsafe fn warmup() {{");
     for e in walkdir.into_iter().filter_map(|e| e.ok()) {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
@@ -104,7 +106,7 @@ fn main() {
             // writ!(half + 0.5);
             writ!(quar / 4);
             writ!(eigh / 8);
-            wr!(warmup => "LazyLock::force({path});");
+            wr!(warmup => "LazyLock::load({path});");
             n += 1;
         }
     }

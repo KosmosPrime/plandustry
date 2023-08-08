@@ -59,7 +59,8 @@ impl<'l> Placement<'l> {
     }
 
     /// draws this placement in particular
-    pub fn image(
+    /// SAFETY: call [`warmup`](crate::warmup) first
+    pub unsafe fn image(
         &self,
         context: Option<&RenderingContext>,
         rot: Rotation,
@@ -731,8 +732,10 @@ mod test {
                     let parsed2 = unwrap_pretty(ser.deserialize_base64(&unparsed));
                     println!("\x1b[38;5;2mredeserialized\x1b[0m {}", parsed.tags.get("name").unwrap());
                     if parsed != parsed2 {
-                        parsed2.render().save("p2.png").unwrap();
-                        parsed.render().save("p1.png").unwrap();
+                        unsafe { crate::warmup() };
+                        // SAFETY: we just warmed up, its fine
+                        unsafe { parsed2.render() }.save("p2.png").unwrap();
+                        unsafe { parsed.render() }.save("p1.png").unwrap();
                         panic!("DIFFERENT! see `p1.png` != `p2.png`")
                     }
                 )*

@@ -1,5 +1,5 @@
 //! crate for dealing with mindustry
-#![feature(lazy_cell, array_chunks, const_trait_impl)]
+#![feature(array_chunks, const_trait_impl)]
 pub mod block;
 mod content;
 pub mod data;
@@ -17,7 +17,7 @@ pub use {
     data::{
         dynamic::DynData,
         map::{Map, MapSerializer},
-        renderer::Renderable,
+        renderer::{warmup, Renderable},
         schematic::{Schematic, SchematicSerializer},
         Serializer,
     },

@@ -113,11 +113,11 @@ impl std::ops::Mul<u32> for Scale {
 #[macro_export]
 macro_rules! load {
     ($name:literal, $scale:ident) => { paste::paste! {
-        ImageHolder::from(std::sync::LazyLock::force(match $scale {
+        ImageHolder::from(unsafe { crate::utils::Lock::get(match $scale {
             $crate::data::renderer::Scale::Quarter => $crate::data::renderer::quar::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Eigth => $crate::data::renderer::eigh::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Full => $crate::data::renderer::full::[<$name:snake:upper>],
-        }))
+        })})
     } };
     ($name: literal) => { paste::paste! {
         [crate::data::renderer::full::[<$name:snake:upper>], crate::data::renderer::quar::[<$name:snake:upper>], crate::data::renderer::eigh::[<$name:snake:upper>]]
@@ -138,11 +138,11 @@ macro_rules! load {
     (concat $x:expr => $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
         match $v {
             $($k =>
-                ImageHolder::from(std::sync::LazyLock::force(match $scale {
+                ImageHolder::from(unsafe { crate::utils::Lock::get(match $scale {
                     crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$k:snake:upper _ $x:snake:upper>],
                     crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$k:snake:upper _ $x:snake:upper>],
                     crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$k:snake:upper _ $x:snake:upper>],
-                })),
+                }) }),
             )+
             #[allow(unreachable_patterns)]
             n => unreachable!("{n:?}"),
@@ -154,7 +154,8 @@ pub(crate) use load;
 /// trait for renderable objects
 pub trait Renderable {
     /// create a picture
-    fn render(&self) -> RgbImage;
+    /// SAFETY: call the [warmup] function first.
+    unsafe fn render(&self) -> RgbImage;
 }
 
 impl Renderable for Schematic<'_> {
@@ -165,9 +166,12 @@ impl Renderable for Schematic<'_> {
     /// s.put(0, 0, &block::distribution::DISTRIBUTOR);
     /// s.put(0, 2, &block::distribution::ROUTER);
     /// s.put(1, 2, &block::walls::COPPER_WALL);
-    /// let output /*: RgbImage */ = s.render();
+    /// // warm up the images for the first time
+    /// unsafe { warmup(); }
+    /// // this is now safe, because we have warmed up
+    /// let output /*: RgbImage */ = unsafe { s.render() };
     /// ```
-    fn render(&self) -> RgbImage {
+    unsafe fn render(&self) -> RgbImage {
         // fill background
         let mut bg = RgbImage::repeated(
             &DynamicImage::from(
@@ -232,7 +236,7 @@ impl Renderable for Schematic<'_> {
 }
 
 impl Renderable for Map<'_> {
-    fn render(&self) -> RgbImage {
+    unsafe fn render(&self) -> RgbImage {
         let scale = if self.width + self.height < 2000 {
             Scale::Quarter
         } else {
@@ -286,7 +290,8 @@ impl Renderable for Map<'_> {
 }
 
 /// Loads all the images into memory (about 300mb)
-pub fn warmup() {
+/// SAFETY: only call once. or else.
+pub unsafe fn warmup() {
     full::warmup();
     quar::warmup();
     eigh::warmup();
@@ -296,6 +301,7 @@ pub fn warmup() {
 fn all_blocks() {
     use crate::block::content::Type;
     use crate::content::Content;
+    unsafe { warmup() };
     let reg = crate::block::build_registry();
     for t in 19..Type::WorldMessage as u16 {
         let t = Type::try_from(t).unwrap();
@@ -309,20 +315,22 @@ fn all_blocks() {
         {
             continue;
         }
-        let name = t.get_name();
+        let name = dbg!(t.get_name());
         let t = reg.get(name).unwrap();
-        t.image(
-            None,
-            Some(&RenderingContext {
-                cross: [None; 4],
-                position: PositionContext {
-                    position: GridPos(0, 0),
-                    width: 5,
-                    height: 5,
-                },
-            }),
-            Rotation::Up,
-            Scale::Quarter,
-        );
+        unsafe {
+            t.image(
+                None,
+                Some(&RenderingContext {
+                    cross: [None; 4],
+                    position: PositionContext {
+                        position: GridPos(0, 0),
+                        width: 5,
+                        height: 5,
+                    },
+                }),
+                Rotation::Up,
+                Scale::Quarter,
+            )
+        };
     }
 }

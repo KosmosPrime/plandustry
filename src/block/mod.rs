@@ -7,7 +7,6 @@ use bobbin_bits::U4::{self, *};
 use std::any::Any;
 use std::error::Error;
 use std::fmt;
-use std::sync::LazyLock;
 
 use crate::data::dynamic::{DynData, DynType};
 use crate::data::map::{Build, EntityMapping};
@@ -15,6 +14,7 @@ use crate::data::{self, renderer::*, CompressError};
 use crate::data::{DataRead, GridPos, ReadError as DataReadError};
 use crate::item::storage::ItemStorage;
 use crate::registry::RegistryEntry;
+use crate::utils::Lock;
 
 macro_rules! mods {
     ($($mod:ident)*) => {
@@ -239,7 +239,7 @@ impl SerializeError {
 
 /// a block. put it in stuff!
 pub struct Block {
-    image: Option<[&'static LazyLock<RgbaImage>; 3]>,
+    image: Option<[&'static Lock<RgbaImage>; 3]>,
     name: &'static str,
     logic: BlockLogicEnum,
 }
@@ -256,7 +256,7 @@ impl Block {
     pub(crate) const fn new(
         name: &'static str,
         logic: BlockLogicEnum,
-        image: Option<[&'static LazyLock<RgbaImage>; 3]>,
+        image: Option<[&'static Lock<RgbaImage>; 3]>,
     ) -> Self {
         Self { name, logic, image }
     }
@@ -275,7 +275,8 @@ impl Block {
     }
 
     /// draw this block, with this state
-    pub fn image(
+    /// SAFETY: call [`warmup`](crate::warmup) first
+    pub unsafe fn image(
         &self,
         state: Option<&State>,
         context: Option<&RenderingContext>,
@@ -283,9 +284,7 @@ impl Block {
         scale: Scale,
     ) -> ImageHolder {
         if let Some(imgs) = self.image {
-            return ImageHolder::from(LazyLock::force(unsafe {
-                imgs.get_unchecked(scale as usize)
-            }));
+            return ImageHolder::from(unsafe { Lock::get(imgs.get_unchecked(scale as usize)) });
         }
         self.logic.draw(self.name, state, context, rot, scale)
     }
