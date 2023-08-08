@@ -112,25 +112,32 @@ impl std::ops::Mul<u32> for Scale {
 
 #[macro_export]
 macro_rules! load {
+	("empty", $scale:ident) => {
+		 ImageHolder::from(unsafe { $crate::utils::Lock::get(match $scale {
+            $crate::data::renderer::Scale::Quarter => &$crate::data::renderer::quar::EMPTY,
+            $crate::data::renderer::Scale::Eigth => &$crate::data::renderer::eigh::EMPTY,
+            $crate::data::renderer::Scale::Full => &$crate::data::renderer::full::EMPTY,
+        })})
+	};
     ($name:literal, $scale:ident) => { paste::paste! {
-        ImageHolder::from(unsafe { crate::utils::Lock::get(match $scale {
+        ImageHolder::from(unsafe { $crate::utils::Lock::get(match $scale {
             $crate::data::renderer::Scale::Quarter => $crate::data::renderer::quar::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Eigth => $crate::data::renderer::eigh::[<$name:snake:upper>],
             $crate::data::renderer::Scale::Full => $crate::data::renderer::full::[<$name:snake:upper>],
         })})
     } };
     ($name: literal) => { paste::paste! {
-        [crate::data::renderer::full::[<$name:snake:upper>], crate::data::renderer::quar::[<$name:snake:upper>], crate::data::renderer::eigh::[<$name:snake:upper>]]
+        [$crate::data::renderer::full::[<$name:snake:upper>], $crate::data::renderer::quar::[<$name:snake:upper>], $crate::data::renderer::eigh::[<$name:snake:upper>]]
     } };
     (from $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => {
-        crate::data::renderer::load!($scale -> match $v {
+        $crate::data::renderer::load!($scale -> match $v {
             $($k => $k,)+
         })
     };
     // turn load!(s -> match x { "v" => "y" }) into match x { "v" => load!("y", s) }
     ($scale:ident -> match $v:ident { $($k:pat => $nam:literal $(,)?)+ }) => {
         match $v {
-            $($k => crate::data::renderer::load!($nam, $scale),)+
+            $($k => $crate::data::renderer::load!($nam, $scale),)+
             #[allow(unreachable_patterns)]
             n => unreachable!("{n:?}"),
         }
@@ -138,10 +145,10 @@ macro_rules! load {
     (concat $x:expr => $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
         match $v {
             $($k =>
-                ImageHolder::from(unsafe { crate::utils::Lock::get(match $scale {
-                    crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$k:snake:upper _ $x:snake:upper>],
-                    crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$k:snake:upper _ $x:snake:upper>],
-                    crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$k:snake:upper _ $x:snake:upper>],
+                ImageHolder::from(unsafe { $crate::utils::Lock::get(match $scale {
+                    $crate::data::renderer::Scale::Quarter => $crate::data::renderer::quar::[<$k:snake:upper _ $x:snake:upper>],
+                    $crate::data::renderer::Scale::Eigth => $crate::data::renderer::eigh::[<$k:snake:upper _ $x:snake:upper>],
+                    $crate::data::renderer::Scale::Full => $crate::data::renderer::full::[<$k:snake:upper _ $x:snake:upper>],
                 }) }),
             )+
             #[allow(unreachable_patterns)]
@@ -255,10 +262,10 @@ impl Renderable for Map<'_> {
             )
         }) {
             // draw the floor first.
-            let img: &RgbaImage = &tile.floor_image(None, scale);
+            let img: &RgbaImage = &tile.floor_image(scale);
             // println!("draw {tile:?} ({x}, {y}) + {scale:?}");
-            // assert_eq!(img.width(), scale.px() as u32);
-            // assert_eq!(img.height(), scale.px() as u32);
+            debug_assert_eq!(img.width(), scale.px() as u32);
+            debug_assert_eq!(img.height(), scale.px() as u32);
             floor.overlay_at(img, scale * x as u32, scale * y as u32);
             if let Some(build) = tile.build() {
                 let s = build.block.get_size();
@@ -279,8 +286,8 @@ impl Renderable for Map<'_> {
                     None
                 };
                 let img: &RgbaImage = &tile.build_image(ctx.as_ref(), scale);
-                // assert_eq!(img.width(), scale * build.block.get_size() as u32);
-                // assert_eq!(img.height(), scale * build.block.get_size() as u32);
+                debug_assert_eq!(img.width(), scale * build.block.get_size() as u32);
+                debug_assert_eq!(img.height(), scale * build.block.get_size() as u32);
                 top.overlay_at(img, scale * x as u32, scale * y as u32);
             }
         }

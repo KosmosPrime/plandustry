@@ -1,5 +1,5 @@
 //! crate for dealing with mindustry
-#![feature(array_chunks, const_trait_impl)]
+#![feature(array_chunks, const_trait_impl, const_collections_with_hasher)]
 pub mod block;
 mod content;
 pub mod data;

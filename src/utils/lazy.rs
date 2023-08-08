@@ -36,7 +36,7 @@ impl<T, F> Lock<T, F> {
     #[inline]
     // SAFETY: CALL [load] FIRST!
     pub unsafe fn get(&self) -> &T {
-        &*(*self.data.get()).value
+        &(*self.data.get()).value
     }
 }
 

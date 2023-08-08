@@ -33,16 +33,8 @@ impl Overlay<RgbImage> for RgbImage {
     fn overlay_at(&mut self, with: &RgbImage, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
-                #[cfg(debug_assertions)]
-                {
-                    let get = *with.get_pixel(i, j);
-                    self.put_pixel(i + x, j + y, get);
-                }
-                #[cfg(not(debug_assertions))]
-                {
-                    let get = unsafe { with.unsafe_get_pixel(i, j) };
-                    unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
-                }
+                let get = unsafe { with.unsafe_get_pixel(i, j) };
+                unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
             }
         }
         self
@@ -117,6 +109,8 @@ impl ImageUtils for RgbaImage {
     }
 
     fn overlay(&mut self, with: &RgbaImage) -> &mut Self {
+        debug_assert_eq!(self.width(), with.width());
+        debug_assert_eq!(self.height(), with.height());
         if self.len() % 4 != 0 || with.len() % 4 != 0 {
             unsafe { std::hint::unreachable_unchecked() };
         }

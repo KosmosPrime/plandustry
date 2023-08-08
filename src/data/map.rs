@@ -71,10 +71,11 @@
 //!                 - entity read
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
+use std::sync::RwLock;
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
-use crate::block::{environment, Block, BlockRegistry, Rotation, State};
+use crate::block::{Block, BlockRegistry, Rotation, State};
 use crate::data::dynamic::DynSerializer;
 use crate::data::renderer::*;
 use crate::data::DataRead;
@@ -91,14 +92,14 @@ use crate::utils::image::ImageUtils;
 /// a tile in a map
 #[derive(Clone)]
 pub struct Tile<'l> {
-    pub floor: &'l Block,
-    pub ore: Option<&'l Block>,
+    pub floor: BlockEnum,
+    pub ore: BlockEnum,
     build: Option<Build<'l>>,
 }
 
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
 impl<'l> Tile<'l> {
-    pub fn new(floor: &'l Block, ore: Option<&'l Block>) -> Self {
+    pub fn new(floor: BlockEnum, ore: BlockEnum) -> Self {
         Self {
             floor,
             ore,
@@ -134,14 +135,85 @@ impl<'l> Tile<'l> {
         1
     }
 
-    pub unsafe fn floor_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
-        let mut i = self.floor.image(None, context, Rotation::Up, s);
-        if let Some(ore) = self.ore {
-            i.overlay(ore.image(None, context, Rotation::Up, s).borrow());
+    pub unsafe fn floor_image(&self, s: Scale) -> ImageHolder {
+        macro_rules! lo {
+			($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
+				match $v {
+					$(BlockEnum::[<$k:camel>] => load!($k, $scale),)+
+					n => unreachable!("{n:?}"),
+				} }
+			}
+		}
+        let floor = || {
+            lo!(self.floor => [
+			| "darksand"
+			| "sand-floor"
+			| "dacite"
+			| "dirt"
+			| "arkycite-floor"
+			| "basalt"
+			| "moss"
+			| "mud"
+			| "magmarock"
+			| "grass"
+			| "ice-snow"
+			| "hotrock"
+			| "char"
+			| "snow"
+			| "salt"
+			| "shale"
+			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
+			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
+			| "darksand-tainted-water"
+			| "darksand-water"
+			| "deep-tainted-water"
+			| "molten-slag"
+			| "deep-water"
+			| "sand-water"
+			| "shallow-water"
+			| "space"
+			| "stone"
+			| "bluemat"
+			| "ferric-craters"
+			| "beryllic-stone"
+			| "rhyolite-crater"
+			| "core-zone"
+			| "crater-stone"
+			| "crystal-floor"
+			| "dense-red-stone"
+			| "redmat"
+			| "red-ice"
+			| "spore-moss"
+			| "arkyic-vent" | "red-stone-vent" | "rhyolite-vent" | "carbon-vent" | "crystalline-vent" | "yellow-stone-vent"
+			| "regolith"
+			| "rhyolite"
+			| "tainted-water"
+			| "tar"
+			| "empty"
+		], s)
+        };
+        if self.ore != BlockEnum::Air {
+            type Floor = BlockEnum;
+            type Ore = BlockEnum;
+            // todo Rgb
+            static ORE_LAYS: RwLock<HashMap<(Floor, Ore), &'static RgbaImage, ahash::RandomState>> =
+                RwLock::new(HashMap::with_hasher(ahash::RandomState::with_seeds(
+                    401, 41209, 83123, 2110,
+                )));
+            if let Some(v) = ORE_LAYS.read().unwrap().get(&(self.floor, self.ore)) {
+                return ImageHolder::from(*v);
+            }
+            return ImageHolder::from(*ORE_LAYS.write().unwrap().entry((self.floor, self.ore)).or_insert_with(|| {
+                let mut base = floor();
+                base.overlay(lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils"], s).borrow());
+                Box::leak(Box::new(base))
+            }));
         }
-        i
+        floor()
     }
 
+    /// # Safety
+    /// Must call [`warmup`](crate::warmup) first
     pub unsafe fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
         // building covers floore
         let Some(b) = &self.build else {
@@ -156,9 +228,9 @@ impl std::fmt::Debug for Tile<'_> {
         write!(
             f,
             "Tile@{}{}{}",
-            self.floor.name(),
-            if let Some(ore) = &self.ore {
-                format!("+{}", ore.name())
+            self.floor.get_name(),
+            if self.ore != BlockEnum::Air {
+                format!("+{}", self.ore.get_name())
             } else {
                 "".into()
             },
@@ -437,7 +509,7 @@ impl<'l> Crossable for Map<'l> {
 impl<'l> Map<'l> {
     pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
-            tiles: vec![Tile::new(&environment::STONE, None); width * height],
+            tiles: vec![Tile::new(BlockEnum::Stone, BlockEnum::Air); width * height],
             height,
             width,
             tags,
@@ -526,13 +598,8 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
             while i < count {
                 let floor_id = buff.read_u16()?;
                 let overlay_id = buff.read_u16()?;
-                let floor = BlockEnum::try_from(floor_id)
-                    .unwrap_or(BlockEnum::Stone)
-                    .to(self.0)
-                    .unwrap_or(&environment::STONE);
-                let ore = BlockEnum::try_from(overlay_id)
-                    .unwrap_or(BlockEnum::Air)
-                    .to(self.0);
+                let floor = BlockEnum::try_from(floor_id).unwrap_or(BlockEnum::Stone);
+                let ore = BlockEnum::try_from(overlay_id).unwrap_or(BlockEnum::Air);
                 map[i] = Tile::new(floor, ore);
                 let consecutives = buff.read_u8()? as usize;
                 if consecutives > 0 {

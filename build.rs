@@ -61,6 +61,7 @@ fn main() {
     let mut warmup = File::create(o.join("warmup.rs")).unwrap();
     wr!(warmup => "/// SAFETY: this function must only be called once.");
     wr!(warmup => "pub unsafe fn warmup() {{");
+    wr!(warmup => "LazyLock::load(&EMPTY);");
     for e in walkdir.into_iter().filter_map(|e| e.ok()) {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
@@ -80,8 +81,8 @@ fn main() {
                         // boulders
                         let (mx, my) = if p.width() + p.height() == 48+48 {
                             (32, 32)
-                        // vents
-                        } else if path.contains("vent") {
+                        // vents (dont match VENT_CONDENSER, do match (RHYOLITE_VENT)
+                        } else if path.contains("_VENT") {
                             (32, 32)
                         } else {
                             (p.height(), p.width())

@@ -67,14 +67,14 @@ register_env! {
     "stone": 1;
     "build1": 1;
     "boulder": 1;
-    "arkyic-vent": 3;
+    "arkyic-vent": 1;
     "arkyic-wall-large": 2;
     "arkyic-wall": 1;
     "beryllic-stone-wall-large": 2;
     "beryllic-stone-wall": 1;
     "beryllic-stone": 1;
     "bluemat": 1;
-    "carbon-vent": 3;
+    "carbon-vent": 1;
     "carbon-wall-large": 2;
     "carbon-wall": 1;
     "cliff": 1;
@@ -108,7 +108,7 @@ register_env! {
     "red-ice-wall-large": 2;
     "red-ice-wall": 1;
     "red-ice": 1;
-    "red-stone-vent": 3;
+    "red-stone-vent": 1;
     "red-stone-wall-large": 2;
     "red-stone-wall": 1;
     "red-stone": 1;
@@ -117,7 +117,7 @@ register_env! {
     "regolith-wall": 1;
     "regolith": 1;
     "rhyolite-crater": 1;
-    "rhyolite-vent": 3;
+    "rhyolite-vent": 1;
     "rhyolite-wall-large": 2;
     "rhyolite-wall": 1;
     "rhyolite": 1;
@@ -143,7 +143,7 @@ register_env! {
     "tainted-water": 1;
     "tar": 1;
     "yellow-stone-plates": 1;
-    "yellow-stone-vent": 3;
+    "yellow-stone-vent": 1;
     "yellow-stone-wall-large": 2;
     "yellow-stone-wall": 1;
     // props

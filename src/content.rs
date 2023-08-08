@@ -17,7 +17,7 @@ macro_rules! numeric_enum {
 	($vis:vis enum $tname:ident for $numeric:ty | $error:ident* {$($name:ident $(= $val:literal)?),* $(,)?}) =>
 	{
 		#[repr($numeric)]
-		#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+		#[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 		$vis enum $tname { $($name $(= $val)?,)+ }
 
 		#[derive(Copy, Clone, Debug, Eq, PartialEq)]

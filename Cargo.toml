@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "3.0.0"
+version = "3.0.1"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -22,6 +22,7 @@ thiserror = "1.0"
 bobbin-bits = "0.1"
 blurslice = { version = "0.1" }
 enum_dispatch = "0.3"
+ahash = { version = "0.8.3", default-features = false, features = ["std", "no-rng"] }
 
 [features]
 bin = ["image/png"]
@@ -40,7 +41,7 @@ path = "src/exe/mod.rs"
 [profile.release]
 debug = 2
 opt-level = 3
-lto = true
+lto = "thin"
 incremental = true
 
 [profile.dev.build-override]
