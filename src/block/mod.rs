@@ -22,6 +22,7 @@ macro_rules! mods {
 
         pub mod all {
             $(pub use crate::block::$mod::*;)*
+            pub use super::simple::BasicBlock;
         }
     }
 }
@@ -41,7 +42,7 @@ macro_rules! disp {
         }
         #[const_trait]
         pub trait ConstFrom<T>: Sized {
-             fn fro(value: T) -> Self;
+            fn fro(value: T) -> Self;
         }
         $(
             impl const ConstFrom<$k> for BlockLogicEnum {
@@ -62,20 +63,16 @@ macro_rules! disp {
 }
 
 disp! {
-    EnvironmentBlock,
+    BasicBlock,
     WallBlock,
     DuctBlock,
     BridgeBlock,
     ItemBlock,
-    BatteryBlock,
     ProductionBlock,
     StackConveyor,
     HeatCrafter,
     ConnectorBlock,
     ItemTurret,
-    ExtractorBlock,
-    ControlBlock,
-    LiquidBlock,
     ConveyorBlock,
     WallDrillBlock,
     DrillBlock,
@@ -85,7 +82,6 @@ disp! {
     HeatedBlock,
     PointDefenseTurret,
     JunctionBlock,
-    DefenseBlock,
     Turret,
     MemoryBlock,
     MessageLogic,
@@ -93,19 +89,14 @@ disp! {
     AssemblerBlock,
     SimpleDuctBlock,
     SurgeRouter,
-    UnitCargoLoader,
-    LogicBlock,
     SimplePayloadBlock,
     PayloadConveyor,
     ImpactReactorBlock,
     Neoplasia,
     DiodeBlock,
     HeatConduit,
-    Incinerator,
-    StorageBlock,
     ContinousTurret,
     TractorBeamTurret,
-    UnitRepairTower,
     AssemblerModule,
     RepairTurret,
     FluidBlock,
@@ -115,7 +106,6 @@ disp! {
     PayloadBlock,
     LampBlock,
     DoorBlock,
-    CampaignBlock,
 }
 
 pub type State = Box<dyn Any + Sync + Send>;
@@ -251,7 +241,7 @@ impl SerializeError {
 pub struct Block {
     image: Option<[&'static LazyLock<RgbaImage>; 3]>,
     name: &'static str,
-    pub(crate) logic: BlockLogicEnum,
+    logic: BlockLogicEnum,
 }
 
 impl PartialEq for Block {

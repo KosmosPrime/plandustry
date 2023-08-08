@@ -1,16 +1,14 @@
 //! grass
 use crate::block::make_register;
-use crate::block::simple::make_simple;
+use crate::block::simple::BasicBlock;
 
 macro_rules! register_env {
     ($($field:literal: $size:literal;)+) => {
         make_register!(
-            $($field -> EnvironmentBlock::new($size, true, &[]);)*
+            $($field -> BasicBlock::new($size, true, &[]);)*
         );
     };
 }
-
-make_simple!(EnvironmentBlock);
 
 register_env! {
     "darksand": 1;

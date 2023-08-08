@@ -18,7 +18,6 @@ make_simple!(
     },
     |_, _, _, buff: &mut DataRead| read_heater(buff)
 );
-make_simple!(BatteryBlock);
 make_simple!(DiodeBlock, |_, _, _, _, rot: Rotation, s| {
     let mut base = load!("diode", s);
     if rot == Rotation::Right {
@@ -37,8 +36,8 @@ make_register! {
     "power-node-large" -> ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 5, Silicon: 3), 15);
     "surge-tower" -> ConnectorBlock::new(2, true, cost!(Lead: 10, Titanium: 7, Silicon: 15, SurgeAlloy: 15), 2);
     "diode" => DiodeBlock::new(1, false, cost!(Metaglass: 10, Silicon: 10, Plastanium: 5));
-    "battery" -> BatteryBlock::new(1, true, cost!(Copper: 5, Lead: 20));
-    "battery-large" -> BatteryBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
+    "battery" -> BasicBlock::new(1, true, cost!(Copper: 5, Lead: 20));
+    "battery-large" -> BasicBlock::new(3, true, cost!(Lead: 50, Titanium: 20, Silicon: 30));
     "combustion-generator" -> GeneratorBlock::new(1, true, cost!(Copper: 25, Lead: 15));
     "thermal-generator" -> GeneratorBlock::new(2, true, cost!(Copper: 40, Lead: 50, Metaglass: 40, Graphite: 35, Silicon: 35));
     "steam-generator" -> GeneratorBlock::new(2, true, cost!(Copper: 35, Lead: 40, Graphite: 25, Silicon: 30));

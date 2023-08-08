@@ -10,7 +10,6 @@ use crate::{block::*, Serializer};
 
 use crate::data::{self, CompressError, DataRead, DataWrite};
 
-make_simple!(LogicBlock);
 make_simple!(
     MemoryBlock =>
     |_, _, _, buff: &mut DataRead| {
@@ -31,11 +30,11 @@ make_register! {
     "hyper-processor" -> ProcessorLogic::new(3, true, cost!(Lead: 450, Thorium: 75, Silicon: 150, SurgeAlloy: 50));
     "memory-cell" -> MemoryBlock::new(1, true, cost!(Copper: 30, Graphite: 30, Silicon: 30));
     "memory-bank" -> MemoryBlock::new(2, true, cost!(Copper: 30, Graphite: 80, Silicon: 80, PhaseFabric: 30));
-    "logic-display" -> LogicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
-    "large-logic-display" -> LogicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
+    "logic-display" -> BasicBlock::new(3, true, cost!(Lead: 100, Metaglass: 50, Silicon: 50));
+    "large-logic-display" -> BasicBlock::new(6, true, cost!(Lead: 200, Metaglass: 100, Silicon: 150, PhaseFabric: 75));
     "canvas" => CanvasBlock::new(2, true, cost!(Silicon: 30, Beryllium: 10), 12);
     // editor only
-    "world-processor" -> LogicBlock::new(1, true, &[]);
+    "world-processor" -> BasicBlock::new(1, true, &[]);
     "world-message" -> MessageLogic::new(1, true, &[]);
     "world-cell" -> MemoryBlock::new(1, true, &[]);
 }

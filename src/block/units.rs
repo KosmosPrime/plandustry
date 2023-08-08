@@ -102,7 +102,6 @@ make_simple!(ConstructorBlock, |_, name, _, _, rot: Rotation, s| {
     }
     base
 });
-make_simple!(UnitRepairTower);
 make_simple!(AssemblerModule, |_, _, _, _, rot: Rotation, scl| {
     let mut base = load!("basic-assembler-module", scl);
     base.overlay(
@@ -153,7 +152,7 @@ make_register! {
     "ship-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 100, Oxide: 200, Tungsten: 500, Silicon: 800, Thorium: 400));
     "mech-assembler" => ConstructorBlock::new(5, true, cost!(Carbide: 200, Thorium: 600, Oxide: 200, Tungsten: 500, Silicon: 900)); // smh collaris
     "basic-assembler-module" => AssemblerModule::new(5, true, cost!(Carbide: 300, Thorium: 500, Oxide: 200, PhaseFabric: 400)); // the dummy block
-    "unit-repair-tower" -> UnitRepairTower::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
+    "unit-repair-tower" -> BasicBlock::new(2, true, cost!(Graphite: 90, Silicon: 90, Tungsten: 80));
 
 }
 

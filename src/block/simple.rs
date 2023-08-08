@@ -148,3 +148,5 @@ macro_rules! cost {
 	};
 }
 pub(crate) use cost;
+
+make_simple!(BasicBlock);

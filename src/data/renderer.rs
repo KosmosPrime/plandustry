@@ -148,17 +148,6 @@ macro_rules! load {
             n => unreachable!("{n:?}"),
         }
     } };
-    // (concat $x:expr, to $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
-    //     match $v {
-    //         $($k =>
-    //             ImageHolder::from(**match $scale {
-    //                 crate::data::renderer::Scale::Quarter => crate::data::renderer::quar::[<$k:snake:upper $x:snake:upper>],
-    //                 crate::data::renderer::Scale::Eigth => crate::data::renderer::eigh::[<$k:snake:upper $x:snake:upper>],
-    //                 crate::data::renderer::Scale::Full => crate::data::renderer::full::[<$k:snake:upper $x:snake:upper>],
-    //             }),
-    //         )+
-    //     }
-    // } }
 }
 pub(crate) use load;
 

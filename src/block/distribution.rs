@@ -115,7 +115,6 @@ make_simple!(
     |_, _, _, buff: &mut DataRead| buff.skip(8),
     true
 );
-make_simple!(ControlBlock);
 make_simple!(
     SurgeRouter
         / |s| {
@@ -137,10 +136,11 @@ make_register! {
     "phase-conveyor" -> BridgeBlock::new(1, false, cost!(Lead: 10, Graphite: 10, Silicon: 7, PhaseFabric: 5), 12, true);
     "sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
     "inverted-sorter" => ItemBlock::new(1, true, cost!(Copper: 2, Lead: 2));
-    "router" -> ControlBlock::new(1, true, cost!(Copper: 3));
-    "distributor" -> ControlBlock::new(2, true, cost!(Copper: 4, Lead: 4));
-    "overflow-gate" -> ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
-    "underflow-gate" -> ControlBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+    "unloader" -> ItemBlock::new(1, true, cost!(Titanium: 25, Silicon: 30));
+    "router" -> BasicBlock::new(1, true, cost!(Copper: 3));
+    "distributor" -> BasicBlock::new(2, true, cost!(Copper: 4, Lead: 4));
+    "overflow-gate" -> BasicBlock::new(1, true, cost!(Copper: 4, Lead: 2));
+    "underflow-gate" -> BasicBlock::new(1, true, cost!(Copper: 4, Lead: 2));
     "mass-driver" => BridgeBlock::new(3, true, cost!(Lead: 125, Titanium: 125, Thorium: 50, Silicon: 75), 55, false);
     "duct" => DuctBlock::new(1, false, cost!(Beryllium: 1));
     "armored-duct" => DuctBlock::new(1, false, cost!(Beryllium: 2, Tungsten: 1));
@@ -151,11 +151,11 @@ make_register! {
     "duct-unloader" => ItemBlock::new(1, true, cost!(Graphite: 20, Silicon: 20, Tungsten: 10));
     "surge-conveyor" => StackConveyor::new(1, false, cost!(SurgeAlloy: 1, Tungsten: 1));
     "surge-router" => SurgeRouter::new(1, false, cost!(SurgeAlloy: 5, Tungsten: 1)); // not symmetric
-    "unit-cargo-loader" -> UnitCargoLoader::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
+    "unit-cargo-loader" -> BasicBlock::new(3, true, cost!(Silicon: 80, SurgeAlloy: 50, Oxide: 20));
     "unit-cargo-unload-point" => ItemBlock::new(2, true, cost!(Silicon: 60, Tungsten: 60));
     // sandbox only
     "item-source" -> ItemBlock::new(1, true, &[]);
-    "item-void" -> ControlBlock::new(1, true, &[]);
+    "item-void" -> BasicBlock::new(1, true, &[]);
 }
 
 pub struct ItemBlock {
