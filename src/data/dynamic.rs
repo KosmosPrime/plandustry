@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::content;
 use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
-use crate::data::command::{self, UnitCommand};
+use crate::data::command::{self, UnitCommand, UnitStrategy};
 use crate::logic::LogicField;
 use crate::team::Team;
 
@@ -25,7 +25,7 @@ pub enum DynData
 	Building(GridPos),
 	LogicField(LogicField),
 	ByteArray(Vec<u8>),
-	UnitCommand(UnitCommand),
+	UnitStrategy(UnitStrategy),
 	BoolArray(Vec<bool>),
 	Unit(u32),
 	Vec2Array(Vec<(f32, f32)>),
@@ -33,6 +33,7 @@ pub enum DynData
 	Team(Team),
 	IntArray(Vec<i32>),
 	ObjArray(Vec<DynData>),
+	UnitCommand(UnitCommand),
 }
 
 impl DynData
@@ -56,7 +57,7 @@ impl DynData
 			Self::Building(..) => DynType::Building,
 			Self::LogicField(..) => DynType::LogicField,
 			Self::ByteArray(..) => DynType::ByteArray,
-			Self::UnitCommand(..) => DynType::UnitCommand,
+			Self::UnitStrategy(..) => DynType::UnitStrategy,
 			Self::BoolArray(..) => DynType::BoolArray,
 			Self::Unit(..) => DynType::Unit,
 			Self::Vec2Array(..) => DynType::Vec2Array,
@@ -64,6 +65,7 @@ impl DynData
 			Self::Team(..) => DynType::Team,
 			Self::IntArray(..) => DynType::IntArray,
 			Self::ObjArray(..) => DynType::ObjArray,
+			Self::UnitCommand(..) => DynType::UnitCommand,
 		}
 	}
 }
@@ -72,7 +74,7 @@ impl DynData
 pub enum DynType
 {
 	Empty, Int, Long, Float, String, Content, IntSeq, Point2, Point2Array, TechNode, Boolean, Double, Building,
-	LogicField, ByteArray, UnitCommand, BoolArray, Unit, Vec2Array, Vec2, Team, IntArray, ObjArray,
+	LogicField, ByteArray, UnitStrategy, BoolArray, Unit, Vec2Array, Vec2, Team, IntArray, ObjArray, UnitCommand,
 }
 
 pub struct DynSerializer;
@@ -158,10 +160,10 @@ impl Serializer<DynData> for DynSerializer
 			15 =>
 			{
 				let id = buff.read_u8()?;
-				match UnitCommand::try_from(id)
+				match UnitStrategy::try_from(id)
 				{
-					Ok(f) => Ok(DynData::UnitCommand(f)),
-					Err(e) => Err(ReadError::UnitCommand(e)),
+					Ok(f) => Ok(DynData::UnitStrategy(f)),
+					Err(e) => Err(ReadError::UnitStrategy(e)),
 				}
 			},
 			16 =>
@@ -212,6 +214,15 @@ impl Serializer<DynData> for DynSerializer
 					result.push(self.deserialize(buff)?);
 				}
 				Ok(DynData::ObjArray(result))
+			},
+			23 =>
+			{
+				let id = buff.read_u16()?;
+				match UnitCommand::try_from(id)
+				{
+					Ok(f) => Ok(DynData::UnitCommand(f)),
+					Err(e) => Err(ReadError::UnitCommand(e)),
+				}
 			},
 			id => Err(ReadError::Type(id)),
 		}
@@ -350,7 +361,7 @@ impl Serializer<DynData> for DynSerializer
 				buff.write_bytes(arr)?;
 				Ok(())
 			},
-			DynData::UnitCommand(cmd) =>
+			DynData::UnitStrategy(cmd) =>
 			{
 				buff.write_u8(15)?;
 				buff.write_u8(u8::from(*cmd))?;
@@ -419,6 +430,12 @@ impl Serializer<DynData> for DynSerializer
 				}
 				Ok(())
 			},
+			DynData::UnitCommand(cmd) =>
+			{
+				buff.write_u8(23)?;
+				buff.write_u16(u16::from(*cmd))?;
+				Ok(())
+			},
 		}
 	}
 }
@@ -433,11 +450,12 @@ pub enum ReadError
 	Point2ArrayLen(i8),
 	LogicField(u8),
 	ByteArrayLen(i32),
-	UnitCommand(command::TryFromU8Error),
+	UnitStrategy(command::TryFromU8Error),
 	BoolArrayLen(i32),
 	Vec2ArrayLen(i16),
 	IntArrayLen(i16),
 	ObjArrayLen(i32),
+	UnitCommand(command::TryFromU16Error),
 }
 
 impl From<data::ReadError> for ReadError
@@ -460,6 +478,14 @@ impl From<command::TryFromU8Error> for ReadError
 {
 	fn from(err: command::TryFromU8Error) -> Self
 	{
+		Self::UnitStrategy(err)
+	}
+}
+
+impl From<command::TryFromU16Error> for ReadError
+{
+	fn from(err: command::TryFromU16Error) -> Self
+	{
 		Self::UnitCommand(err)
 	}
 }
@@ -477,11 +503,12 @@ impl fmt::Display for ReadError
 			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
 			Self::LogicField(id) => write!(f, "invalid logic field ({id})"),
 			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
-			Self::UnitCommand(..) => f.write_str("unit command not found"),
+			Self::UnitStrategy(..) => f.write_str("unit strategy not found"),
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
 			Self::ObjArrayLen(len) => write!(f, "object array too long ({len})"),
+			Self::UnitCommand(..) => write!(f, "unit command not found"),
 		}
 	}
 }
@@ -493,6 +520,9 @@ impl Error for ReadError
 		match self
 		{
 			Self::Underlying(e) => Some(e),
+			Self::ContentType(e) => Some(e),
+			Self::UnitStrategy(e) => Some(e),
+			Self::UnitCommand(e) => Some(e),
 			_ => None,
 		}
 	}
@@ -608,7 +638,7 @@ mod test
 	make_dyn_test!(reparse_building, DynData::Building(GridPos(10, 0)), DynData::Building(GridPos(4444, 0xFE98)));
 	make_dyn_test!(reparse_logic, DynData::LogicField(LogicField::Enabled), DynData::LogicField(LogicField::Shoot), DynData::LogicField(LogicField::Color));
 	make_dyn_test!(reparse_byte_array, DynData::ByteArray(b"c\x00nstruct \xADditio\nal pylons".to_vec()), DynData::ByteArray(b"\x00\x01\xFE\xFF".to_vec()));
-	make_dyn_test!(reparse_unit_command, DynData::UnitCommand(UnitCommand::Idle), DynData::UnitCommand(UnitCommand::Rally));
+	make_dyn_test!(reparse_unit_strategy, DynData::UnitStrategy(UnitStrategy::Idle), DynData::UnitStrategy(UnitStrategy::Rally));
 	make_dyn_test!(reparse_bool_array, DynData::BoolArray(vec![true, true, true, false, true, false, true]), DynData::BoolArray(vec![false, true]));
 	make_dyn_test!(reparse_unit, DynData::Unit(0), DynData::Unit(2147483647));
 	make_dyn_test!(reparse_vec2_array, DynData::Vec2Array(vec![(4.4, 5.5), (-3.3, 6.6), (-2.2, -7.7)]), DynData::Vec2Array(vec![(2.2, -8.8)]));
@@ -617,4 +647,5 @@ mod test
 	make_dyn_test!(reparse_int_array, DynData::IntArray(vec![581923, 2147483647, -1047563850]), DynData::IntArray(vec![1902864703]));
 	make_dyn_test!(reparse_obj_array, DynData::ObjArray(Vec::new()), DynData::ObjArray(vec![DynData::Team(SHARDED)]),
 		DynData::ObjArray(vec![DynData::BoolArray(vec![false, true]), DynData::Content(content::Type::Item, 12345), DynData::Empty]));
+	make_dyn_test!(reparse_unit_command, DynData::UnitCommand(UnitCommand::Move), DynData::UnitCommand(UnitCommand::Boost));
 }
