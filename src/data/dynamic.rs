@@ -16,7 +16,7 @@ pub enum DynData
 	Float(f32),
 	String(Option<String>),
 	Content(content::Type, u16),
-	IntArray(Vec<i32>),
+	IntSeq(Vec<i32>),
 	Point2(i32, i32),
 	Point2Array(Vec<(i16, i16)>),
 	TechNode(content::Type, u16),
@@ -31,6 +31,7 @@ pub enum DynData
 	Vec2Array(Vec<(f32, f32)>),
 	Vec2(f32, f32),
 	Team(Team),
+	IntArray(Vec<i32>),
 }
 
 impl DynData
@@ -45,7 +46,7 @@ impl DynData
 			Self::Float(..) => DynType::Float,
 			Self::String(..) => DynType::String,
 			Self::Content(..) => DynType::Content,
-			Self::IntArray(..) => DynType::IntArray,
+			Self::IntSeq(..) => DynType::IntSeq,
 			Self::Point2(..) => DynType::Point2,
 			Self::Point2Array(..) => DynType::Point2Array,
 			Self::TechNode(..) => DynType::TechNode,
@@ -60,6 +61,7 @@ impl DynData
 			Self::Vec2Array(..) => DynType::Vec2Array,
 			Self::Vec2(..) => DynType::Vec2,
 			Self::Team(..) => DynType::Team,
+			Self::IntArray(..) => DynType::IntArray,
 		}
 	}
 }
@@ -67,8 +69,8 @@ impl DynData
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DynType
 {
-	Empty, Int, Long, Float, String, Content, IntArray, Point2, Point2Array, TechNode, Boolean, Double, Building,
-	LogicField, ByteArray, UnitCommand, BoolArray, Unit, Vec2Array, Vec2, Team,
+	Empty, Int, Long, Float, String, Content, IntSeq, Point2, Point2Array, TechNode, Boolean, Double, Building,
+	LogicField, ByteArray, UnitCommand, BoolArray, Unit, Vec2Array, Vec2, Team, IntArray,
 }
 
 pub struct DynSerializer;
@@ -95,12 +97,12 @@ impl Serializer<DynData> for DynSerializer
 				else {Ok(DynData::String(None))}
 			},
 			5 => Ok(DynData::Content(content::Type::try_from(buff.read_u8()?)?, buff.read_u16()?)),
-			6 =>
+			t @ (6 | 21) =>
 			{
 				let len = buff.read_i16()?;
 				if len < 0
 				{
-					return Err(ReadError::IntArrayLen(len));
+					return Err(if t == 6 {ReadError::IntSeqLen(len)} else {ReadError::IntArrayLen(len)});
 				}
 				let mut result = Vec::<i32>::new();
 				result.reserve(len as usize);
@@ -108,7 +110,7 @@ impl Serializer<DynData> for DynSerializer
 				{
 					result.push(buff.read_i32()?);
 				}
-				Ok(DynData::IntArray(result))
+				Ok(if t == 6 {DynData::IntSeq(result)} else {DynData::IntArray(result)})
 			},
 			7 => Ok(DynData::Point2(buff.read_i32()?, buff.read_i32()?)),
 			8 =>
@@ -245,13 +247,21 @@ impl Serializer<DynData> for DynSerializer
 				buff.write_u16(*id)?;
 				Ok(())
 			},
-			DynData::IntArray(arr) =>
+			DynData::IntSeq(arr) | DynData::IntArray(arr) =>
 			{
+				let data_type = data.get_type();
 				if arr.len() > i16::MAX as usize
 				{
-					return Err(WriteError::IntArrayLen(arr.len()));
+					if data_type == DynType::IntSeq
+					{
+						return Err(WriteError::IntSeqLen(arr.len()));
+					}
+					else
+					{
+						return Err(WriteError::IntArrayLen(arr.len()));
+					}
 				}
-				buff.write_u8(6)?;
+				buff.write_u8(if data_type == DynType::IntSeq {6} else {21})?;
 				buff.write_i16(arr.len() as i16)?;
 				for &v in arr.iter()
 				{
@@ -386,13 +396,14 @@ pub enum ReadError
 	Underlying(data::ReadError),
 	Type(u8),
 	ContentType(content::TryFromU8Error),
-	IntArrayLen(i16),
+	IntSeqLen(i16),
 	Point2ArrayLen(i8),
 	LogicField(u8),
 	ByteArrayLen(i32),
 	UnitCommand(command::TryFromU8Error),
 	BoolArrayLen(i32),
 	Vec2ArrayLen(i16),
+	IntArrayLen(i16),
 }
 
 impl From<data::ReadError> for ReadError
@@ -428,13 +439,14 @@ impl fmt::Display for ReadError
 			Self::Underlying(..) => f.write_str("failed to read from buffer"),
 			Self::Type(id) => write!(f, "invalid dynamic data type ({id})"),
 			Self::ContentType(..) => f.write_str("content type not found"),
-			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			Self::IntSeqLen(len) => write!(f, "integer sequence too long ({len})"),
 			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
 			Self::LogicField(id) => write!(f, "invalid logic field ({id})"),
 			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
 			Self::UnitCommand(..) => f.write_str("unit command not found"),
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
+			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
 		}
 	}
 }
@@ -455,11 +467,12 @@ impl Error for ReadError
 pub enum WriteError
 {
 	Underlying(data::WriteError),
-	IntArrayLen(usize),
+	IntSeqLen(usize),
 	Point2ArrayLen(usize),
 	ByteArrayLen(usize),
 	BoolArrayLen(usize),
 	Vec2ArrayLen(usize),
+	IntArrayLen(usize),
 }
 
 impl From<data::WriteError> for WriteError
@@ -477,11 +490,12 @@ impl fmt::Display for WriteError
 		match self
 		{
 			Self::Underlying(..) => f.write_str("failed to write to buffer"),
-			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			Self::IntSeqLen(len) => write!(f, "integer sequence too long ({len})"),
 			Self::Point2ArrayLen(len) => write!(f, "point2 array too long ({len})"),
 			Self::ByteArrayLen(len) => write!(f, "byte array too long ({len})"),
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
+			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
 		}
 	}
 }
@@ -548,7 +562,7 @@ mod test
 	make_dyn_test!(reparse_float, DynData::Float(3.14159265), DynData::Float(f32::INFINITY), DynData::Float(f32::EPSILON), DynData::Float(f32::NAN));
 	make_dyn_test!(reparse_string, DynData::String(None), DynData::String(Some("hello \u{10FE03}".to_string())), DynData::String(Some("".to_string())));
 	make_dyn_test!(reparse_content, DynData::Content(content::Type::Item, 12345), DynData::Content(content::Type::Planet, 25431));
-	make_dyn_test!(reparse_int_array, DynData::IntArray(vec![581923, 2147483647, -1047563850]), DynData::IntArray(vec![1902864703]));
+	make_dyn_test!(reparse_int_seq, DynData::IntSeq(vec![581923, 2147483647, -1047563850]), DynData::IntSeq(vec![1902864703]));
 	make_dyn_test!(reparse_point2, DynData::Point2(17, 0), DynData::Point2(234, -345), DynData::Point2(-2147483648, -1));
 	make_dyn_test!(reparse_point2_array, DynData::Point2Array(vec![(44, 55), (-33, 66), (-22, -77)]), DynData::Point2Array(vec![(22, -88)]));
 	make_dyn_test!(reparse_technode, DynData::TechNode(content::Type::Item, 12345), DynData::TechNode(content::Type::Planet, 25431));
@@ -563,4 +577,5 @@ mod test
 	make_dyn_test!(reparse_vec2_array, DynData::Vec2Array(vec![(4.4, 5.5), (-3.3, 6.6), (-2.2, -7.7)]), DynData::Vec2Array(vec![(2.2, -8.8)]));
 	make_dyn_test!(reparse_vec2, DynData::Vec2(1.5, 9.1234), DynData::Vec2(-0.0, -17.0), DynData::Vec2(-10.7, 3.8));
 	make_dyn_test!(reparse_team, DynData::Team(SHARDED), DynData::Team(CRUX), DynData::Team(DERELICT));
+	make_dyn_test!(reparse_int_array, DynData::IntArray(vec![581923, 2147483647, -1047563850]), DynData::IntArray(vec![1902864703]));
 }
