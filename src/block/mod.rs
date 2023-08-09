@@ -3,7 +3,7 @@
 //! categorized as mindustry categorizes them in its assets folder, for easy drawing.
 //!
 //! with the exception of sandbox, that is.
-use bobbin_bits::U4::{self, *};
+use bobbin_bits::U4::{self, B0000, B0001, B0010, B0100, B1000};
 use std::any::Any;
 use std::error::Error;
 use std::fmt;
@@ -258,24 +258,29 @@ impl Block {
         logic: BlockLogicEnum,
         image: Option<[&'static Lock<RgbaImage>; 3]>,
     ) -> Self {
-        Self { name, logic, image }
+        Self { image, name, logic }
     }
 
     /// this blocks name
     /// ```
     /// assert!(mindus::block::distribution::DISTRIBUTOR.name() == "distributor")
     /// ```
+    #[must_use]
     pub fn name(&self) -> &'static str {
         self.name
     }
 
     /// should you send context to [`image`]?
+    #[must_use]
     pub fn wants_context(&self) -> bool {
         self.logic.want_context()
     }
 
     /// draw this block, with this state
-    /// SAFETY: call [`warmup`](crate::warmup) first
+    /// # Safety
+    ///
+    /// UB if called before [`warmup`](crate::warmup)
+    #[must_use]
     pub unsafe fn image(
         &self,
         state: Option<&State>,
@@ -284,22 +289,25 @@ impl Block {
         scale: Scale,
     ) -> ImageHolder {
         if let Some(imgs) = self.image {
-            return ImageHolder::from(unsafe { Lock::get(imgs.get_unchecked(scale as usize)) });
+            return ImageHolder::from(Lock::get(imgs[scale as usize]));
         }
         self.logic.draw(self.name, state, context, rot, scale)
     }
 
     /// size.
+    #[must_use]
     pub fn get_size(&self) -> u8 {
         self.logic.get_size()
     }
 
     /// does it matter if its rotated
+    #[must_use]
     pub fn is_symmetric(&self) -> bool {
         self.logic.is_symmetric()
     }
 
     /// cost
+    #[must_use]
     pub fn get_build_cost(&self) -> Option<ItemStorage> {
         self.logic.create_build_cost()
     }
@@ -371,13 +379,13 @@ pub enum Rotation {
 impl Rotation {
     #[must_use]
     /// count rotations
-    pub fn count(self) -> u8 {
+    pub const fn count(self) -> u8 {
         self as u8
     }
 
     #[must_use]
     /// mask
-    pub fn mask(self) -> U4 {
+    pub const fn mask(self) -> U4 {
         match self {
             Rotation::Up => B1000,
             Rotation::Right => B0100,
@@ -388,7 +396,7 @@ impl Rotation {
 
     #[must_use]
     /// character of this rot (Right => >, Up => ^, Left => <, Down => v)
-    pub fn ch(self) -> char {
+    pub const fn ch(self) -> char {
         match self {
             Rotation::Right => '>',
             Rotation::Up => '^',
@@ -399,7 +407,7 @@ impl Rotation {
 
     #[must_use]
     /// mirror the directions.
-    pub fn mirrored(self, horizontally: bool, vertically: bool) -> Self {
+    pub const fn mirrored(self, horizontally: bool, vertically: bool) -> Self {
         match self {
             Self::Right => {
                 if horizontally {
@@ -439,7 +447,7 @@ impl Rotation {
 
     #[must_use]
     /// rotate the rotation
-    pub fn rotated(self, clockwise: bool) -> Self {
+    pub const fn rotated(self, clockwise: bool) -> Self {
         match self {
             Self::Right => {
                 if clockwise {
@@ -479,7 +487,7 @@ impl Rotation {
 
     #[must_use]
     /// rotate 180
-    pub fn rotated_180(self) -> Self {
+    pub const fn rotated_180(self) -> Self {
         match self {
             Self::Right => Self::Left,
             Self::Up => Self::Down,

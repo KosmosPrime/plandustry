@@ -54,7 +54,7 @@ macro_rules! make_read {
 
 impl<'d> DataRead<'d> {
     #[must_use]
-    pub fn new(data: &'d [u8]) -> Self {
+    pub const fn new(data: &'d [u8]) -> Self {
         Self { data, read: 0 }
     }
 
@@ -143,12 +143,11 @@ impl<'d> DataRead<'d> {
         match r {
             Err(e) => {
                 // skip this chunk
-                if len < self.read {
-                    #[cfg(debug_assertions)]
-                    panic!("overread; supposed to read {len}; read {}", self.read);
-                    #[cfg(not(debug_assertions))]
-                    return Err(e);
-                }
+                assert!(
+                    len >= self.read,
+                    "overread; supposed to read {len}; read {}",
+                    self.read
+                );
                 let n = len - self.read;
                 if n != 0 {
                     #[cfg(debug_assertions)]
@@ -321,7 +320,7 @@ impl<'d> DataWrite<'d> {
     }
 
     #[must_use]
-    pub fn is_owned(&self) -> bool {
+    pub const fn is_owned(&self) -> bool {
         matches!(self.data, WriteBuff::Vec(..))
     }
 
@@ -336,6 +335,7 @@ impl<'d> DataWrite<'d> {
     /// eat this datawrite
     ///
     /// panics if ref write buffer
+    #[must_use]
     pub fn consume(self) -> Vec<u8> {
         match self.data {
             WriteBuff::Vec(v) => v,
@@ -449,7 +449,7 @@ impl<'d> TryFrom<DataWrite<'d>> for Vec<u8> {
     fn try_from(value: DataWrite<'d>) -> Result<Self, Self::Error> {
         match value.data {
             WriteBuff::Vec(v) => Ok(v),
-            _ => Err(()),
+            WriteBuff::Ref { .. } => Err(()),
         }
     }
 }

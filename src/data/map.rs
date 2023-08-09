@@ -99,6 +99,7 @@ pub struct Tile<'l> {
 
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
 impl<'l> Tile<'l> {
+    #[must_use]
     pub fn new(floor: BlockEnum, ore: BlockEnum) -> Self {
         Self {
             floor,
@@ -119,7 +120,8 @@ impl<'l> Tile<'l> {
         });
     }
 
-    pub fn build(&self) -> Option<&Build<'l>> {
+    #[must_use]
+    pub const fn build(&self) -> Option<&Build<'l>> {
         self.build.as_ref()
     }
 
@@ -128,6 +130,7 @@ impl<'l> Tile<'l> {
     /// ._.
     ///
     /// dont think about it too much
+    #[must_use]
     pub fn size(&self) -> u8 {
         if let Some(b) = &self.build {
             return b.block.get_size();
@@ -135,6 +138,11 @@ impl<'l> Tile<'l> {
         1
     }
 
+    /// Draw the floor of this tile
+    ///
+    /// # Safety
+    ///
+    /// UB if called before [`warmup`](crate::warmup)
     pub unsafe fn floor_image(&self, s: Scale) -> ImageHolder {
         macro_rules! lo {
 			($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
@@ -212,8 +220,11 @@ impl<'l> Tile<'l> {
         floor()
     }
 
+    /// Draw this tiles build.
+    ///
     /// # Safety
-    /// Must call [`warmup`](crate::warmup) first
+    /// UB if called before [`warmup`](crate::warmup)
+    #[must_use]
     pub unsafe fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
         // building covers floore
         let Some(b) = &self.build else {
@@ -232,12 +243,12 @@ impl std::fmt::Debug for Tile<'_> {
             if self.ore != BlockEnum::Air {
                 format!("+{}", self.ore.get_name())
             } else {
-                "".into()
+                String::new()
             },
             if let Some(build) = &self.build {
                 format!(":{}", build.block.name())
             } else {
-                "".to_string()
+                String::new()
             }
         )
     }
@@ -291,10 +302,7 @@ impl Clone for Build<'_> {
             block: self.block,
             items: self.items.clone(),
             liquids: self.liquids.clone(),
-            state: match self.state {
-                None => None,
-                Some(ref s) => Some(self.block.clone_state(s)),
-            },
+            state: self.state.as_ref().map(|s| self.block.clone_state(s)),
             rotation: self.rotation,
             team: self.team,
             data: self.data,
@@ -303,23 +311,25 @@ impl Clone for Build<'_> {
 }
 
 impl<'l> Build<'l> {
+    #[must_use]
     pub fn new(block: &'l Block) -> Build<'l> {
         Self {
             block,
-            items: Default::default(),
-            liquids: Default::default(),
-            state: Default::default(),
+            items: Storage::default(),
+            liquids: Storage::default(),
+            state: None,
             rotation: Rotation::Up,
             team: team::SHARDED,
             data: 0,
         }
     }
 
-    pub unsafe fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
+    unsafe fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
         self.block
             .image(self.state.as_ref(), context, self.rotation, s)
     }
 
+    #[must_use]
     pub fn name(&self) -> &str {
         self.block.name()
     }
@@ -347,17 +357,13 @@ impl<'l> Build<'l> {
             mask = buff.read_u8()?;
         }
 
-        const ITEMS: u8 = 1;
-        const POWER: u8 = 2;
-        const LIQUIDS: u8 = 4;
-
-        if mask & ITEMS != 0 {
+        if mask & 1 != 0 {
             read_items(buff, &mut self.items)?;
         }
-        if mask & POWER != 0 {
+        if mask & 2 != 0 {
             read_power(buff)?;
         }
-        if mask & LIQUIDS != 0 {
+        if mask & 4 != 0 {
             read_liquids(buff, &mut self.liquids)?;
         }
         // "efficiency"?
@@ -507,6 +513,7 @@ impl<'l> Crossable for Map<'l> {
 }
 
 impl<'l> Map<'l> {
+    #[must_use]
     pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
             tiles: vec![Tile::new(BlockEnum::Stone, BlockEnum::Air); width * height],
@@ -604,7 +611,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 let consecutives = buff.read_u8()? as usize;
                 if consecutives > 0 {
                     for i in (i + 1)..(i + 1 + consecutives) {
-                        map[i] = Tile::new(floor, ore)
+                        map[i] = Tile::new(floor, ore);
                     }
                     i += consecutives;
                 }
@@ -619,14 +626,14 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                 let central = if entity { buff.read_bool()? } else { false };
                 let block = BlockEnum::try_from(block_id)
                     .map_err(|_| ReadError::NoSuchBlock(block_id.to_string()))?;
-                let block = if block != BlockEnum::Air {
+                let block = if block == BlockEnum::Air {
+                    None
+                } else {
                     Some(
                         self.0
                             .get(block.get_name())
                             .ok_or_else(|| ReadError::NoSuchBlock(block.to_string()))?,
                     )
-                } else {
-                    None
                 };
                 if central {
                     if let Some(block) = block {
@@ -665,7 +672,7 @@ impl<'l> Serializer<Map<'l>> for MapSerializer<'l> {
                     }
                     i += consecutives;
                 }
-                i += 1
+                i += 1;
             }
             m = Some(map);
             Ok::<(), ReadError>(())

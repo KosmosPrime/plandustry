@@ -214,10 +214,11 @@ impl BlockLogic for ItemBlock {
     fn rotate_state(&self, _: &mut State, _: bool) {}
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
-        match Self::get_state(state) {
-            None => Ok(DynData::Empty),
-            Some(item) => Ok(DynData::Content(content::Type::Item, (*item).into())),
-        }
+        Ok(Self::get_state(state)
+            .as_ref()
+            .map_or(DynData::Empty, |&item| {
+                DynData::Content(content::Type::Item, item.into())
+            }))
     }
 
     fn draw(

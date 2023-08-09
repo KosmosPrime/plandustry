@@ -245,7 +245,7 @@ impl Serializer<DynData> for DynSerializer {
                 }
                 buff.write_u8(6)?;
                 buff.write_i16(arr.len() as i16)?;
-                for &v in arr.iter() {
+                for &v in arr {
                     buff.write_i32(v)?;
                 }
                 Ok(())
@@ -262,7 +262,7 @@ impl Serializer<DynData> for DynSerializer {
                 }
                 buff.write_u8(8)?;
                 buff.write_i8(arr.len() as i8)?;
-                for &(x, y) in arr.iter() {
+                for &(x, y) in arr {
                     buff.write_i32((i32::from(x) << 16) | (i32::from(y) & 0xFFFF))?;
                 }
                 Ok(())
@@ -313,7 +313,7 @@ impl Serializer<DynData> for DynSerializer {
                 }
                 buff.write_u8(16)?;
                 buff.write_i32(arr.len() as i32)?;
-                for &b in arr.iter() {
+                for &b in arr {
                     buff.write_bool(b)?;
                 }
                 Ok(())
@@ -329,7 +329,7 @@ impl Serializer<DynData> for DynSerializer {
                 }
                 buff.write_u8(18)?;
                 buff.write_i16(arr.len() as i16)?;
-                for &(x, y) in arr.iter() {
+                for &(x, y) in arr {
                     buff.write_f32(x)?;
                     buff.write_f32(y)?;
                 }

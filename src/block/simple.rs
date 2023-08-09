@@ -3,7 +3,7 @@ use crate::item;
 
 macro_rules! state_impl {
 	($vis:vis $type:ty) => {
-		$vis fn get_state(state: &$crate::block::State) -> &$type
+		#[must_use] $vis fn get_state(state: &$crate::block::State) -> &$type
 		where Self: Sized {
 			state.downcast_ref::<$type>().unwrap()
 		}
@@ -23,7 +23,7 @@ macro_rules! state_impl {
 pub(crate) use state_impl;
 
 /// draw is called with self, name, state, context, rotation
-/// read is called with build, reg, entity_mapping, buff
+/// read is called with build, reg, `entity_mapping`, buff
 macro_rules! make_simple {
     ($name: ident, $draw: expr, $read: expr, $wants_context: literal) => {
         pub struct $name {

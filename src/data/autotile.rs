@@ -81,7 +81,7 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
     for c in v.chunks(height) {
         for c in c {
             s.push(c[0].map_or('_', |(_, r)| r.ch()));
-            for c in c[1..].iter() {
+            for c in &c[1..] {
                 s.push(',');
                 s.push(c.map_or('_', |(_, r)| r.ch()));
             }
@@ -97,7 +97,10 @@ pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation, s: Scale) -> 
 }
 
 pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
-    use U4::*;
+    use U4::{
+        B0000, B0001, B0010, B0011, B0100, B0101, B0110, B0111, B1000, B1001, B1010, B1011, B1100,
+        B1101, B1110, B1111,
+    };
     macro_rules! p {
         ($image:literal, $rotation:literal) => {
             ($image, $rotation, 0)
@@ -113,14 +116,14 @@ pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
             Rotation::Down => p!(1, 1, FLIP_Y), // ┐
             Rotation::Right => p!(0, 0),        // ─
             Rotation::Up => p!(1, 3),           // ┘
-            _ => unreachable!(),
+            Rotation::Left => unreachable!(),
         },
         // from below
         B0010 => match rot {
             Rotation::Left => p!(1, 2),  // ┐
             Rotation::Right => p!(1, 1), // ┌
             Rotation::Up => p!(0, 3),    // │
-            _ => unreachable!(),
+            Rotation::Down => unreachable!(),
         },
         // from bottom + left
         B0011 => match rot {
@@ -133,7 +136,7 @@ pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
             Rotation::Left => p!(0, 2),       // ─
             Rotation::Down => p!(1, 1),       // ┌
             Rotation::Up => p!(1, 1, FLIP_X), // └
-            _ => unreachable!(),
+            Rotation::Right => unreachable!(),
         },
         // from sides
         B0101 => match rot {
@@ -157,7 +160,7 @@ pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
             Rotation::Down => p!(0, 1),         // │
             Rotation::Left => p!(1, 0, FLIP_X), // ┘
             Rotation::Right => p!(1, 0),        // └
-            _ => unreachable!(),
+            Rotation::Up => unreachable!(),
         },
         // from top and left
         B1001 => match rot {
@@ -219,7 +222,7 @@ pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder) {
     with.rotate(rot);
 }
 
-/// TODO figure out if a flip is cheaper than a rotate_270
+/// TODO figure out if a flip is cheaper than a `rotate_270`
 pub fn rotations2tile((index, rot, flip): (u8, u8, u8), name: &str, scale: Scale) -> ImageHolder {
     let mut p = match index {
         0 => {
@@ -257,7 +260,7 @@ pub fn mask(ctx: &RenderingContext, rot: Rotation, n: &str) -> U4 {
             }
         }};
     }
-    use Rotation::*;
+    use Rotation::{Down, Left, Right, Up};
     let mut x = 0b0000;
 
     x |= 8 * c!(ctx.cross[0], rot, n, Down);
@@ -273,7 +276,7 @@ pub trait RotationState {
 pub trait BlockState<'l> {
     fn get_block(&'l self) -> Option<&'l Block>;
 }
-pub(crate) trait Crossable {
+pub trait Crossable {
     fn cross(&self, j: usize, c: &PositionContext) -> Cross;
 }
 

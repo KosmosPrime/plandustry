@@ -95,7 +95,8 @@ macro_rules! color_content_enum {
 		});
 
         impl Type {
-            pub fn color(&self) -> image::Rgb<u8> {
+            #[must_use]
+            pub const fn color(&self) -> image::Rgb<u8> {
                 match &self {
                     $(Self::[<$val:camel>] => {
                         image::Rgb(color_hex::color_from_hex!($col))
@@ -139,7 +140,7 @@ macro_rules! gen_by_id {
 }
 
 impl Type {
-    pub fn get(&self, id: u16) -> Result<Box<dyn Content>, Box<dyn Error>> {
+    pub fn get(self, id: u16) -> Result<Box<dyn Content>, Box<dyn Error>> {
         match self {
             Self::Item => gen_by_id!(crate::item::Type, id),
             Self::Block => gen_by_id!(crate::block::content::Type, id),
@@ -147,7 +148,7 @@ impl Type {
             Self::Modifier => gen_by_id!(crate::modifier::Type, id),
             Self::Unit => gen_by_id!(crate::unit::Type, id),
             Self::Team => gen_by_id!(crate::team::Team, id),
-            _ => Ok(Box::new(Generic(*self, id))),
+            _ => Ok(Box::new(Generic(self, id))),
         }
     }
 }

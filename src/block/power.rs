@@ -116,7 +116,7 @@ impl BlockLogic for ConnectorBlock {
     }
 
     fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {
-        for (dx, dy) in Self::get_state_mut(state).iter_mut() {
+        for (dx, dy) in &mut *Self::get_state_mut(state) {
             if horizontally {
                 *dx = -*dx;
             }
@@ -127,7 +127,7 @@ impl BlockLogic for ConnectorBlock {
     }
 
     fn rotate_state(&self, state: &mut State, clockwise: bool) {
-        for (dx, dy) in Self::get_state_mut(state).iter_mut() {
+        for (dx, dy) in &mut *Self::get_state_mut(state) {
             let (cdx, cdy) = (*dx, *dy);
             *dx = if clockwise { cdy } else { -cdy };
             *dy = if clockwise { -cdx } else { cdx };

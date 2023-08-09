@@ -39,6 +39,7 @@ impl fmt::Debug for Placement<'_> {
 
 impl<'l> Placement<'l> {
     /// make a placement from a block
+    #[must_use]
     pub fn new(block: &'l Block) -> Self {
         Self {
             block,
@@ -59,7 +60,10 @@ impl<'l> Placement<'l> {
     }
 
     /// draws this placement in particular
-    /// SAFETY: call [`warmup`](crate::warmup) first
+    ///
+    /// # Safety
+    /// UB if called before [`warmup`](crate::warmup)
+    #[must_use]
     pub unsafe fn image(
         &self,
         context: Option<&RenderingContext>,
@@ -116,10 +120,7 @@ impl<'l> Clone for Placement<'l> {
     fn clone(&self) -> Self {
         Self {
             block: self.block,
-            state: match self.state {
-                None => None,
-                Some(ref s) => Some(self.block.clone_state(s)),
-            },
+            state: self.state.as_ref().map(|s| self.block.clone_state(s)),
             rot: self.rot,
         }
     }
@@ -259,11 +260,7 @@ impl<'l> Schematic<'l> {
                 h: self.height,
             });
         }
-        let b = &self.blocks[x][y];
-        match b {
-            Some(b) => Ok(Some(b)),
-            _ => Ok(None),
-        }
+        Ok(self.blocks[x][y].as_ref())
     }
 
     /// gets a block, mutably
@@ -276,14 +273,10 @@ impl<'l> Schematic<'l> {
                 h: self.height,
             });
         }
-        let b = &mut self.blocks[x][y];
-        match b {
-            Some(b) => Ok(Some(b)),
-            _ => Ok(None),
-        }
+        Ok(self.blocks[x][y].as_mut())
     }
 
-    /// put a block in (same as [Schematic::set], but less arguments and builder-ness). panics!!!
+    /// put a block in (same as [`Schematic::set`], but less arguments and builder-ness). panics!!!
     /// ```
     /// # use mindus::Schematic;
     ///
@@ -335,7 +328,7 @@ impl<'l> Schematic<'l> {
             });
         }
         let state = block.deserialize_state(data)?;
-        let p = Placement { block, state, rot };
+        let p = Placement { block, rot, state };
         self.blocks[x][y] = Some(p);
         Ok(())
     }
@@ -378,7 +371,7 @@ impl<'l> Schematic<'l> {
 
     #[must_use]
     /// see how much this schematic costs.
-    /// returns (cost, is_sandbox)
+    /// returns (cost, `is_sandbox`)
     /// ```
     /// # use mindus::Schematic;
     /// # use mindus::DynData;
@@ -490,7 +483,7 @@ impl fmt::Display for TruncatedError {
 const SCHEMATIC_HEADER: u32 =
     ((b'm' as u32) << 24) | ((b's' as u32) << 16) | ((b'c' as u32) << 8) | (b'h' as u32);
 
-/// serde_schematic
+/// `serde_schematic`
 pub struct SchematicSerializer<'l>(pub &'l BlockRegistry<'l>);
 
 impl<'l> Serializer<Schematic<'l>> for SchematicSerializer<'l> {

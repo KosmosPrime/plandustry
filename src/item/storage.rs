@@ -20,7 +20,7 @@ impl<T> Default for Storage<T> {
         Self {
             base: Vec::default(),
             total: 0,
-            holds: Default::default(),
+            holds: PhantomData,
         }
     }
 }
@@ -43,7 +43,7 @@ where
 
     #[must_use]
     /// total items
-    pub fn get_total(&self) -> u64 {
+    pub const fn get_total(&self) -> u64 {
         self.total
     }
 
@@ -61,7 +61,7 @@ where
     /// s.sub(item::Type::Copper, 500, 0);
     /// assert!(s.is_empty());
     /// ```
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.total == 0
     }
 
@@ -81,10 +81,7 @@ where
     /// ```
     #[must_use]
     pub fn get(&self, ty: T) -> u32 {
-        match self.base.get(u16::from(ty) as usize) {
-            None => 0,
-            Some(cnt) => *cnt,
-        }
+        self.base.get(u16::from(ty) as usize).copied().unwrap_or(0)
     }
     /// set item count of certain element
     ///

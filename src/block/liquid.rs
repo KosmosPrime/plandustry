@@ -102,10 +102,11 @@ impl BlockLogic for FluidBlock {
     }
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
-        match Self::get_state(state) {
-            None => Ok(DynData::Empty),
-            Some(fluid) => Ok(DynData::Content(content::Type::Fluid, (*fluid).into())),
-        }
+        Ok(Self::get_state(state)
+            .as_ref()
+            .map_or(DynData::Empty, |&fluid| {
+                DynData::Content(content::Type::Fluid, fluid.into())
+            }))
     }
 
     fn draw(

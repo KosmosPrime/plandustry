@@ -68,17 +68,17 @@ impl CanvasBlock {
         assert!(size != 0, "invalid size");
         assert!(canvas_size != 0, "invalid size");
         Self {
-            canvas_size,
             size,
             symmetric,
             build_cost,
+            canvas_size,
         }
     }
 
     state_impl!(pub RgbImage);
 }
 
-fn deser_canvas_image(b: Vec<u8>, size: usize) -> RgbImage {
+fn deser_canvas_image(b: &[u8], size: usize) -> RgbImage {
     let mut p = RgbImage::new(size as u32, size as u32);
     for i in 0..(size * size) {
         let offset = i * 3;
@@ -91,7 +91,7 @@ fn deser_canvas_image(b: Vec<u8>, size: usize) -> RgbImage {
             i as u32 % size as u32,
             i as u32 / size as u32,
             PALETTE[n as usize],
-        )
+        );
     }
     p
 }
@@ -106,7 +106,7 @@ impl BlockLogic for CanvasBlock {
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
             DynData::ByteArray(b) => Ok(Some(Self::create_state(deser_canvas_image(
-                b,
+                &b,
                 self.canvas_size as usize,
             )))),
             _ => Err(DeserializeError::InvalidType {
@@ -198,7 +198,7 @@ impl BlockLogic for CanvasBlock {
         let mut b = vec![0; n];
         buff.read_bytes(&mut b)?;
         build.state = Some(Self::create_state(deser_canvas_image(
-            b,
+            &b,
             self.canvas_size as usize,
         )));
         Ok(())

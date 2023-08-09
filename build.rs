@@ -59,10 +59,10 @@ fn main() {
     }
 
     let mut warmup = File::create(o.join("warmup.rs")).unwrap();
-    wr!(warmup => "/// SAFETY: this function must only be called once.");
+    wr!(warmup => "/// # Safety\n///\n/// this function must only be called once.");
     wr!(warmup => "pub unsafe fn warmup() {{");
     wr!(warmup => "LazyLock::load(&EMPTY);");
-    for e in walkdir.into_iter().filter_map(|e| e.ok()) {
+    for e in walkdir.into_iter().filter_map(Result::ok) {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
             let p = DynamicImage::from_decoder(PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap()).unwrap().into_rgba8();

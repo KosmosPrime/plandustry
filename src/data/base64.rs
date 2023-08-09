@@ -3,10 +3,10 @@ pub use base64::{DecodeSliceError as DecodeError, EncodeSliceError as EncodeErro
 
 const BASE64: general_purpose::GeneralPurpose = general_purpose::STANDARD;
 
-pub(crate) fn encode(input: &[u8], output: &mut [u8]) -> Result<usize, EncodeError> {
+pub fn encode(input: &[u8], output: &mut [u8]) -> Result<usize, EncodeError> {
     BASE64.encode_slice(input, output)
 }
 
-pub(crate) fn decode(input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
+pub fn decode(input: &[u8], output: &mut [u8]) -> Result<usize, DecodeError> {
     BASE64.decode_slice(input, output)
 }

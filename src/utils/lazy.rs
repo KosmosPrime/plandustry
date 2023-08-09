@@ -1,4 +1,4 @@
-//! [LazyLock] copy
+//! [`LazyLock`](std::sync::LazyLock) copy
 use std::cell::UnsafeCell;
 use std::mem::ManuallyDrop;
 use std::panic::{RefUnwindSafe, UnwindSafe};
@@ -23,7 +23,7 @@ impl<T, F: FnOnce() -> T> Lock<T, F> {
     }
 
     #[inline]
-    // SAFETY: CALL ONLY ONCE! NOT CHECKED
+    /// SAFETY: CALL ONLY ONCE! NOT CHECKED
     pub unsafe fn load(this: &Lock<T, F>) {
         let data = &mut *this.data.get();
         let f = ManuallyDrop::take(&mut data.f);
@@ -34,7 +34,7 @@ impl<T, F: FnOnce() -> T> Lock<T, F> {
 
 impl<T, F> Lock<T, F> {
     #[inline]
-    // SAFETY: CALL [load] FIRST!
+    /// SAFETY: CALL [load] FIRST!
     pub unsafe fn get(&self) -> &T {
         &(*self.data.get()).value
     }

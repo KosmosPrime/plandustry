@@ -21,6 +21,7 @@ pub enum ImageHolder {
 }
 
 impl ImageHolder {
+    #[must_use]
     pub fn own(self) -> RgbaImage {
         match self {
             Self::Own(x) => x,
@@ -94,7 +95,7 @@ pub enum Scale {
 }
 
 impl Scale {
-    fn px(self) -> u8 {
+    pub const fn px(self) -> u8 {
         match self {
             Self::Full => 32,
             Self::Quarter => 32 / 4,
@@ -161,7 +162,10 @@ pub(crate) use load;
 /// trait for renderable objects
 pub trait Renderable {
     /// create a picture
-    /// SAFETY: call the [warmup] function first.
+    ///
+    /// # Safety
+    ///
+    /// UB if called before [`warmup`](crate::warmup)
     unsafe fn render(&self) -> RgbImage;
 }
 
@@ -178,6 +182,10 @@ impl Renderable for Schematic<'_> {
     /// // this is now safe, because we have warmed up
     /// let output /*: RgbImage */ = unsafe { s.render() };
     /// ```
+    ///
+    /// # Safety
+    ///
+    /// UB if called before [`warmup`](crate::warmup)
     unsafe fn render(&self) -> RgbImage {
         // fill background
         let mut bg = RgbImage::repeated(
@@ -243,6 +251,10 @@ impl Renderable for Schematic<'_> {
 }
 
 impl Renderable for Map<'_> {
+    /// Draws a map
+    ///
+    /// # Safety
+    /// UB if called before [`warmup`](crate::warmup)
     unsafe fn render(&self) -> RgbImage {
         let scale = if self.width + self.height < 2000 {
             Scale::Quarter
@@ -296,8 +308,19 @@ impl Renderable for Map<'_> {
     }
 }
 
+#[allow(clippy::needless_doctest_main)]
 /// Loads all the images into memory (about 300mb)
-/// SAFETY: only call once. or else.
+/// This is a necessary function. Call it once in main.
+///
+/// ```
+/// fn main() {
+///     unsafe { mindus::warmup(); }
+/// }
+/// ```
+///
+/// # Safety
+///
+/// only call once, else UB
 pub unsafe fn warmup() {
     full::warmup();
     quar::warmup();
@@ -324,7 +347,7 @@ fn all_blocks() {
         }
         let name = dbg!(t.get_name());
         let t = reg.get(name).unwrap();
-        unsafe {
+        let _ = unsafe {
             t.image(
                 None,
                 Some(&RenderingContext {

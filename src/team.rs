@@ -9,13 +9,13 @@ pub struct Team(u8);
 
 impl Team {
     #[must_use]
-    pub fn of(id: u8) -> Self {
+    pub const fn of(id: u8) -> Self {
         Self(id)
     }
 
     #[must_use]
-    pub fn is_base(&self) -> bool {
-        self.0 < 6
+    pub const fn is_base(self) -> bool {
+        self.0 < 7
     }
 }
 
@@ -89,7 +89,7 @@ impl Content for Team {
             5 => "blue",
             6 => "neoplastic",
             // dark magic: offsets manually computed, then rely on the format "...|team#{i}|..."
-            i @ 6..=9 => {
+            i @ 7..=9 => {
                 // length: 7 ("team#" (5) + 1 digit + "|" (1))
                 let s = ((i - 6) as usize) * 7;
                 &TEAM_NAMES[s..s + 6] // exclude the trailing "|"
@@ -109,13 +109,13 @@ impl Content for Team {
 }
 
 impl Team {
-    pub fn color(&self) -> Rgb<u8> {
+    pub const fn color(self) -> Rgb<u8> {
         macro_rules! h {
             ($x:literal) => {
                 Rgb(color_hex::color_from_hex!($x))
             };
         }
-        match *self {
+        match self {
             SHARDED => h!("ffd37f"),
             DERELICT => h!("4d4e58"),
             CRUX => h!("f25555"),
