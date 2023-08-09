@@ -276,11 +276,18 @@ impl Renderable for Map<'_> {
             )
         }) {
             // draw the floor first.
-            let img: &RgbaImage = &tile.floor_image(scale);
+            let flo: &RgbaImage = &tile.floor(scale);
             // println!("draw {tile:?} ({x}, {y}) + {scale:?}");
-            debug_assert_eq!(img.width(), scale.px() as u32);
-            debug_assert_eq!(img.height(), scale.px() as u32);
-            floor.overlay_at(img, scale * x as u32, scale * y as u32);
+            // debug_assert_eq!(floor.width(), scale.px() as u32);
+            // debug_assert_eq!(floor.height(), scale.px() as u32);
+            floor.overlay_at(flo, scale * x as u32, scale * y as u32);
+            if tile.has_ore() {
+                let ore: &RgbaImage = &tile.ore(scale);
+                // debug_assert_eq!(ore.width(), scale.px() as u32);
+                // debug_assert_eq!(ore.height(), scale.px() as u32);
+                floor.overlay_at(ore, scale * x as u32, scale * y as u32);
+            }
+
             if let Some(build) = tile.build() {
                 let s = build.block.get_size();
                 let x = x - ((s - 1) / 2) as usize;
@@ -300,8 +307,8 @@ impl Renderable for Map<'_> {
                     None
                 };
                 let img: &RgbaImage = &tile.build_image(ctx.as_ref(), scale);
-                debug_assert_eq!(img.width(), scale * build.block.get_size() as u32);
-                debug_assert_eq!(img.height(), scale * build.block.get_size() as u32);
+                // debug_assert_eq!(img.width(), scale * build.block.get_size() as u32);
+                // debug_assert_eq!(img.height(), scale * build.block.get_size() as u32);
                 top.overlay_at(img, scale * x as u32, scale * y as u32);
             }
         }

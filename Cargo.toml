@@ -1,6 +1,6 @@
 [package]
 name = "mindus"
-version = "3.0.3"
+version = "3.0.5"
 edition = "2021"
 description = "A library for working with mindustry data formats (eg schematics and maps) (fork of plandustry)"
 authors = [
@@ -22,7 +22,6 @@ thiserror = "1.0"
 bobbin-bits = "0.1"
 blurslice = { version = "0.1" }
 enum_dispatch = "0.3"
-ahash = { version = "0.8.3", default-features = false, features = ["std", "no-rng"] }
 
 [features]
 bin = ["image/png"]

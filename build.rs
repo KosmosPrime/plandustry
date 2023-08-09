@@ -82,7 +82,9 @@ fn main() {
                         let (mx, my) = if p.width() + p.height() == 48+48 {
                             (32, 32)
                         // vents (dont match VENT_CONDENSER, do match (RHYOLITE_VENT)
-                        } else if path.contains("_VENT") {
+                        } else if path.contains("_VENT")
+                            // talls
+                            || matches!(path.as_str(), "YELLOWCORAL" | "WHITE_TREE" | "WHITE_TREE_DEAD" | "REDWEED" | "SPORE_CLUSTER" | "CRYSTAL_BLOCKS" | "CRYSTAL_CLUSTER" | "VIBRANT_CRYSTAL_CLUSTER" | "CRYSTAL_ORBS") {
                             (32, 32)
                         } else {
                             (p.height(), p.width())

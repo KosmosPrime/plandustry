@@ -71,7 +71,6 @@
 //!                 - entity read
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
-use std::sync::RwLock;
 use thiserror::Error;
 
 use crate::block::content::Type as BlockEnum;
@@ -95,6 +94,15 @@ pub struct Tile<'l> {
     pub floor: BlockEnum,
     pub ore: BlockEnum,
     build: Option<Build<'l>>,
+}
+
+macro_rules! lo {
+	($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
+		match $v {
+			$(BlockEnum::[<$k:camel>] => load!($k, $scale),)+
+				n => unreachable!("{n:?}"),
+			}
+	} };
 }
 
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
@@ -138,22 +146,8 @@ impl<'l> Tile<'l> {
         1
     }
 
-    /// Draw the floor of this tile
-    ///
-    /// # Safety
-    ///
-    /// UB if called before [`warmup`](crate::warmup)
-    pub unsafe fn floor_image(&self, s: Scale) -> ImageHolder {
-        macro_rules! lo {
-			($v:expr => [$(|)? $($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
-				match $v {
-					$(BlockEnum::[<$k:camel>] => load!($k, $scale),)+
-					n => unreachable!("{n:?}"),
-				} }
-			}
-		}
-        let floor = || {
-            lo!(self.floor => [
+    pub(crate) unsafe fn floor(&self, s: Scale) -> ImageHolder {
+        lo!(self.floor => [
 			| "darksand"
 			| "sand-floor"
 			| "dacite"
@@ -162,62 +156,57 @@ impl<'l> Tile<'l> {
 			| "basalt"
 			| "moss"
 			| "mud"
-			| "magmarock"
 			| "grass"
-			| "ice-snow"
-			| "hotrock"
-			| "char"
-			| "snow"
-			| "salt"
+			| "ice-snow" | "snow" | "salt" | "ice"
+			| "hotrock" | "char" | "magmarock"
 			| "shale"
 			| "metal-floor" | "metal-floor-2" | "metal-floor-3" | "metal-floor-4" | "metal-floor-5" | "metal-floor-damaged"
 			| "dark-panel-1" | "dark-panel-2" | "dark-panel-3" | "dark-panel-4" | "dark-panel-5" | "dark-panel-6"
-			| "darksand-tainted-water"
-			| "darksand-water"
-			| "deep-tainted-water"
-			| "molten-slag"
-			| "deep-water"
-			| "sand-water"
-			| "shallow-water"
+			| "darksand-tainted-water" | "darksand-water" | "deep-tainted-water" | "deep-water" | "sand-water" | "shallow-water" | "tainted-water"
+			| "tar" | "pooled-cryofluid" | "molten-slag"
 			| "space"
 			| "stone"
 			| "bluemat"
 			| "ferric-craters"
 			| "beryllic-stone"
-			| "rhyolite-crater"
+			| "rhyolite" | "rough-rhyolite" | "rhyolite-crater" | "rhyolite-vent"
 			| "core-zone"
 			| "crater-stone"
-			| "crystal-floor"
-			| "dense-red-stone"
 			| "redmat"
 			| "red-ice"
 			| "spore-moss"
-			| "arkyic-vent" | "red-stone-vent" | "rhyolite-vent" | "carbon-vent" | "crystalline-vent" | "yellow-stone-vent"
 			| "regolith"
-			| "rhyolite"
-			| "tainted-water"
-			| "tar"
-			| "empty"
-		], s)
-        };
-        if self.ore != BlockEnum::Air {
-            type Floor = BlockEnum;
-            type Ore = BlockEnum;
-            // todo Rgb
-            static ORE_LAYS: RwLock<HashMap<(Floor, Ore), &'static RgbaImage, ahash::RandomState>> =
-                RwLock::new(HashMap::with_hasher(ahash::RandomState::with_seeds(
-                    401, 41209, 83123, 2110,
-                )));
-            if let Some(v) = ORE_LAYS.read().unwrap().get(&(self.floor, self.ore)) {
-                return ImageHolder::from(*v);
-            }
-            return ImageHolder::from(*ORE_LAYS.write().unwrap().entry((self.floor, self.ore)).or_insert_with(|| {
-                let mut base = floor();
-                base.overlay(lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils"], s).borrow());
-                Box::leak(Box::new(base))
-            }));
+			| "ferric-stone"
+			| "arkyic-stone" | "arkyic-vent"
+			| "yellow-stone" | "yellow-stone-plates" | "yellow-stone-vent"
+			| "red-stone" | "red-stone-vent" | "dense-red-stone"
+			| "carbon-stone" | "carbon-vent"
+			| "crystal-floor" | "crystalline-stone" | "crystalline-vent"
+			| "empty"], s)
+    }
+
+    #[must_use]
+    pub(crate) unsafe fn ore(&self, s: Scale) -> ImageHolder {
+        lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
+    }
+
+    #[must_use]
+    pub fn has_ore(&self) -> bool {
+        self.ore != BlockEnum::Air
+    }
+
+    /// Draw the floor of this tile
+    ///
+    /// # Safety
+    ///
+    /// UB if called before [`warmup`](crate::warmup)
+    #[must_use]
+    pub unsafe fn floor_image(&self, s: Scale) -> ImageHolder {
+        let mut floor = self.floor(s);
+        if self.has_ore() {
+            floor.overlay(&self.ore(s));
         }
-        floor()
+        floor
     }
 
     /// Draw this tiles build.

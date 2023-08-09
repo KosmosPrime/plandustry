@@ -9,6 +9,7 @@ use super::print_err;
 pub fn main(args: Args) {
     let reg = build_registry();
     let mut ms = MapSerializer(&reg);
+    let runs = std::env::var("RUNS").map_or(10u8, |x| x.parse().unwrap_or(10u8));
 
     // process schematics from command line
     println!("starting timing");
@@ -31,17 +32,18 @@ pub fn main(args: Args) {
                     }
                 }
                 let starting_render = Instant::now();
-                for _ in 0..10 {
+                for _ in 0..runs {
                     unsafe { m.render() };
                 }
                 let renders_took = starting_render.elapsed();
                 let took = then.elapsed();
                 println!(
-                    "μ total: {:.2}s (10 runs) (deser: {}ms, warmup: {}ms, render: {:.2}s) on map {}",
-                    took.as_secs_f32() / 10.,
+                    "μ total: {:.2}s ({} runs) (deser: {}ms, warmup: {}ms, render: {:.2}s) on map {}",
+                    took.as_secs_f32() / runs as f32,
+                    runs,
                     deser_took.as_millis(),
                     warmup_took.as_millis(),
-                    renders_took.as_secs_f32() / 10.,
+                    renders_took.as_secs_f32() / runs as f32,
                     m.tags.get("mapname").unwrap(),
                 );
             }
