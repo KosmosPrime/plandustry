@@ -612,7 +612,25 @@ mod test
 				{
 					match DynSerializer.deserialize(&mut reader)
 					{
-						Ok(read) => assert_eq!(*original, read, "serialization of {original:?} became {read:?}"),
+						Ok(read) =>
+						{
+							if original != &read
+							{
+								let ignore = match (original, &read)
+								{
+									(&DynData::Float(want), &DynData::Float(have)) =>
+									{
+										f32::is_nan(want) && f32::is_nan(have) && (f32::to_bits(want) >> 31) == (f32::to_bits(have) >> 31)
+									},
+									(&DynData::Double(want), &DynData::Double(have)) =>
+									{
+										f64::is_nan(want) && f64::is_nan(have) && (f64::to_bits(want) >> 63) == (f64::to_bits(have) >> 63)
+									},
+									_ => false,
+								};
+								if !ignore {panic!("serialization of {original:?} became {read:?}");}
+							}
+						},
 						e => assert!(false, "could not re-read {original:?} (at {i}), got {e:?}"),
 					}
 					let expect = end - reader.data.len();
