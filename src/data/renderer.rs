@@ -75,6 +75,8 @@ impl DerefMut for ImageHolder {
 
 impl From<&'static RgbaImage> for ImageHolder {
     fn from(value: &'static RgbaImage) -> Self {
+        debug_assert_ne!(value.width(), 0);
+        debug_assert_ne!(value.height(), 0);
         Self::Borrow(value)
     }
 }
