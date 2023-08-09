@@ -32,6 +32,7 @@ pub enum DynData
 	Vec2(f32, f32),
 	Team(Team),
 	IntArray(Vec<i32>),
+	ObjArray(Vec<DynData>),
 }
 
 impl DynData
@@ -62,6 +63,7 @@ impl DynData
 			Self::Vec2(..) => DynType::Vec2,
 			Self::Team(..) => DynType::Team,
 			Self::IntArray(..) => DynType::IntArray,
+			Self::ObjArray(..) => DynType::ObjArray,
 		}
 	}
 }
@@ -70,7 +72,7 @@ impl DynData
 pub enum DynType
 {
 	Empty, Int, Long, Float, String, Content, IntSeq, Point2, Point2Array, TechNode, Boolean, Double, Building,
-	LogicField, ByteArray, UnitCommand, BoolArray, Unit, Vec2Array, Vec2, Team, IntArray,
+	LogicField, ByteArray, UnitCommand, BoolArray, Unit, Vec2Array, Vec2, Team, IntArray, ObjArray,
 }
 
 pub struct DynSerializer;
@@ -195,6 +197,22 @@ impl Serializer<DynData> for DynSerializer
 			},
 			19 => Ok(DynData::Vec2(buff.read_f32()?, buff.read_f32()?)),
 			20 => Ok(DynData::Team(Team::of(buff.read_u8()?))),
+			22 =>
+			{
+				let len = buff.read_i32()?;
+				let len = match usize::try_from(len)
+				{
+					Ok(l) => l,
+					Err(..) => return Err(ReadError::ObjArrayLen(len)),
+				};
+				let mut result = Vec::<DynData>::new();
+				result.reserve(len as usize);
+				for _ in 0..len
+				{
+					result.push(self.deserialize(buff)?);
+				}
+				Ok(DynData::ObjArray(result))
+			},
 			id => Err(ReadError::Type(id)),
 		}
 	}
@@ -386,6 +404,21 @@ impl Serializer<DynData> for DynSerializer
 				buff.write_u8(u8::from(*team))?;
 				Ok(())
 			},
+			DynData::ObjArray(arr) =>
+			{
+				let len = match i32::try_from(arr.len())
+				{
+					Ok(l) => l,
+					Err(..) => return Err(WriteError::ObjArrayLen(arr.len())),
+				};
+				buff.write_u8(22)?;
+				buff.write_i32(len)?;
+				for v in arr.iter()
+				{
+					self.serialize(buff, v)?;
+				}
+				Ok(())
+			},
 		}
 	}
 }
@@ -404,6 +437,7 @@ pub enum ReadError
 	BoolArrayLen(i32),
 	Vec2ArrayLen(i16),
 	IntArrayLen(i16),
+	ObjArrayLen(i32),
 }
 
 impl From<data::ReadError> for ReadError
@@ -447,6 +481,7 @@ impl fmt::Display for ReadError
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			Self::ObjArrayLen(len) => write!(f, "object array too long ({len})"),
 		}
 	}
 }
@@ -473,6 +508,7 @@ pub enum WriteError
 	BoolArrayLen(usize),
 	Vec2ArrayLen(usize),
 	IntArrayLen(usize),
+	ObjArrayLen(usize),
 }
 
 impl From<data::WriteError> for WriteError
@@ -496,6 +532,7 @@ impl fmt::Display for WriteError
 			Self::BoolArrayLen(len) => write!(f, "boolean array too long ({len})"),
 			Self::Vec2ArrayLen(len) => write!(f, "vec2 array too long ({len})"),
 			Self::IntArrayLen(len) => write!(f, "integer array too long ({len})"),
+			Self::ObjArrayLen(len) => write!(f, "object array too long ({len})"),
 		}
 	}
 }
@@ -578,4 +615,6 @@ mod test
 	make_dyn_test!(reparse_vec2, DynData::Vec2(1.5, 9.1234), DynData::Vec2(-0.0, -17.0), DynData::Vec2(-10.7, 3.8));
 	make_dyn_test!(reparse_team, DynData::Team(SHARDED), DynData::Team(CRUX), DynData::Team(DERELICT));
 	make_dyn_test!(reparse_int_array, DynData::IntArray(vec![581923, 2147483647, -1047563850]), DynData::IntArray(vec![1902864703]));
+	make_dyn_test!(reparse_obj_array, DynData::ObjArray(Vec::new()), DynData::ObjArray(vec![DynData::Team(SHARDED)]),
+		DynData::ObjArray(vec![DynData::BoolArray(vec![false, true]), DynData::Content(content::Type::Item, 12345), DynData::Empty]));
 }
