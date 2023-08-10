@@ -40,7 +40,7 @@ make_register! {
     "phase-synthesizer" -> ProductionBlock::new(3, true, cost!(Carbide: 90, Silicon: 100, Thorium: 100, Tungsten: 200));
     // heat reactor
     // sandbox only
-    "heat-source" -> HeatCrafter::new(1, false, &[]);
+    "heat-source" => HeatCrafter::new(1, false, &[]);
 }
 
 // format: call [`read_production_block`], seed: [`i32`]
@@ -81,21 +81,12 @@ make_simple!(
 make_simple!(
     HeatCrafter,
     |_, n, _, _, r: Rotation, s| {
-        match n {
-            // TODO i didnt realize the significance of two tops before and kinda deleted them, add them back
-            "phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" => {
-                let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s);
-                base.overlay(
-                    match r {
-                        Rotation::Up | Rotation::Right => load!(concat top1 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s),
-                        Rotation::Down | Rotation::Left => load!(concat top2 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s)
-                    }
-                    .rotate(r.rotated(false).count()),
-                );
-                base
-            }
-            n => unimplemented!("{n}"),
-        }
+        let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s);
+        base.overlay(match r {
+            Rotation::Up | Rotation::Right => load!(concat top1 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s),
+            Rotation::Down | Rotation::Left => load!(concat top2 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
+        }.rotate(r.rotated(false).count()));
+        base
     },
     |_, _, _, buff: &mut DataRead| {
         // format:

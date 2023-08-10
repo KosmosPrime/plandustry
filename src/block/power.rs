@@ -12,8 +12,13 @@ make_simple!(
     Neoplasia,
     |_, _, _, _, rot: Rotation, scl| {
         let mut base = load!("neoplasia-reactor", scl);
-        // TODO 2 tops
-        base.overlay(load!("neoplasia-reactor-top", scl).rotate(rot.rotated(false).count()));
+        base.overlay(
+            load!(scl -> match rot {
+                Rotation::Up | Rotation::Right => "neoplasia-reactor-top1",
+                Rotation::Down | Rotation::Left => "neoplasia-reactor-top2",
+            })
+            .rotate(rot.rotated(false).count()),
+        );
         base
     },
     |_, _, _, buff: &mut DataRead| read_heater(buff)
