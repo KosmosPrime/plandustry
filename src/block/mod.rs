@@ -69,6 +69,7 @@ disp! {
     BridgeBlock,
     ItemBlock,
     ProductionBlock,
+    SeparatorBlock,
     StackConveyor,
     HeatCrafter,
     ConnectorBlock,
@@ -80,6 +81,8 @@ disp! {
     GeneratorBlock,
     ConduitBlock,
     HeatedBlock,
+    RadarBlock,
+    ShieldBlock,
     PointDefenseTurret,
     JunctionBlock,
     Turret,
@@ -87,6 +90,7 @@ disp! {
     MessageLogic,
     ConstructorBlock,
     AssemblerBlock,
+    UnitFactory,
     SimpleDuctBlock,
     SurgeRouter,
     SimplePayloadBlock,
@@ -266,7 +270,7 @@ impl Block {
     /// assert!(mindus::block::distribution::DISTRIBUTOR.name() == "distributor")
     /// ```
     #[must_use]
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         self.name
     }
 

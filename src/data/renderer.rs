@@ -97,6 +97,7 @@ pub enum Scale {
 }
 
 impl Scale {
+    #[must_use]
     pub const fn px(self) -> u8 {
         match self {
             Self::Full => 32,

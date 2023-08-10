@@ -11,7 +11,7 @@ use thiserror::Error;
 
 pub(crate) mod autotile;
 mod base64;
-mod command;
+pub mod command;
 pub mod dynamic;
 pub mod map;
 pub mod planet;

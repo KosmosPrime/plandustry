@@ -208,6 +208,14 @@ fn read_payload_conveyor(
 }
 
 /// format:
+/// - iterate [`i16`]..0
+///     - [`u8`], [`i16`], [`i32`]
+pub(crate) fn read_payload_seq(buff: &mut DataRead) -> Result<(), DataReadError> {
+    let amount = (-buff.read_i16()?) as usize;
+    buff.skip(amount * 7)
+}
+
+/// format:
 /// - vector: ([`f32`], [`f32`])
 /// - rotation: [`f32`]
 /// - become [`read_payload`]

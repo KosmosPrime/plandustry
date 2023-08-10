@@ -66,7 +66,7 @@ pub struct ConnectorBlock {
     size: u8,
     symmetric: bool,
     build_cost: BuildCost,
-    max: u8,
+    pub max: u8,
 }
 
 impl ConnectorBlock {
@@ -84,12 +84,6 @@ impl ConnectorBlock {
             max,
         }
     }
-
-    #[must_use]
-    pub fn get_max_links(&self) -> u8 {
-        self.max
-    }
-
     state_impl!(pub Vec<(i16, i16)>);
 }
 

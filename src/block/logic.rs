@@ -562,7 +562,7 @@ impl ProcessorLink {
     }
 
     #[must_use]
-    pub fn get_pos(&self) -> (i16, i16) {
+    pub const fn get_pos(&self) -> (i16, i16) {
         (self.x, self.y)
     }
 }

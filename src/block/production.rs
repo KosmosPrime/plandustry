@@ -17,8 +17,8 @@ make_register! {
     "pyratite-mixer" -> ProductionBlock::new(2, true, cost!(Copper: 50, Lead: 25));
     "blast-mixer" -> ProductionBlock::new(2, true, cost!(Lead: 30, Thorium: 20));
     "melter" -> ProductionBlock::new(1, true, cost!(Copper: 30, Lead: 35, Graphite: 45));
-    "separator" -> ProductionBlock::new(2, true, cost!(Copper: 30, Titanium: 25));
-    "disassembler" -> ProductionBlock::new(3, true, cost!(Titanium: 100, Thorium: 80, Silicon: 150, Plastanium: 40));
+    "separator" -> SeparatorBlock::new(2, true, cost!(Copper: 30, Titanium: 25));
+    "disassembler" -> SeparatorBlock::new(3, true, cost!(Titanium: 100, Thorium: 80, Silicon: 150, Plastanium: 40));
     "spore-press" -> ProductionBlock::new(2, true, cost!(Lead: 35, Silicon: 30));
     "pulverizer" -> ProductionBlock::new(1, true, cost!(Copper: 30, Lead: 25));
     "coal-centrifuge" -> ProductionBlock::new(2, true, cost!(Lead: 30, Graphite: 40, Titanium: 20));
@@ -43,14 +43,19 @@ make_register! {
     "heat-source" -> HeatCrafter::new(1, false, &[]);
 }
 
+// format: call [`read_production_block`], seed: [`i32`]
+make_simple!(SeparatorBlock => |_, _, _, buff: &mut DataRead| buff.skip(12));
+
 make_simple!(
     ProductionBlock =>
-    |_, _, _, buff: &mut DataRead| {
+    |b: &mut Build<'_>, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
         // - warmup: `f32`
-        buff.skip(8)?;
-        Ok(())
+        // (cultivator)
+        // `f32`
+        buff.skip(8 + if b.name() == "cultivator" { 4 } else { 0 })
+        
     }
 );
 

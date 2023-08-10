@@ -108,7 +108,7 @@ macro_rules! lo {
 pub type EntityMapping = HashMap<u8, Box<dyn Content>>;
 impl<'l> Tile<'l> {
     #[must_use]
-    pub fn new(floor: BlockEnum, ore: BlockEnum) -> Self {
+    pub const fn new(floor: BlockEnum, ore: BlockEnum) -> Self {
         Self {
             floor,
             ore,
@@ -319,7 +319,7 @@ impl<'l> Build<'l> {
     }
 
     #[must_use]
-    pub fn name(&self) -> &str {
+    pub const fn name(&self) -> &str {
         self.block.name()
     }
 

@@ -693,6 +693,7 @@ pub enum W64Error {
 #[cfg(test)]
 mod test {
     use super::*;
+    #[track_caller]
     fn unwrap_pretty<T, E: std::fmt::Display + std::error::Error>(r: Result<T, E>) -> T {
         match r {
             Ok(t) => t,
@@ -746,6 +747,7 @@ mod test {
         "bXNjaAF4nGNgZGBkZmDJS8xNZeBMrShIzSvOLEtl4E5JLU4uyiwoyczPY2BgYMtJTErNKWZgio5lZODPzUwuytctKMpPTi0uzi8CyjMygAAfA4PQ+Yo5by9u9GxmZGB9GME502nTzKW+Aht/FJq1ez+o8nzYGn5n+wHR70VVf23t9tutu58/Xbm+qr5t/v+PAa93zIn+L1BpFbXfY17fNf1Jyxd/7X7yMuOv0qjQqNCo0KjQqNCo0KjQqNCo0KjQqNCo0KjQqNCo0KjQqNCoEJWFHp987V9uXjv/9y4GAOhu6pc=";
         "bXNjaAF4nGNgY2BjZmDJS8xNZWBLTswrSyxm4E5JLU4uyiwoyczPY2BgYMtJTErNKWZgio5lhKthYOBkAAE+IDZjIB8wUWoAC2UGMFHqBSaoF1QYGTycJjFMUFHxVPBkmpQyiYXhpAonQ4OnEAPDJBVWBhXPW0wek7bkTlRhvLXNk4khdzYLQ8M2sAEUeoGFUi+wUBoLLJR5AQDzuCAp";
         "bXNjaAF4nEWNQRLCIAxFf5O0LhxdewlP5LighQUzCIyl97chVmHx8nmZDyYIQ7J7BUgqruLsw7q8Y22xZABTcnNIK+jxZJyWkv0WGy51S2u4H/Fak2vB/zJww/8MIAVZYh2Gw+jtCx2s+O7pE6nZB0V3bD1sTqtITe8Uc2JOzIm50RpH/U9Bht19AOy5Ge4=";
+        "bXNjaAF4nBXKPQ6AIAwG0I+fuLjrKTyRcUDo0ASKKdXzq8kbHwJCQJTUCLGxEOZCIytfxl0ATDWdVAf8fjgsqRQ2fmhTyl2G6Z2t69fcz62I/gVp0BSJ";
     }
 
     #[test]

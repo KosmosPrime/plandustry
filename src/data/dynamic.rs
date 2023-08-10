@@ -7,19 +7,39 @@ use crate::data::{self, DataRead, DataWrite, GridPos, Serializer};
 use crate::logic::LogicField;
 use crate::team::Team;
 
-#[derive(Clone, Debug, PartialEq)]
-/// holds different kinds of data
-pub enum DynData {
-    Empty,
+macro_rules! datamaker {
+    (
+        $($k: ident($v: ty),)+
+    ) => { paste::paste! {
+        #[derive(Clone, Debug, PartialEq)]
+        /// holds different kinds of data
+        pub enum DynData {
+            Empty,
+            Content(content::Type, u16),
+            Point2(i32, i32),
+            Vec2(f32, f32),
+            TechNode(content::Type, u16),
+            $($k($v),)+
+        }
+
+        $(
+            impl From<$v> for DynData {
+                #[doc = concat!(" to [`DynData::", stringify!($k), "`]")]
+                fn from(f: $v) -> Self {
+                    Self::$k(f)
+                }
+            }
+        )+
+    } }
+}
+
+datamaker! {
     Int(i32),
     Long(i64),
     Float(f32),
     String(Option<String>),
-    Content(content::Type, u16),
     IntArray(Vec<i32>),
-    Point2(i32, i32),
     Point2Array(Vec<(i16, i16)>),
-    TechNode(content::Type, u16),
     Boolean(bool),
     Double(f64),
     Building(GridPos),
@@ -29,13 +49,12 @@ pub enum DynData {
     BoolArray(Vec<bool>),
     Unit(u32),
     Vec2Array(Vec<(f32, f32)>),
-    Vec2(f32, f32),
     Team(Team),
 }
 
 impl DynData {
     #[must_use]
-    pub fn get_type(&self) -> DynType {
+    pub const fn get_type(&self) -> DynType {
         match self {
             Self::Empty => DynType::Empty,
             Self::Int(..) => DynType::Int,
@@ -96,14 +115,14 @@ impl Serializer<DynData> for DynSerializer {
     fn deserialize(&mut self, buff: &mut DataRead<'_>) -> Result<DynData, Self::ReadError> {
         match buff.read_u8()? {
             0 => Ok(DynData::Empty),
-            1 => Ok(DynData::Int(buff.read_i32()?)),
-            2 => Ok(DynData::Long(buff.read_i64()?)),
-            3 => Ok(DynData::Float(buff.read_f32()?)),
+            1 => Ok(DynData::from(buff.read_i32()?)),
+            2 => Ok(DynData::from(buff.read_i64()?)),
+            3 => Ok(DynData::from(buff.read_f32()?)),
             4 => {
                 if buff.read_bool()? {
-                    Ok(DynData::String(Some(String::from(buff.read_utf()?))))
+                    Ok(DynData::from(Some(String::from(buff.read_utf()?))))
                 } else {
-                    Ok(DynData::String(None))
+                    Ok(DynData::from(None))
                 }
             }
             5 => Ok(DynData::Content(
@@ -112,87 +131,74 @@ impl Serializer<DynData> for DynSerializer {
             )),
             6 => {
                 let len = buff.read_i16()?;
-                if len < 0 {
+                let Ok(len) = usize::try_from(len) else {
                     return Err(ReadError::IntArrayLen(len));
+                };
+                let mut result = vec![0; len];
+                for item in result.iter_mut() {
+                    *item = buff.read_i32()?;
                 }
-                let mut result = Vec::<i32>::new();
-                result.reserve(len as usize);
-                for _ in 0..len {
-                    result.push(buff.read_i32()?);
-                }
-                Ok(DynData::IntArray(result))
+                Ok(DynData::from(result))
             }
             7 => Ok(DynData::Point2(buff.read_i32()?, buff.read_i32()?)),
             8 => {
                 let len = buff.read_i8()?;
-                if len < 0 {
+                let Ok(len) = usize::try_from(len) else {
                     return Err(ReadError::Point2ArrayLen(len));
-                }
-                let mut result = Vec::<(i16, i16)>::new();
-                result.reserve(len as usize);
-                for _ in 0..len {
+                };
+                let mut result = vec![(0, 0); len];
+                for item in result.iter_mut() {
                     let pt = buff.read_i32()?;
-                    result.push(((pt >> 16) as i16, pt as i16));
+                    *item = ((pt >> 16) as i16, pt as i16);
                 }
-                Ok(DynData::Point2Array(result))
+                Ok(DynData::from(result))
             }
             9 => Ok(DynData::TechNode(
                 content::Type::try_from(buff.read_u8()?)?,
                 buff.read_u16()?,
             )),
-            10 => Ok(DynData::Boolean(buff.read_bool()?)),
-            11 => Ok(DynData::Double(buff.read_f64()?)),
-            12 => Ok(DynData::Building(GridPos::from(buff.read_u32()?))),
-            13 => {
-                let id = buff.read_u8()?;
-                match LogicField::try_from(id) {
-                    Ok(f) => Ok(DynData::LogicField(f)),
-                    Err(..) => Err(ReadError::LogicField(id)),
-                }
-            }
+            10 => Ok(DynData::from(buff.read_bool()?)),
+            11 => Ok(DynData::from(buff.read_f64()?)),
+            12 => Ok(DynData::from(GridPos::from(buff.read_u32()?))),
+            13 => Ok(DynData::from(LogicField::try_from(buff.read_u8()?)?)),
             14 => {
                 let len = buff.read_i32()?;
-                if len < 0 {
+                let Ok(len) = usize::try_from(len) else {
                     return Err(ReadError::ByteArrayLen(len));
-                }
-                let mut result = Vec::<u8>::new();
-                buff.read_vec(&mut result, len as usize)?;
-                Ok(DynData::ByteArray(result))
-            }
-            15 => {
-                let id = buff.read_u8()?;
-                match UnitCommand::try_from(id) {
-                    Ok(f) => Ok(DynData::UnitCommand(f)),
-                    Err(e) => Err(ReadError::UnitCommand(e)),
-                }
+                };
+                let mut result = vec![];
+                buff.read_vec(&mut result, len)?;
+                Ok(DynData::from(result))
             }
             16 => {
                 let len = buff.read_i32()?;
-                if len < 0 {
+                let Ok(len) = usize::try_from(len) else {
                     return Err(ReadError::BoolArrayLen(len));
-                }
-                let mut result = Vec::<bool>::new();
-                result.reserve(len as usize);
+                };
+                let mut result = vec![];
+                result.reserve(len);
                 for _ in 0..len {
                     result.push(buff.read_bool()?);
                 }
-                Ok(DynData::BoolArray(result))
+                Ok(DynData::from(result))
             }
             17 => Ok(DynData::Unit(buff.read_u32()?)),
             18 => {
                 let len = buff.read_i16()?;
-                if len < 0 {
+                let Ok(len) = usize::try_from(len) else {
                     return Err(ReadError::Vec2ArrayLen(len));
+                };
+                let mut result = vec![(0., 0.); len];
+                for item in result.iter_mut() {
+                    *item = (buff.read_f32()?, buff.read_f32()?);
                 }
-                let mut result = Vec::<(f32, f32)>::new();
-                result.reserve(len as usize);
-                for _ in 0..len {
-                    result.push((buff.read_f32()?, buff.read_f32()?));
-                }
-                Ok(DynData::Vec2Array(result))
+                Ok(DynData::from(result))
             }
             19 => Ok(DynData::Vec2(buff.read_f32()?, buff.read_f32()?)),
-            20 => Ok(DynData::Team(Team::of(buff.read_u8()?))),
+            20 => Ok(DynData::from(Team::of(buff.read_u8()?))),
+            23 => Ok(DynData::from(
+                UnitCommand::try_from(buff.read_i16()? as u8)?,
+            )),
             id => Err(ReadError::Type(id)),
         }
     }
@@ -303,8 +309,8 @@ impl Serializer<DynData> for DynSerializer {
                 Ok(())
             }
             DynData::UnitCommand(cmd) => {
-                buff.write_u8(15)?;
-                buff.write_u8(u8::from(*cmd))?;
+                buff.write_u8(23)?;
+                buff.write_u16(u8::from(*cmd).into())?;
                 Ok(())
             }
             DynData::BoolArray(arr) => {
@@ -363,7 +369,7 @@ pub enum ReadError {
     #[error("point2 array too long ({0})")]
     Point2ArrayLen(i8),
     #[error("invalid logic field ({0})")]
-    LogicField(u8),
+    LogicField(#[from] crate::logic::TryFromU8Error),
     #[error("byte array too long ({0})")]
     ByteArrayLen(i32),
     #[error("unit command not found")]
@@ -515,8 +521,8 @@ mod test {
     );
     make_dyn_test!(
         reparse_unit_command,
-        DynData::UnitCommand(UnitCommand::Idle),
-        DynData::UnitCommand(UnitCommand::Rally)
+        DynData::UnitCommand(UnitCommand::Mine),
+        DynData::UnitCommand(UnitCommand::Mine)
     );
     make_dyn_test!(
         reparse_bool_array,
