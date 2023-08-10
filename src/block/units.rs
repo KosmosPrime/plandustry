@@ -5,8 +5,7 @@ use super::payload::{read_payload_block, read_payload_seq};
 use crate::block::simple::*;
 use crate::block::*;
 use crate::data::command::UnitCommand;
-use crate::data::dynamic::{DynType, DynSerializer};
-use crate::data::Serializer;
+use crate::data::dynamic::DynType;
 use crate::unit;
 
 // fn is_pay(b: &str) -> bool {
@@ -35,19 +34,23 @@ use crate::unit;
 //     )
 // }
 
-make_simple!(AssemblerBlock, |_, name, _, _, rot: Rotation, s| {
-    let mut base =
-        load!(from name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s);
-    base.overlay(
+make_simple!(
+    AssemblerBlock,
+    |_, name, _, _, rot: Rotation, s| {
+        let mut base =
+            load!(from name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s);
+        base.overlay(
         match rot {
             Rotation::Up | Rotation::Right => load!(concat side1 => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s),
             Rotation::Down | Rotation::Left => load!(concat side2 => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s)
         } 
         .rotate(rot.rotated(false).count()),
     );
-    base.overlay(load!(concat top => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s).borrow());
-    base
-},  |_, reg, map, buff| read_assembler(reg, map, buff));
+        base.overlay(load!(concat top => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s).borrow());
+        base
+    },
+    |_, reg, map, buff| read_assembler(reg, map, buff)
+);
 
 /// format:
 /// - call [`read_payload_block`]
@@ -56,7 +59,11 @@ make_simple!(AssemblerBlock, |_, name, _, _, rot: Rotation, s| {
 ///     - read: [`i32`]
 /// - call [`read_payload_seq`]
 /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
-fn read_assembler(reg: &BlockRegistry, map: &EntityMapping, buff: &mut DataRead) -> Result<(), DataReadError> {
+fn read_assembler(
+    reg: &BlockRegistry,
+    map: &EntityMapping,
+    buff: &mut DataRead,
+) -> Result<(), DataReadError> {
     read_payload_block(reg, map, buff)?;
     buff.skip(4)?;
     let n = buff.read_u8()? as usize;
@@ -65,24 +72,37 @@ fn read_assembler(reg: &BlockRegistry, map: &EntityMapping, buff: &mut DataRead)
     buff.skip(8)
 }
 
-make_simple!(AssemblerModule, |_, _, _, _, rot: Rotation, scl| {
-    let mut base = load!("basic-assembler-module", scl);
-    base.overlay(
-        load!(scl -> match rot {
-            Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
-            _ => "basic-assembler-module-side2",
-        })
-        .rotate(rot.rotated(false).count()),
-    );
-    base
-}, |_, reg, map, buff| read_payload_block(reg, map, buff));
+make_simple!(
+    AssemblerModule,
+    |_, _, _, _, rot: Rotation, scl| {
+        let mut base = load!("basic-assembler-module", scl);
+        base.overlay(
+            load!(scl -> match rot {
+                Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
+                _ => "basic-assembler-module-side2",
+            })
+            .rotate(rot.rotated(false).count()),
+        );
+        base
+    },
+    |_, reg, map, buff| read_payload_block(reg, map, buff)
+);
 
 make_simple!(
-    RepairTurret => |scl| {
-        let mut bot = load!("block-2", scl);
-        let top = load!("repair-turret", scl);
-        bot.overlay(&top);
-        bot
+    RepairTurret,
+    |_, n, _, _, _, scl| {
+        match n {
+            "repair-turret" => {
+                let mut bot = load!("block-2", scl);
+                bot.overlay(&load!("repair-turret", scl));
+                bot
+            }
+            _ => {
+                let mut bot = load!("repair-point-base", scl);
+                bot.overlay(&load!("repair-point", scl));
+                bot
+            }
+        }
     },
     |_, _, _, buff: &mut DataRead| {
         buff.skip(4) // rotation: [`f32`]
@@ -151,7 +171,10 @@ impl BlockLogic for ConstructorBlock {
         match data {
             DynData::Empty => Ok(Some(Self::create_state(None))),
             DynData::UnitCommand(u) => Ok(Some(Self::create_state(Some(u)))),
-            _ => Err(DeserializeError::InvalidType { have: data.get_type(), expect: DynType::UnitCommand })
+            _ => Err(DeserializeError::InvalidType {
+                have: data.get_type(),
+                expect: DynType::UnitCommand,
+            }),
         }
     }
 
@@ -224,11 +247,17 @@ impl BlockLogic for ConstructorBlock {
     /// - progress: [`f32`]
     /// - point: ([`f32`], [`f32`]) (maybe [`NaN`](f32::NAN))
     /// - command: [`DynData::UnitCommand`]
-    fn read(&self,b: &mut Build,reg: &BlockRegistry,map: &EntityMapping,buff: &mut DataRead,) -> Result<(),DataReadError> {
-        read_payload_block(reg,map, buff)?;
+    fn read(
+        &self,
+        _: &mut Build,
+        reg: &BlockRegistry,
+        map: &EntityMapping,
+        buff: &mut DataRead,
+    ) -> Result<(), DataReadError> {
+        read_payload_block(reg, map, buff)?;
         buff.skip(12)?;
-        // TODO handlerr
-        b.state = self.deserialize_state(DynSerializer.deserialize(buff).unwrap()).unwrap();
+        // TODO uncomment when read_payload_block impl finished
+        // b.state = self.deserialize_state(DynSerializer.deserialize(buff).unwrap()).unwrap();
         Ok(())
     }
 }

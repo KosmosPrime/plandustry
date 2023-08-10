@@ -18,7 +18,7 @@ make_simple!(
         let (index, rot, flip) = mask2rotations(mask, rot);
 
         // TODO caps. stopped trying bcz too complex
-        rotations2tile((index, rot, flip), "conduit", s)
+        rotations2tile((index, rot, flip), name, s)
     },
     true
 );

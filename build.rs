@@ -35,7 +35,7 @@ fn main() {
     // let mut half = File::create(o.join("half.rs")).unwrap();
     let mut quar = File::create(o.join("quar.rs")).unwrap();
     let mut eigh = File::create(o.join("eigh.rs")).unwrap();
-    let mut n = 5usize;
+    let mut n = 23usize;
 
     wr!(full => "pub mod full {{");
     wr!(full => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(32, 32));");
@@ -50,14 +50,11 @@ fn main() {
         file.write_all(b"macro_rules!img{($v:expr)=>{{static TMP:LazyLock<RgbaImage>=LazyLock::new(||$v);&TMP}};}\n").unwrap();
         wr!(file => "use image::RgbaImage;");
         wr!(file => "use crate::utils::Lock as LazyLock;");
+        wr!(file => "pub static CLIFF: &LazyLock<RgbaImage> = &EMPTY;");
+        for i in 1..=16 {
+            wr!(file => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
+        }
     }
-    for i in 1..=16 {
-        n += 1;
-        wr!(full => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
-        wr!(quar => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
-        wr!(eigh => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
-    }
-
     let mut warmup = File::create(o.join("warmup.rs")).unwrap();
     wr!(warmup => "/// # Safety\n///\n/// this function must only be called once.");
     wr!(warmup => "pub unsafe fn warmup() {{");
@@ -66,12 +63,17 @@ fn main() {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
             let p = DynamicImage::from_decoder(PngDecoder::new(BufReader::new(File::open(path).unwrap())).unwrap()).unwrap().into_rgba8();
-            let f = path.to_str().unwrap();
-            if f.contains("-bottom.png") || f.contains("-liquid.png") || f.contains("-team") {
+            if path.file_name().unwrap().to_str().unwrap().contains("-liquid.png") {
+                continue
+            }
+            let f = path.file_name().unwrap().to_str().unwrap();
+            if f.contains("bottom") || f.contains("-team") || f.contains("-end") || f.contains("stack") {
                 continue;
             }
-            let path = path.with_extension("");
-            let path = kebab2bigsnek(path.file_name().unwrap().to_str().unwrap());
+            let path = kebab2bigsnek(path.with_extension("").file_name().unwrap().to_str().unwrap());
+            if matches!(path.as_str(), "CLIFF_CRUSHER_ROTATOR" | "NEOPLASIA_REACTOR_CENTER" | "FLUX_REACTOR_MID" | "EDGE" | "PHASE_CONVEYOR_BRIDGE" | "BRIDGE_ARROW" | "DUCT_BRIDGE_BRIDGE" | "DUCT_BRIDGE_ARROW" | "LAUNCHPOD" | "BRIDGE_CONVEYOR_BRIDGE" | "BRIDGE_CONVEYOR_ARROW" | "PHASE_CONVEYOR_ARROW" | "REINFORCED_BRIDGE_CONDUIT_ARROW" | "REINFORCED_BRIDGE_CONDUIT_BRIDGE" | "PHASE_CONDUIT_BRIDGE" | "BRIDGE_CONDUIT_ARROW" | "PHASE_CONDUIT_ARROW" | "BRIDGE_CONDUIT_BRIDGE" | "PLATED_CONDUIT_CAP") {
+                continue
+            }
             macro_rules! writ {
                 ($ext:ident / $scale:literal) => {
                     let mut buf = File::create(o.join(n.to_string() + "-" + stringify!($ext))).unwrap();
@@ -100,7 +102,7 @@ fn main() {
                     let y = new.height();
                     buf.write_all(&new.into_raw()).unwrap();
                     wr!($ext =>
-                        r#"pub static {path}: &LazyLock<RgbaImage> = img!(unsafe {{ RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap_unchecked() }});"#,
+                        r#"pub(crate) static {path}: &LazyLock<RgbaImage> = img!(unsafe {{ RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap_unchecked() }});"#,
                         stringify!($ext)
                     );
                 };

@@ -1,5 +1,5 @@
 //! everything
-use crate::content::{content_enum};
+use crate::content::content_enum;
 
 content_enum! {
     pub enum Type / Block for u16 | TryFromU16Error
@@ -418,4 +418,3 @@ content_enum! {
         "world-message",
     }
 }
-

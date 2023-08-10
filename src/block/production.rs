@@ -24,7 +24,7 @@ make_register! {
     "coal-centrifuge" -> ProductionBlock::new(2, true, cost!(Lead: 30, Graphite: 40, Titanium: 20));
     "incinerator" -> BasicBlock::new(1, true, cost!(Lead: 15, Graphite: 5));
     "silicon-arc-furnace" -> ProductionBlock::new(3, true, cost!(Beryllium: 70, Graphite: 80));
-    "electrolyzer" -> ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
+    "electrolyzer" => ProductionBlock::new(3, true, cost!(Silicon: 50, Graphite: 40, Beryllium: 130, Tungsten: 80));
     "atmospheric-concentrator" -> ProductionBlock::new(3, true, cost!(Oxide: 60, Beryllium: 180, Silicon: 150));
     "oxidation-chamber" => HeatCrafter::new(3, true, cost!(Tungsten: 120, Graphite: 80, Silicon: 100, Beryllium: 120));
     "electric-heater" => HeatCrafter::new(2, false, cost!(Tungsten: 30, Oxide: 30));
@@ -47,7 +47,27 @@ make_register! {
 make_simple!(SeparatorBlock => |_, _, _, buff: &mut DataRead| buff.skip(12));
 
 make_simple!(
-    ProductionBlock =>
+    ProductionBlock,
+    |_, _, _, _, r: Rotation, s| {
+        // electrolyzer exclusive
+        // ozone <- e(^) -> hydrogen
+        let mut base = load!("electrolyzer", s);
+        base.overlay(
+            load!(s -> match r {
+                Rotation::Up | Rotation::Left => "electrolyzer-hydrogen-output1"
+                Rotation::Down | Rotation::Right => "electrolyzer-hydrogen-output2"
+            })
+            .rotate(r.count()),
+        );
+        base.overlay(
+            load!(s -> match r {
+                Rotation::Down | Rotation::Right => "electrolyzer-ozone-output1"
+                Rotation::Up | Rotation::Left => "electrolyzer-ozone-output2"
+            })
+            .rotate(r.mirrored(true, true).count()),
+        );
+        base
+    },
     |b: &mut Build<'_>, _, _, buff: &mut DataRead| {
         // format:
         // - progress: `f32`
@@ -55,7 +75,6 @@ make_simple!(
         // (cultivator)
         // `f32`
         buff.skip(8 + if b.name() == "cultivator" { 4 } else { 0 })
-        
     }
 );
 
@@ -68,9 +87,8 @@ make_simple!(
                 let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s);
                 base.overlay(
                     match r {
-                        Rotation::Up | Rotation::Right => 
-                            load!(concat top1 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s),
-                        _ => load!(concat top2 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s)
+                        Rotation::Up | Rotation::Right => load!(concat top1 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s),
+                        Rotation::Down | Rotation::Left => load!(concat top2 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater"], s)
                     }
                     .rotate(r.rotated(false).count()),
                 );
@@ -90,9 +108,16 @@ make_simple!(
 );
 make_simple!(HeatConduit, |_, n, _, _, r: Rotation, s| {
     let mut base = load!(from n which is ["heat-router" | "heat-redirector"], s);
-    base.overlay(match r {
-        Rotation::Up | Rotation::Right => load!(concat top1 => n which is ["heat-router" | "heat-redirector"], s),
-        _ => load!(concat top2 => n which is ["heat-router" | "heat-redirector"], s),
-    }.rotate(r.rotated(false).count())); 
+    base.overlay(
+        match r {
+            Rotation::Up | Rotation::Right => {
+                load!(concat top1 => n which is ["heat-router" | "heat-redirector"], s)
+            }
+            Rotation::Down | Rotation::Left => {
+                load!(concat top2 => n which is ["heat-router" | "heat-redirector"], s)
+            }
+        }
+        .rotate(r.rotated(false).count()),
+    );
     base
 });

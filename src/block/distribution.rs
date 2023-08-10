@@ -251,7 +251,7 @@ impl BlockLogic for ItemBlock {
             let mut top = load!("duct-unloader-top", s);
             top.rotate(rot.rotated(false).count());
             p.overlay(&top);
-            let mut arrow = load!("top", s);
+            let mut arrow = load!("duct-unloader-arrow", s);
             arrow.rotate(rot.rotated(false).count());
             p.overlay(&arrow);
             p
