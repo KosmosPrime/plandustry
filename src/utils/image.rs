@@ -29,12 +29,29 @@ pub trait ImageUtils {
     fn scale(&self, to: u32) -> Self;
 }
 
+macro_rules! unsafe_assert {
+    ($cond:expr) => {{
+        if !$cond {
+            unsafe { std::hint::unreachable_unchecked() }
+        }
+    }};
+}
+
 impl Overlay<RgbImage> for RgbImage {
     fn overlay_at(&mut self, with: &RgbImage, x: u32, y: u32) -> &mut Self {
+        unsafe_assert!(with.height() != 0);
+        unsafe_assert!(with.width() != 0);
         for j in 0..with.height() {
             for i in 0..with.width() {
-                let get = unsafe { with.unsafe_get_pixel(i, j) };
-                unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
+                unsafe {
+                    let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(3);
+                    let their_px = with.get_unchecked(with_index..with_index.unchecked_add(3));
+                    let our_index =
+                        really_unsafe_index(i.unchecked_add(x), j.unchecked_add(y), self.width())
+                            .unchecked_mul(3);
+                    let our_px = self.get_unchecked_mut(our_index..our_index.unchecked_add(3));
+                    std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 3);
+                }
             }
         }
         self
@@ -43,12 +60,25 @@ impl Overlay<RgbImage> for RgbImage {
 
 impl Overlay<RgbaImage> for RgbImage {
     fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
+        // TODO NonZeroU32
+        unsafe_assert!(with.height() != 0);
+        unsafe_assert!(with.width() != 0);
         for j in 0..with.height() {
             for i in 0..with.width() {
-                let get = unsafe { with.unsafe_get_pixel(i, j) };
-                // solidity
-                if get[3] > 128 {
-                    unsafe { self.unsafe_put_pixel(i + x, j + y, Rgb([get[0], get[1], get[2]])) };
+                unsafe {
+                    let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(4);
+                    // solidity
+                    if with.get_unchecked(with_index.unchecked_add(3)) > &128 {
+                        let their_px = with.get_unchecked(with_index..with_index.unchecked_add(3));
+                        let our_index = really_unsafe_index(
+                            i.unchecked_add(x),
+                            j.unchecked_add(y),
+                            self.width(),
+                        )
+                        .unchecked_mul(3);
+                        let our_px = self.get_unchecked_mut(our_index..our_index.unchecked_add(3));
+                        std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 3);
+                    }
                 }
             }
         }
@@ -58,11 +88,23 @@ impl Overlay<RgbaImage> for RgbImage {
 
 impl Overlay<RgbaImage> for RgbaImage {
     fn overlay_at(&mut self, with: &RgbaImage, x: u32, y: u32) -> &mut Self {
+        unsafe_assert!(with.height() != 0);
+        unsafe_assert!(with.width() != 0);
         for j in 0..with.height() {
             for i in 0..with.width() {
-                let get = unsafe { with.unsafe_get_pixel(i, j) };
-                if get[3] > 128 {
-                    unsafe { self.unsafe_put_pixel(i + x, j + y, get) };
+                unsafe {
+                    let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(4);
+                    let their_px = with.get_unchecked(with_index..with_index.unchecked_add(4));
+                    if their_px.get_unchecked(3) > &128 {
+                        let our_index = really_unsafe_index(
+                            i.unchecked_add(x),
+                            j.unchecked_add(y),
+                            self.width(),
+                        )
+                        .unchecked_mul(4);
+                        let our_px = self.get_unchecked_mut(our_index..our_index.unchecked_add(4));
+                        std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 4);
+                    }
                 }
             }
         }
@@ -111,13 +153,20 @@ impl ImageUtils for RgbaImage {
     fn overlay(&mut self, with: &RgbaImage) -> &mut Self {
         debug_assert_eq!(self.width(), with.width());
         debug_assert_eq!(self.height(), with.height());
-        if self.len() % 4 != 0 || with.len() % 4 != 0 {
+        if self.len() % 4 != 0 || with.len() % 4 != 0 || with.height() == 0 || with.width() == 0 {
             unsafe { std::hint::unreachable_unchecked() };
         }
         for (i, other_pixels) in with.array_chunks::<4>().enumerate() {
             if other_pixels[3] > 128 {
-                let own_pixels = unsafe { self.get_unchecked_mut(i * 4..i * 4 + 4) };
-                own_pixels.copy_from_slice(other_pixels);
+                unsafe {
+                    let own_pixels = self
+                        .get_unchecked_mut(i.unchecked_mul(4)..i.unchecked_mul(4).unchecked_add(4));
+                    std::ptr::copy_nonoverlapping(
+                        other_pixels.as_ptr(),
+                        own_pixels.as_mut_ptr(),
+                        4,
+                    );
+                }
             }
         }
         self
@@ -175,4 +224,11 @@ impl ImageUtils for RgbaImage {
         imageops::flip_vertical_in_place(self);
         self
     }
+}
+
+unsafe fn really_unsafe_index(x: u32, y: u32, w: u32) -> usize {
+    // y * w + x
+    (y as usize)
+        .unchecked_mul(w as usize)
+        .unchecked_add(x as usize)
 }
