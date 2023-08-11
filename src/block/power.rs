@@ -110,10 +110,6 @@ impl BlockLogic for ConnectorBlock {
         }
     }
 
-    fn clone_state(&self, state: &State) -> State {
-        Box::new(Self::get_state(state).clone())
-    }
-
     fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {
         for (dx, dy) in &mut *Self::get_state_mut(state) {
             if horizontally {
@@ -154,9 +150,9 @@ impl ConnectorDeserializeError {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct RGBA(u8, u8, u8, u8);
+pub struct Rgba(u8, u8, u8, u8);
 
-impl From<u32> for RGBA {
+impl From<u32> for Rgba {
     fn from(value: u32) -> Self {
         Self(
             (value >> 24) as u8,
@@ -167,8 +163,8 @@ impl From<u32> for RGBA {
     }
 }
 
-impl From<RGBA> for u32 {
-    fn from(value: RGBA) -> Self {
+impl From<Rgba> for u32 {
+    fn from(value: Rgba) -> Self {
         (u32::from(value.0) << 24)
             | (u32::from(value.1) << 16)
             | (u32::from(value.2) << 8)
@@ -193,7 +189,7 @@ impl LampBlock {
         }
     }
 
-    state_impl!(pub RGBA);
+    state_impl!(pub Rgba);
 }
 
 impl BlockLogic for LampBlock {
@@ -205,17 +201,12 @@ impl BlockLogic for LampBlock {
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError> {
         match data {
-            DynData::Int(rgba) => Ok(Some(Self::create_state(RGBA::from(rgba as u32)))),
+            DynData::Int(rgba) => Ok(Some(Self::create_state(Rgba::from(rgba as u32)))),
             _ => Err(DeserializeError::InvalidType {
                 have: data.get_type(),
                 expect: DynType::Int,
             }),
         }
-    }
-
-    fn clone_state(&self, state: &State) -> State {
-        let state = Self::get_state(state);
-        Box::new(Self::create_state(*state))
     }
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {

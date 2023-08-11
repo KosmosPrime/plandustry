@@ -204,11 +204,6 @@ impl BlockLogic for ItemBlock {
         }
     }
 
-    fn clone_state(&self, state: &State) -> State {
-        let state = Self::get_state(state);
-        Box::new(Self::create_state(*state))
-    }
-
     fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
     fn rotate_state(&self, _: &mut State, _: bool) {}
@@ -395,11 +390,6 @@ impl BlockLogic for BridgeBlock {
                 expect: DynType::Point2,
             }),
         }
-    }
-
-    fn clone_state(&self, state: &State) -> State {
-        let state = Self::get_state(state);
-        Box::new(Self::create_state(*state))
     }
 
     fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {

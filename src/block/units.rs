@@ -178,9 +178,7 @@ impl BlockLogic for ConstructorBlock {
         }
     }
 
-    fn clone_state(&self, state: &State) -> State {
-        Box::new(*Self::get_state(state))
-    }
+
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(Self::get_state(state).map_or(DynData::Empty, DynData::UnitCommand))
@@ -322,10 +320,7 @@ impl BlockLogic for UnitFactory {
         }
     }
 
-    fn clone_state(&self, state: &State) -> State {
-        let state = Self::get_state(state);
-        Box::new(Self::create_state(*state))
-    }
+
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         if let Some(state) = Self::get_state(state) {

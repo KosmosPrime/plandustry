@@ -19,6 +19,7 @@ pub const MAX_DIMENSION: usize = 256;
 pub const MAX_BLOCKS: u32 = 256 * 256;
 
 /// a placement in a schematic
+#[derive(Clone)]
 pub struct Placement<'l> {
     pub block: &'l Block,
     pub rot: Rotation,
@@ -112,17 +113,6 @@ impl RotationState for Option<Placement<'_>> {
             return None;
         };
         Some(p.rot)
-    }
-}
-
-// manual impl because trait objects cannot be cloned
-impl<'l> Clone for Placement<'l> {
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block,
-            state: self.state.as_ref().map(|s| self.block.clone_state(s)),
-            rot: self.rot,
-        }
     }
 }
 

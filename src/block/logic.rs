@@ -116,10 +116,6 @@ impl BlockLogic for CanvasBlock {
         }
     }
 
-    fn clone_state(&self, state: &State) -> State {
-        Box::new(Self::get_state(state).clone())
-    }
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         let mut o = vec![0; self.canvas_size as usize * self.canvas_size as usize * 3];
         let p = Self::get_state(state);
@@ -152,8 +148,7 @@ impl BlockLogic for CanvasBlock {
         s: Scale,
     ) -> ImageHolder {
         if let Some(state) = state {
-            let state = self.clone_state(state);
-            let p = state.downcast::<RgbImage>().unwrap();
+            let p = Self::get_state(state);
             let offset = match s {
                 Scale::Full => 7,
                 // Scale::Half => 3,
@@ -164,7 +159,7 @@ impl BlockLogic for CanvasBlock {
                 RgbImage::from_raw(
                     self.canvas_size as u32,
                     self.canvas_size as u32,
-                    p.into_raw(),
+                    p.clone().into_raw(),
                 )
                 .unwrap(),
             )
@@ -254,10 +249,6 @@ impl BlockLogic for MessageLogic {
         }
     }
 
-    fn clone_state(&self, state: &State) -> State {
-        Box::new(Self::get_state(state).clone())
-    }
-
     fn mirror_state(&self, _: &mut State, _: bool, _: bool) {}
 
     fn rotate_state(&self, _: &mut State, _: bool) {}
@@ -314,10 +305,6 @@ impl BlockLogic for SwitchLogic {
                 expect: DynType::Boolean,
             }),
         }
-    }
-
-    fn clone_state(&self, state: &State) -> State {
-        Box::new(*Self::get_state(state))
     }
 
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
@@ -451,10 +438,6 @@ impl BlockLogic for ProcessorLogic {
         let memory = buff.read_u32()? as usize;
         buff.skip(memory * 8)?;
         Ok(())
-    }
-
-    fn clone_state(&self, state: &State) -> State {
-        Box::new(Self::get_state(state).clone())
     }
 
     fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {

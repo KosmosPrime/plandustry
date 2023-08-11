@@ -15,7 +15,7 @@ macro_rules! state_impl {
 
 		fn create_state(val: $type) -> $crate::block::State
 		where Self: Sized {
-			Box::new(val)
+			State::from(val)
 		}
 	};
 }
@@ -63,10 +63,6 @@ macro_rules! make_simple {
                 _: crate::DynData,
             ) -> Result<Option<crate::block::State>, crate::block::DeserializeError> {
                 Ok(None)
-            }
-
-            fn clone_state(&self, _: &crate::block::State) -> crate::block::State {
-                panic!("{} has no custom state", stringify!($name))
             }
 
             fn mirror_state(&self, _: &mut crate::block::State, _: bool, _: bool) {

@@ -4,7 +4,6 @@
 //!
 //! with the exception of sandbox, that is.
 use bobbin_bits::U4::{self, B0000, B0001, B0010, B0100, B1000};
-use std::any::Any;
 use std::error::Error;
 use std::fmt;
 
@@ -112,7 +111,71 @@ disp! {
     DoorBlock,
 }
 
-pub type State = Box<dyn Any + Sync + Send>;
+pub trait Cast {
+    fn downcast_ref(state: &State) -> Option<&Self>;
+    fn downcast_mut(state: &mut State) -> Option<&mut Self>;
+}
+
+macro_rules! stater {
+    ($($k: ident($v: ty),)+) => {
+        #[derive(Debug, Clone)]
+        pub enum State {
+            $($k($v),)+
+        }
+
+        $(
+            impl From<$v> for State {
+                fn from(v: $v) -> State { State::$k(v) }
+            }
+
+            impl Cast for $v {
+                fn downcast_ref(state: &State) -> Option<&Self> {
+                    match state {
+                        State::$k(v) => Some(v),
+                        _ => None,
+                    }
+                }
+                fn downcast_mut(state: &mut State) -> Option<&mut Self> {
+                    match state {
+                        State::$k(v) => Some(v),
+                        _ => None,
+                    }
+                }
+            }
+        )+
+    }
+}
+
+stater! {
+    // TODO deoptionize
+    String(String),
+    Item(Option<crate::item::Type>),
+    Fluid(Option<crate::fluid::Type>),
+    Image(image::RgbImage),
+    Point(Option<(i32, i32)>),
+    Bool(bool),
+    Processor(logic::ProcessorState),
+    Payload(payload::Payload),
+    Power(Vec<(i16, i16)>),
+    Color(power::Rgba),
+    Command(Option<crate::data::command::UnitCommand>),
+    Unit(Option<crate::unit::Type>),
+}
+
+impl State {
+    pub fn downcast_ref<T: Cast>(&self) -> Option<&T> {
+        T::downcast_ref(self)
+    }
+
+    pub fn downcast_mut<T: Cast>(&mut self) -> Option<&mut T> {
+        T::downcast_mut(self)
+    }
+
+    pub fn new<T: Into<Self>>(from: T) -> Self {
+        from.into()
+    }
+}
+
 #[enum_dispatch::enum_dispatch(BlockLogicEnum)]
 pub trait BlockLogic {
     /// mindustry blocks are the same width and height
@@ -125,8 +188,6 @@ pub trait BlockLogic {
     fn data_from_i32(&self, config: i32, pos: GridPos) -> Result<DynData, DataConvertError>;
 
     fn deserialize_state(&self, data: DynData) -> Result<Option<State>, DeserializeError>;
-
-    fn clone_state(&self, state: &State) -> State;
 
     #[allow(unused_variables)]
     fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {}
@@ -329,10 +390,6 @@ impl Block {
         data: DynData,
     ) -> Result<Option<State>, DeserializeError> {
         self.logic.deserialize_state(data)
-    }
-
-    pub(crate) fn clone_state(&self, state: &State) -> State {
-        self.logic.clone_state(state)
     }
 
     pub(crate) fn mirror_state(&self, state: &mut State, horizontally: bool, vertically: bool) {

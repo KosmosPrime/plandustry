@@ -268,6 +268,7 @@ impl<'l> BlockState<'l> for Option<Tile<'_>> {
 }
 
 /// a build on a tile in a map
+#[derive(Clone)]
 pub struct Build<'l> {
     pub block: &'l Block,
     pub items: Storage<Item>,
@@ -282,20 +283,6 @@ pub struct Build<'l> {
 impl std::fmt::Debug for Build<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Build<{block}>", block = self.block.name(),)
-    }
-}
-
-impl Clone for Build<'_> {
-    fn clone(&self) -> Self {
-        Self {
-            block: self.block,
-            items: self.items.clone(),
-            liquids: self.liquids.clone(),
-            state: self.state.as_ref().map(|s| self.block.clone_state(s)),
-            rotation: self.rotation,
-            team: self.team,
-            data: self.data,
-        }
     }
 }
 
@@ -505,7 +492,7 @@ impl<'l> Map<'l> {
     #[must_use]
     pub fn new(width: usize, height: usize, tags: HashMap<String, String>) -> Self {
         Self {
-            tiles: vec![Tile::new(BlockEnum::Stone, BlockEnum::Air); width * height],
+            tiles: vec![Tile::new(BlockEnum::Air, BlockEnum::Air); width * height],
             height,
             width,
             tags,
