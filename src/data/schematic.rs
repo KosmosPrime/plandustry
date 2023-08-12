@@ -41,7 +41,7 @@ impl fmt::Debug for Placement<'_> {
 impl<'l> Placement<'l> {
     /// make a placement from a block
     #[must_use]
-    pub fn new(block: &'l Block) -> Self {
+    pub const fn new(block: &'l Block) -> Self {
         Self {
             block,
             rot: Rotation::Up,
@@ -51,7 +51,7 @@ impl<'l> Placement<'l> {
 
     /// gets the current state of this placement. you can cast it with `placement.block::get_state(placement.get_state()?)?`
     #[must_use]
-    pub fn get_state(&self) -> Option<&State> {
+    pub const fn get_state(&self) -> Option<&State> {
         self.state.as_ref()
     }
 
@@ -65,12 +65,12 @@ impl<'l> Placement<'l> {
     /// # Safety
     /// UB if called before [`warmup`](crate::warmup)
     #[must_use]
-    pub unsafe fn image(
+    pub fn image(
         &self,
         context: Option<&RenderingContext>,
         rot: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         self.block.image(self.get_state(), context, rot, s)
     }
 
@@ -716,10 +716,10 @@ mod test {
                     let parsed2 = unwrap_pretty(ser.deserialize_base64(&unparsed));
                     println!("\x1b[38;5;2mredeserialized\x1b[0m {}", parsed.tags.get("name").unwrap());
                     if parsed != parsed2 {
-                        unsafe { crate::warmup() };
-                        // SAFETY: we just warmed up, its fine
-                        unsafe { parsed2.render() }.save("p2.png").unwrap();
-                        unsafe { parsed.render() }.save("p1.png").unwrap();
+                        #[cfg(feature = "bin")]
+                        parsed2.render().save("p2.png");
+                        #[cfg(feature = "bin")]
+                        parsed.render().save("p1.png");
                         panic!("DIFFERENT! see `p1.png` != `p2.png`")
                     }
                 )*

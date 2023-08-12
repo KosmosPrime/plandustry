@@ -20,14 +20,12 @@ make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
                 "small-deconstructor" => "factory-in-3",
                 _ => "factory-in-5",
             });
-            base.overlay(r#in.rotate(r.rotated(false).count())).overlay(
-                load!(scl -> match n {
+            base.overlay(r#in.rotate(r.rotated(false).count()))
+                .overlay(&load!(scl -> match n {
                     "small-deconstructor" => "small-deconstructor-top",
                     "deconstructor" => "deconstructor-top",
                     _ => "payload-void-top",
-                })
-                .borrow(),
-            );
+                }));
             base
         }
         // "payload-loader" | "payload-unloader"
@@ -38,8 +36,7 @@ make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
             base.overlay(input.rotate(r.rotated(false).count()))
                 .overlay(output.rotate(r.rotated(false).count()))
                 .overlay(
-                    load!(concat top => n which is ["payload-loader" | "payload-unloader"], scl)
-                        .borrow(),
+                    &load!(concat top => n which is ["payload-loader" | "payload-unloader"], scl),
                 );
             base
         }
@@ -114,7 +111,7 @@ impl BlockLogic for PayloadBlock {
         _: Option<&RenderingContext>,
         r: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         match name {
             "payload-router" | "reinforced-payload-router" => {
                 let mut base =
@@ -133,7 +130,7 @@ impl BlockLogic for PayloadBlock {
                 });
                 out.rotate(r.rotated(false).count());
                 base.overlay(&out);
-                base.overlay(load!(concat top => name which is ["constructor" | "large-constructor" | "payload-source"], s).borrow());
+                base.overlay(&load!(concat top => name which is ["constructor" | "large-constructor" | "payload-source"], s));
                 base
             }
         }

@@ -1,7 +1,5 @@
 use std::fmt;
 
-use image::Rgb;
-
 use crate::content::{Content, Type};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -109,11 +107,12 @@ impl Content for Team {
 }
 
 impl Team {
-    pub const fn color(self) -> Rgb<u8> {
+    pub const fn color(self) -> (u8, u8, u8) {
         macro_rules! h {
-            ($x:literal) => {
-                Rgb(color_hex::color_from_hex!($x))
-            };
+            ($x:literal) => {{
+                let v = color_hex::color_from_hex!($x);
+                (v[0], v[1], v[2])
+            }};
         }
         match self {
             SHARDED => h!("ffd37f"),

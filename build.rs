@@ -35,30 +35,25 @@ fn main() {
     // let mut half = File::create(o.join("half.rs")).unwrap();
     let mut quar = File::create(o.join("quar.rs")).unwrap();
     let mut eigh = File::create(o.join("eigh.rs")).unwrap();
-    let mut n = 23usize;
+    let mut n = 22usize;
 
     wr!(full => "pub mod full {{");
-    wr!(full => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(32, 32));");
+    wr!(full => "pub static EMPTY: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(32) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(32) }}, &[0; 32 * 32 * 4]);");
 
     wr!(quar => "pub mod quar {{");
-    wr!(quar => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(8, 8));");
+    // forced to do this because try_into isnt const
+    wr!(quar => "pub static EMPTY: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(8) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(8) }}, &[0; 8 * 8 * 4]);");
 
     wr!(eigh => "pub mod eigh {{");
-    wr!(eigh => "pub static EMPTY: LazyLock<RgbaImage> = LazyLock::new(|| RgbaImage::new(4, 4));");
+    wr!(eigh => "pub static EMPTY: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked(4) }}, unsafe {{ std::num::NonZeroU32::new_unchecked(4) }}, &[0; 4 * 4 * 4]);");
 
     for mut file in [&full, &quar, &eigh] {
-        file.write_all(b"macro_rules!img{($v:expr)=>{{static TMP:LazyLock<RgbaImage>=LazyLock::new(||$v);&TMP}};}\n").unwrap();
-        wr!(file => "use image::RgbaImage;");
-        wr!(file => "use crate::utils::Lock as LazyLock;");
-        wr!(file => "pub static CLIFF: &LazyLock<RgbaImage> = &EMPTY;");
+        wr!(file => "use crate::utils::Image;");
+        wr!(file => "pub static CLIFF: Image<&[u8], 4> = EMPTY.copy();");
         for i in 1..=16 {
-            wr!(file => "pub static BUILD{}: &LazyLock<RgbaImage> = &EMPTY;", i);
+            wr!(file => "pub static BUILD{}: Image<&[u8], 4> = EMPTY.copy();", i);
         }
     }
-    let mut warmup = File::create(o.join("warmup.rs")).unwrap();
-    wr!(warmup => "/// # Safety\n///\n/// this function must only be called once.");
-    wr!(warmup => "pub unsafe fn warmup() {{");
-    wr!(warmup => "LazyLock::load(&EMPTY);");
     for e in walkdir.into_iter().filter_map(Result::ok) {
         let path = e.path();
         if path.is_file() && let Some(e) = path.extension() && e == "png" {
@@ -89,7 +84,7 @@ fn main() {
                             || matches!(path.as_str(), "YELLOWCORAL" | "WHITE_TREE" | "WHITE_TREE_DEAD" | "REDWEED" | "SPORE_CLUSTER" | "CRYSTAL_BLOCKS" | "CRYSTAL_CLUSTER" | "VIBRANT_CRYSTAL_CLUSTER" | "CRYSTAL_ORBS") {
                             (32, 32)
                         } else {
-                            (p.height(), p.width())
+                            (p.height(), p.height())
                         };
                         image::imageops::resize(
                             &p,
@@ -102,7 +97,7 @@ fn main() {
                     let y = new.height();
                     buf.write_all(&new.into_raw()).unwrap();
                     wr!($ext =>
-                        r#"pub(crate) static {path}: &LazyLock<RgbaImage> = img!(unsafe {{ RgbaImage::from_vec({x}, {y}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")).to_vec()).unwrap_unchecked() }});"#,
+                        r#"pub(crate) static {path}: Image<&[u8], 4> = Image::new(unsafe {{ std::num::NonZeroU32::new_unchecked( {x} ) }}, unsafe {{ std::num::NonZeroU32::new_unchecked( {y} ) }}, include_bytes!(concat!(env!("OUT_DIR"), "/{n}-{}")));"#,
                         stringify!($ext)
                     );
                 };
@@ -111,15 +106,10 @@ fn main() {
             // writ!(half + 0.5);
             writ!(quar / 4);
             writ!(eigh / 8);
-            wr!(warmup => "LazyLock::load({path});");
             n += 1;
         }
     }
-    warmup.write_all(b"}").unwrap();
     for mut f in [full, eigh, quar] {
-        // brazillian literal
-        f.write_all(br#"include!(concat!(env!("OUT_DIR"), "/warmup.rs"));"#)
-            .unwrap();
         f.write_all(b"}").unwrap();
     }
 }

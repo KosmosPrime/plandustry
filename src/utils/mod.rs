@@ -1,5 +1,3 @@
 pub mod array;
 pub mod image;
-pub use self::image::{ImageUtils, Overlay, RepeatNew as Repeat};
-pub mod lazy;
-pub use lazy::Lock;
+pub use self::image::{Image, ImageHolder, ImageUtils, Overlay, RepeatNew as Repeat};

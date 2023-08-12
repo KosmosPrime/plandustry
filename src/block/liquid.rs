@@ -111,7 +111,7 @@ impl BlockLogic for FluidBlock {
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         let mut p = load!("liquid-source", s);
         if let Some(state) = state {
             if let Some(liq) = Self::get_state(state) {

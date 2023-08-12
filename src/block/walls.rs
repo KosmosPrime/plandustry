@@ -73,7 +73,7 @@ impl BlockLogic for DoorBlock {
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         if let Some(state) = state {
             if *Self::get_state(state) {
                 return load!(s -> match name {

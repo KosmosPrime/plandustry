@@ -43,7 +43,7 @@ fn draw_turret(
     _: Option<&RenderingContext>,
     _: Rotation,
     s: Scale,
-) -> ImageHolder {
+) -> ImageHolder<4> {
     let size = me.get_size();
     let mut base = match name {
         "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre"
@@ -59,7 +59,7 @@ fn draw_turret(
             4 => "block-4",
         }),
     };
-    base.overlay(load!(from name which is ["duo" | "scatter" | "scorch" | "hail" | "wave" | "tsunami" | "lancer" | "arc" | "parallax" | "swarmer" | "salvo" | "segment" | "fuse" | "ripple" | "cyclone" | "foreshadow" | "spectre" | "meltdown" | "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre" | "scathe" | "malign" | "smite"], s).borrow());
+    base.overlay(&load!(from name which is ["duo" | "scatter" | "scorch" | "hail" | "wave" | "tsunami" | "lancer" | "arc" | "parallax" | "swarmer" | "salvo" | "segment" | "fuse" | "ripple" | "cyclone" | "foreshadow" | "spectre" | "meltdown" | "breach" | "diffuse" | "sublimate" | "titan" | "disperse" | "afflict" | "lustre" | "scathe" | "malign" | "smite"], s));
     base
 }
 

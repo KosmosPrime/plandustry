@@ -6,7 +6,6 @@ use std::env::Args;
 use crate::print_err;
 
 pub fn main(args: Args) {
-    unsafe { mindus::warmup() };
     let reg = build_registry();
     let mut ss = SchematicSerializer(&reg);
 
@@ -14,7 +13,7 @@ pub fn main(args: Args) {
     for curr in args {
         match ss.deserialize_base64(&curr) {
             Ok(s) => {
-                unsafe { s.render() }.save("x.png").unwrap();
+                s.render().save("x.png");
             }
             // continue processing literals & maybe interactive mode
             Err(e) => {

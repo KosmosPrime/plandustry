@@ -2,8 +2,6 @@
 use std::borrow::Cow;
 use std::string::FromUtf8Error;
 
-use image::{Rgb, RgbImage};
-
 use crate::block::simple::*;
 use crate::data::dynamic::{DynSerializer, DynType};
 use crate::{block::*, Serializer};
@@ -47,11 +45,12 @@ pub struct CanvasBlock {
 }
 
 macro_rules! h {
-    ($x:literal) => {
-        Rgb(color_hex::color_from_hex!($x))
-    };
+    ($x:literal) => {{
+        let v = color_hex::color_from_hex!($x);
+        (v[0], v[1], v[2])
+    }};
 }
-const PALETTE: &[Rgb<u8>; 8] = &[
+const PALETTE: &[(u8, u8, u8); 8] = &[
     h!("#362944"),
     h!("#c45d9f"),
     h!("#e39aac"),
@@ -75,11 +74,11 @@ impl CanvasBlock {
         }
     }
 
-    state_impl!(pub RgbImage);
+    state_impl!(pub Image<Vec<u8>, 1>);
 }
 
-fn deser_canvas_image(b: &[u8], size: usize) -> RgbImage {
-    let mut p = RgbImage::new(size as u32, size as u32);
+fn deser_canvas_image(b: &[u8], size: usize) -> Image<Vec<u8>, 1> {
+    let mut p = Image::alloc(size as u32, size as u32);
     for i in 0..(size * size) {
         let offset = i * 3;
         let mut n = 0;
@@ -87,11 +86,7 @@ fn deser_canvas_image(b: &[u8], size: usize) -> RgbImage {
             let word = (i + offset) >> 3;
             n |= (((b[word] & (1 << ((i + offset) & 7))) != 0) as u8) << i;
         }
-        p.put_pixel(
-            i as u32 % size as u32,
-            i as u32 / size as u32,
-            PALETTE[n as usize],
-        );
+        unsafe { p.set_pixel(i as u32 % size as u32, i as u32 / size as u32, [n]) };
     }
     p
 }
@@ -120,11 +115,12 @@ impl BlockLogic for CanvasBlock {
         let mut o = vec![0; self.canvas_size as usize * self.canvas_size as usize * 3];
         let p = Self::get_state(state);
         for i in 0..(self.canvas_size * self.canvas_size) as usize {
-            let color = p.get_pixel(
-                i as u32 % self.canvas_size as u32,
-                i as u32 / self.canvas_size as u32,
-            );
-            let index = PALETTE.iter().position(|v| v == color).unwrap();
+            let index = unsafe {
+                p.pixel(
+                    i as u32 % self.canvas_size as u32,
+                    i as u32 / self.canvas_size as u32,
+                )[0]
+            };
             let offset = i * 3;
             for i in 0..3 {
                 let word = (i + offset) >> 3;
@@ -146,7 +142,7 @@ impl BlockLogic for CanvasBlock {
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         if let Some(state) = state {
             let p = Self::get_state(state);
             let offset = match s {
@@ -155,26 +151,22 @@ impl BlockLogic for CanvasBlock {
                 Scale::Quarter => 2,
                 Scale::Eigth => 1,
             };
-            let p = DynamicImage::from(
-                RgbImage::from_raw(
-                    self.canvas_size as u32,
-                    self.canvas_size as u32,
-                    p.clone().into_raw(),
-                )
-                .unwrap(),
-            )
-            .into_rgba8()
-            .scale((s * self.size as u32) - offset * 2);
+            let mut img = Image::alloc(p.width(), p.height());
+            for ([r, g, b], &y) in img.buffer.array_chunks_mut::<3>().zip(p.buffer.iter()) {
+                (*r, *g, *b) = PALETTE[y as usize];
+            }
+            let img = img.as_mut().scale((s * self.size as u32) - offset * 2);
             let mut borders = load!("canvas", s);
-            borders.overlay_at(&p, offset, offset);
+            borders
+                .borrow_mut()
+                .overlay_at(img.as_ref(), offset, offset);
             return borders;
         }
 
-        let mut def = RgbaImage::new(s * self.size as u32, s * self.size as u32);
-        for image::Rgba([r, g, b, _]) in def.pixels_mut() {
-            *r = PALETTE[0][0];
-            *g = PALETTE[0][1];
-            *b = PALETTE[0][2];
+        let mut def = Image::alloc(s * self.size as u32, s * self.size as u32);
+        for [r, g, b, a] in def.buffer.array_chunks_mut::<4>() {
+            (*r, *g, *b) = PALETTE[0];
+            *a = 255;
         }
         ImageHolder::from(def)
     }
@@ -234,7 +226,7 @@ impl BlockLogic for MessageLogic {
         _: Option<&RenderingContext>,
         _: Rotation,
         _: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         unreachable!()
     }
 
@@ -329,7 +321,7 @@ impl BlockLogic for SwitchLogic {
         _: Option<&RenderingContext>,
         _: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         let mut base = load!("switch", s);
         if let Some(state) = state {
             if *Self::get_state(state) {

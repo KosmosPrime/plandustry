@@ -1,4 +1,3 @@
-use mindus::data::renderer::warmup;
 use mindus::data::DataRead;
 use mindus::{build_registry, Renderable};
 use mindus::{MapSerializer, Serializer};
@@ -14,8 +13,6 @@ pub fn main(args: Args) {
     // process schematics from command line
     println!("starting timing");
     let then = Instant::now();
-    unsafe { warmup() };
-    let warmup_took = then.elapsed();
     for curr in args {
         let Ok(s) = std::fs::read(curr) else {
             continue;
@@ -27,22 +24,21 @@ pub fn main(args: Args) {
                 let deser_took = starting_deser.elapsed();
                 if let Ok(v) = std::env::var("SAVE") {
                     if v == "1" {
-                        unsafe { m.render() }.save("x.png").unwrap();
+                        m.render().save("x.png");
                         continue;
                     }
                 }
                 let starting_render = Instant::now();
                 for _ in 0..runs {
-                    unsafe { m.render() };
+                    drop(m.render());
                 }
                 let renders_took = starting_render.elapsed();
                 let took = then.elapsed();
                 println!(
-                    "μ total: {:.2}s ({} runs) (deser: {}ms, warmup: {}ms, render: {:.2}s) on map {}",
+                    "μ total: {:.2}s ({} runs) (deser: {}ms, render: {:.2}s) on map {}",
                     took.as_secs_f32() / runs as f32,
                     runs,
                     deser_took.as_millis(),
-                    warmup_took.as_millis(),
                     renders_took.as_secs_f32() / runs as f32,
                     m.tags.get("mapname").unwrap(),
                 );

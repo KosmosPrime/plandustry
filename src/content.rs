@@ -96,10 +96,11 @@ macro_rules! color_content_enum {
 
         impl Type {
             #[must_use]
-            pub const fn color(&self) -> image::Rgb<u8> {
+            pub const fn color(&self) -> (u8, u8, u8) {
                 match &self {
                     $(Self::[<$val:camel>] => {
-                        image::Rgb(color_hex::color_from_hex!($col))
+												let v = color_hex::color_from_hex!($col);
+												(v[0], v[1], v[2])
                     },)*
                 }
             }

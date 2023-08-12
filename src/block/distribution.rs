@@ -53,18 +53,18 @@ fn draw_stack(
     ctx: Option<&RenderingContext>,
     rot: Rotation,
     s: Scale,
-) -> ImageHolder {
+) -> ImageHolder<4> {
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
     let edge = load!(concat edge => name which is ["surge-conveyor" | "plastanium-conveyor"], s);
-    let edgify = |skip, to: &mut RgbaImage| {
+    let edgify = |skip, mut to: Image<&mut [u8], 4>| {
         for i in 0..4 {
             if i == skip {
                 continue;
             }
             let mut edge = edge.clone();
             edge.rotate(i);
-            to.overlay(&edge);
+            to.overlay(edge.borrow());
         }
     };
     let gimme = |n: u8| match n {
@@ -77,18 +77,21 @@ fn draw_stack(
     if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
         // end
         let mut base = gimme(2);
-        edgify(rot.mirrored(true, true).rotated(false).count(), &mut base);
+        edgify(
+            rot.mirrored(true, true).rotated(false).count(),
+            base.borrow_mut(),
+        );
         base
     } else if mask == B0000 && empty {
         // single
         let mut base = gimme(0);
         base.rotate(rot.rotated(false).count());
-        edgify(5, &mut base);
+        edgify(5, base.borrow_mut());
         base
     } else if mask == B0000 {
         // input
         let mut base = gimme(1);
-        edgify(rot.rotated(false).count(), &mut base);
+        edgify(rot.rotated(false).count(), base.borrow_mut());
         base
     } else {
         // directional
@@ -221,7 +224,7 @@ impl BlockLogic for ItemBlock {
         _: Option<&RenderingContext>,
         rot: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         let mut p = load!(from name which is ["sorter" | "inverted-sorter" | "duct-router" | "duct-unloader" | "unit-cargo-unload-point" | "unloader" | "item-source"], s);
         if let Some(state) = state {
             if let Some(item) = Self::get_state(state) {
@@ -471,7 +474,7 @@ impl BlockLogic for BridgeBlock {
         _: Option<&RenderingContext>,
         r: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         match name {
             "mass-driver" => {
                 let mut base = load!("mass-driver-base", s);

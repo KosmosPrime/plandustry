@@ -87,7 +87,7 @@ macro_rules! make_simple {
                 context: Option<&crate::data::renderer::RenderingContext>,
                 rot: crate::block::Rotation,
                 scale: crate::data::renderer::Scale,
-            ) -> crate::data::renderer::ImageHolder {
+            ) -> crate::data::renderer::ImageHolder<4> {
                 #[allow(clippy::redundant_closure_call)]
                 $draw(self, name, state, context, rot, scale)
             }

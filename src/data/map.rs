@@ -146,7 +146,7 @@ impl<'l> Tile<'l> {
         1
     }
 
-    pub(crate) unsafe fn floor(&self, s: Scale) -> ImageHolder {
+    pub(crate) fn floor(&self, s: Scale) -> ImageHolder<4> {
         lo!(self.floor => [
 			| "darksand"
 			| "sand-floor"
@@ -186,7 +186,7 @@ impl<'l> Tile<'l> {
     }
 
     #[must_use]
-    pub(crate) unsafe fn ore(&self, s: Scale) -> ImageHolder {
+    pub(crate) fn ore(&self, s: Scale) -> ImageHolder<4> {
         lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
     }
 
@@ -196,12 +196,8 @@ impl<'l> Tile<'l> {
     }
 
     /// Draw the floor of this tile
-    ///
-    /// # Safety
-    ///
-    /// UB if called before [`warmup`](crate::warmup)
     #[must_use]
-    pub unsafe fn floor_image(&self, s: Scale) -> ImageHolder {
+    pub fn floor_image(&self, s: Scale) -> ImageHolder<4> {
         let mut floor = self.floor(s);
         if self.has_ore() {
             floor.overlay(&self.ore(s));
@@ -210,11 +206,8 @@ impl<'l> Tile<'l> {
     }
 
     /// Draw this tiles build.
-    ///
-    /// # Safety
-    /// UB if called before [`warmup`](crate::warmup)
     #[must_use]
-    pub unsafe fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
+    pub fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder<4> {
         // building covers floore
         let Some(b) = &self.build else {
             unreachable!();
@@ -300,7 +293,7 @@ impl<'l> Build<'l> {
         }
     }
 
-    unsafe fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder {
+    fn image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder<4> {
         self.block
             .image(self.state.as_ref(), context, self.rotation, s)
     }

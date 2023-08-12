@@ -92,7 +92,7 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
     s
 }
 
-pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation, s: Scale) -> ImageHolder {
+pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation, s: Scale) -> ImageHolder<4> {
     rotations2tile(mask2rotations(mask(ctx, rot, name), rot), name, s)
 }
 
@@ -212,7 +212,7 @@ pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
 pub const FLIP_X: u8 = 1;
 pub const FLIP_Y: u8 = 2;
 
-pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder) {
+pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder<4>) {
     if (flip & FLIP_X) != 0 {
         with.flip_h();
     }
@@ -223,7 +223,11 @@ pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder) {
 }
 
 /// TODO figure out if a flip is cheaper than a `rotate_270`
-pub fn rotations2tile((index, rot, flip): (u8, u8, u8), name: &str, scale: Scale) -> ImageHolder {
+pub fn rotations2tile(
+    (index, rot, flip): (u8, u8, u8),
+    name: &str,
+    scale: Scale,
+) -> ImageHolder<4> {
     let mut p = match index {
         0 => {
             load!(concat 0 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
@@ -241,7 +245,7 @@ pub fn rotations2tile((index, rot, flip): (u8, u8, u8), name: &str, scale: Scale
             load!(concat 4 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
         }
     };
-    flrot(flip, rot, p.borrow_mut());
+    flrot(flip, rot, &mut p);
     p
 }
 

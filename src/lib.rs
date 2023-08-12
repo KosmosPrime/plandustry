@@ -1,5 +1,11 @@
 //! crate for dealing with mindustry
-#![feature(array_chunks, const_trait_impl, unchecked_math, core_intrinsics)]
+#![feature(
+    array_chunks,
+    const_trait_impl,
+    unchecked_math,
+    slice_as_chunks,
+    slice_swap_unchecked
+)]
 pub mod block;
 mod content;
 pub mod data;
@@ -17,7 +23,7 @@ pub use {
     data::{
         dynamic::DynData,
         map::{Map, MapSerializer},
-        renderer::{warmup, Renderable},
+        renderer::Renderable,
         schematic::{Schematic, SchematicSerializer},
         Serializer,
     },

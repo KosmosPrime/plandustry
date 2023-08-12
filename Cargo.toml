@@ -16,12 +16,13 @@ flate2 = { version = "1.0", features = ["zlib"], default-features = false }
 base64 = "0.21"
 paste = "1.0"
 strconv = "0.1"
-image = { version = "0.24", features = [], default-features = false }
+image = { version = "0.24", features = [], default-features = false, optional = true }
 color-hex = "0.2"
 thiserror = "1.0"
 bobbin-bits = "0.1"
 blurslice = { version = "0.1" }
 enum_dispatch = "0.3"
+fast_image_resize = "2.7.3"
 
 [features]
 bin = ["image/png"]

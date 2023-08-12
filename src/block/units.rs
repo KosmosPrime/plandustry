@@ -46,7 +46,7 @@ make_simple!(
         } 
         .rotate(rot.rotated(false).count()),
     );
-        base.overlay(load!(concat top => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s).borrow());
+        base.overlay(&load!(concat top => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s));
         base
     },
     |_, reg, map, buff| read_assembler(reg, map, buff)
@@ -178,8 +178,6 @@ impl BlockLogic for ConstructorBlock {
         }
     }
 
-
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         Ok(Self::get_state(state).map_or(DynData::Empty, DynData::UnitCommand))
     }
@@ -191,7 +189,7 @@ impl BlockLogic for ConstructorBlock {
         _: Option<&RenderingContext>,
         rot: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         let mut base = load!(from name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s);
         let times = rot.rotated(false).count();
         let mut out = load!(s -> match name {
@@ -236,7 +234,7 @@ impl BlockLogic for ConstructorBlock {
         //     }
         // }
 
-        base.overlay(load!(concat top => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s).borrow());
+        base.overlay(&load!(concat top => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s));
         base
     }
 
@@ -320,8 +318,6 @@ impl BlockLogic for UnitFactory {
         }
     }
 
-
-
     fn serialize_state(&self, state: &State) -> Result<DynData, SerializeError> {
         if let Some(state) = Self::get_state(state) {
             for (i, curr) in self.valid.iter().enumerate() {
@@ -344,23 +340,21 @@ impl BlockLogic for UnitFactory {
         _: Option<&RenderingContext>,
         rot: Rotation,
         s: Scale,
-    ) -> ImageHolder {
+    ) -> ImageHolder<4> {
         let mut base = load!(from name which is ["ground-factory" | "air-factory" | "naval-factory" | "tank-fabricator" | "ship-fabricator" | "mech-fabricator"], s);
-        let mut out = load!(s -> match name {
-            "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
-            _ => "factory-out-3-dark",
-        });
-        out.rotate(rot.rotated(false).count());
-        base.overlay(&out);
         base.overlay(
             load!(s -> match name {
-                "ground-factory" | "air-factory" | "naval-factory" => "factory-top-3",
-                "tank-fabricator" => "tank-fabricator-top",
-                "ship-fabricator" => "ship-fabricator-top",
-                "mech-fabricator" => "mech-fabricator-top",
+                "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
+                _ => "factory-out-3-dark",
             })
-            .borrow(),
-        );
+            .rotate(rot.rotated(false).count()),
+        )
+        .overlay(&load!(s -> match name {
+            "ground-factory" | "air-factory" | "naval-factory" => "factory-top-3",
+            "tank-fabricator" => "tank-fabricator-top",
+            "ship-fabricator" => "ship-fabricator-top",
+            "mech-fabricator" => "mech-fabricator-top",
+        }));
         base
     }
 
