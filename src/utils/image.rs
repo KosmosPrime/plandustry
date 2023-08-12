@@ -3,13 +3,13 @@ use std::{num::NonZeroU32, slice::SliceIndex};
 
 pub trait Overlay<W> {
     /// Overlay with => self at coordinates x, y, without blending
-    fn overlay_at(&mut self, with: W, x: u32, y: u32) -> &mut Self;
+    fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
 }
 
 pub trait RepeatNew {
     type Output;
     /// Repeat self till it fills x, y
-    fn repeated(self, x: u32, y: u32) -> Self::Output;
+    fn repeated(&self, x: u32, y: u32) -> Self::Output;
 }
 
 pub trait ImageUtils {
@@ -39,7 +39,7 @@ macro_rules! unsafe_assert {
 }
 
 impl Overlay<Image<&[u8], 3>> for Image<&mut [u8], 3> {
-    fn overlay_at(&mut self, with: Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
+    fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
                 unsafe {
@@ -60,7 +60,7 @@ impl Overlay<Image<&[u8], 3>> for Image<&mut [u8], 3> {
 }
 
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
-    fn overlay_at(&mut self, with: Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
+    fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
                 unsafe {
@@ -89,7 +89,7 @@ impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
 }
 
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
-    fn overlay_at(&mut self, with: Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
+    fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
                 unsafe {
@@ -118,12 +118,12 @@ impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
 
 impl RepeatNew for Image<&[u8], 4> {
     type Output = Image<Vec<u8>, 4>;
-    fn repeated(self, x: u32, y: u32) -> Self::Output {
+    fn repeated(&self, x: u32, y: u32) -> Self::Output {
         let mut img = Image::alloc(x, y); // could probably optimize this a ton but eh
         for x in 0..(x / self.width()) {
             for y in 0..(y / self.height()) {
                 let a: &mut Image<&mut [u8], 4> = &mut img.as_mut();
-                a.overlay_at(self.copy(), x * self.width(), y * self.height());
+                a.overlay_at(self, x * self.width(), y * self.height());
             }
         }
         img
@@ -235,8 +235,8 @@ impl ImageUtils for Image<&mut [u8], 4> {
         }
         self
     }
-    type With<'a> = Image<&'a [u8], 4>;
-    fn overlay(&mut self, with: Image<&[u8], 4>) -> &mut Self {
+    type With<'a> = &'a Image<&'a [u8], 4>;
+    fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
         debug_assert_eq!(self.width(), with.width());
         debug_assert_eq!(self.height(), with.height());
         unsafe_assert!(self.buffer.len() % 4 == 0);
@@ -495,9 +495,9 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
     }
 }
 
-impl<'a> Overlay<&'a ImageHolder<4>> for ImageHolder<4> {
-    fn overlay_at(&mut self, with: &'a ImageHolder<4>, x: u32, y: u32) -> &mut Self {
-        self.borrow_mut().overlay_at(with.borrow(), x, y);
+impl Overlay<ImageHolder<4>> for ImageHolder<4> {
+    fn overlay_at(&mut self, with: &ImageHolder<4>, x: u32, y: u32) -> &mut Self {
+        self.borrow_mut().overlay_at(&with.borrow(), x, y);
         self
     }
 }
@@ -509,7 +509,7 @@ impl ImageUtils for ImageHolder<4> {
     }
     type With<'a> = &'a Self;
     fn overlay(&mut self, with: &Self) -> &mut Self {
-        self.borrow_mut().overlay(with.borrow());
+        self.borrow_mut().overlay(&with.borrow());
         self
     }
 

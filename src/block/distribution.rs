@@ -57,14 +57,14 @@ fn draw_stack(
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
     let edge = load!(concat edge => name which is ["surge-conveyor" | "plastanium-conveyor"], s);
-    let edgify = |skip, mut to: Image<&mut [u8], 4>| {
+    let edgify = |skip, to: &mut Image<&mut [u8], 4>| {
         for i in 0..4 {
             if i == skip {
                 continue;
             }
             let mut edge = edge.clone();
             edge.rotate(i);
-            to.overlay(edge.borrow());
+            to.overlay(&edge.borrow());
         }
     };
     let gimme = |n: u8| match n {
@@ -79,19 +79,19 @@ fn draw_stack(
         let mut base = gimme(2);
         edgify(
             rot.mirrored(true, true).rotated(false).count(),
-            base.borrow_mut(),
+            &mut base.borrow_mut(),
         );
         base
     } else if mask == B0000 && empty {
         // single
         let mut base = gimme(0);
         base.rotate(rot.rotated(false).count());
-        edgify(5, base.borrow_mut());
+        edgify(5, &mut base.borrow_mut());
         base
     } else if mask == B0000 {
         // input
         let mut base = gimme(1);
-        edgify(rot.rotated(false).count(), base.borrow_mut());
+        edgify(rot.rotated(false).count(), &mut base.borrow_mut());
         base
     } else {
         // directional

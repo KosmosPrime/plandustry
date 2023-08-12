@@ -89,22 +89,7 @@ make_simple!(
 );
 
 make_simple!(
-    RepairTurret,
-    |_, n, _, _, _, scl| {
-        match n {
-            "repair-turret" => {
-                let mut bot = load!("block-2", scl);
-                bot.overlay(&load!("repair-turret", scl));
-                bot
-            }
-            _ => {
-                let mut bot = load!("repair-point-base", scl);
-                bot.overlay(&load!("repair-point", scl));
-                bot
-            }
-        }
-    },
-    |_, _, _, buff: &mut DataRead| {
+    RepairTurret => |_, _, _, buff: &mut DataRead| {
         buff.skip(4) // rotation: [`f32`]
     }
 );
@@ -123,8 +108,8 @@ make_register! {
         cost!(Lead: 2000, Titanium: 2000, Thorium: 750, Silicon: 1000, Plastanium: 450, PhaseFabric: 600));
     "tetrative-reconstructor" => ConstructorBlock::new(9, false,
         cost!(Lead: 4000, Thorium: 1000, Silicon: 3000, Plastanium: 600, PhaseFabric: 600, SurgeAlloy: 800));
-    "repair-point" => RepairTurret::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
-    "repair-turret" => RepairTurret::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
+    "repair-point" -> RepairTurret::new(1, true, cost!(Copper: 30, Lead: 30, Silicon: 20));
+    "repair-turret" -> RepairTurret::new(2, true, cost!(Thorium: 80, Silicon: 90, Plastanium: 60));
     "tank-fabricator" => UnitFactory::new(3, true, cost!(Silicon: 200, Beryllium: 150), &[unit::Type::Stell]);
     "ship-fabricator" => UnitFactory::new(3, true, cost!(Silicon: 250, Beryllium: 200), &[unit::Type::Elude]);
     "mech-fabricator" => UnitFactory::new(3, true, cost!(Silicon: 200, Graphite: 300, Tungsten: 60), &[unit::Type::Merui]);
