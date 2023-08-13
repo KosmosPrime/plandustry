@@ -157,9 +157,11 @@ impl BlockLogic for CanvasBlock {
             }
             let img = img.as_mut().scale((s * self.size as u32) - offset * 2);
             let mut borders = load!("canvas", s);
-            borders
-                .borrow_mut()
-                .overlay_at(&img.as_ref(), offset, offset);
+            unsafe {
+                borders
+                    .borrow_mut()
+                    .overlay_at(&img.as_ref(), offset, offset)
+            };
             return borders;
         }
 

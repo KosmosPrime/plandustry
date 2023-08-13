@@ -41,7 +41,8 @@ make_simple!(JunctionBlock => |_, _, _, buff| { read_directional_item_buffer(buf
 make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
     let mut base = load!("duct-base", s);
     let mut top = load!(from name which is ["overflow-duct" "underflow-duct"], s);
-    top.rotate(rot.rotated(false).count());
+    // SAFETY: any load() is square
+    unsafe { top.rotate(rot.rotated(false).count()) };
     base.overlay(&top);
     base
 });
@@ -63,7 +64,7 @@ fn draw_stack(
                 continue;
             }
             let mut edge = edge.clone();
-            edge.rotate(i);
+            unsafe { edge.rotate(i) };
             to.overlay(&edge.borrow());
         }
     };
@@ -85,7 +86,7 @@ fn draw_stack(
     } else if mask == B0000 && empty {
         // single
         let mut base = gimme(0);
-        base.rotate(rot.rotated(false).count());
+        unsafe { base.rotate(rot.rotated(false).count()) };
         edgify(5, &mut base.borrow_mut());
         base
     } else if mask == B0000 {
@@ -97,11 +98,11 @@ fn draw_stack(
         // directional
         let mut base = gimme(0);
         let going = rot.rotated(false).count();
-        base.rotate(going);
+        unsafe { base.rotate(going) };
         for [r, i] in [[3, 0b1000], [0, 0b0100], [1, 0b0010], [2, 0b0001]] {
             if (mask.into_u8() & i) == 0 && (going != r || empty) {
                 let mut edge = edge.clone();
-                edge.rotate(r);
+                unsafe { edge.rotate(r) };
                 base.overlay(&edge);
             }
         }
@@ -242,15 +243,15 @@ impl BlockLogic for ItemBlock {
         }
         if name == "duct-router" {
             let mut arrow = load!("top", s);
-            arrow.rotate(rot.rotated(false).count());
+            unsafe { arrow.rotate(rot.rotated(false).count()) };
             p.overlay(&arrow);
             p
         } else if name == "duct-unloader" {
             let mut top = load!("duct-unloader-top", s);
-            top.rotate(rot.rotated(false).count());
+            unsafe { top.rotate(rot.rotated(false).count()) };
             p.overlay(&top);
             let mut arrow = load!("duct-unloader-arrow", s);
-            arrow.rotate(rot.rotated(false).count());
+            unsafe { arrow.rotate(rot.rotated(false).count()) };
             p.overlay(&arrow);
             p
         } else {
@@ -490,7 +491,7 @@ impl BlockLogic for BridgeBlock {
                         _ => "reinforced-bridge-conduit-dir",
                     }
                 );
-                arrow.rotate(r.rotated(false).count());
+                unsafe { arrow.rotate(r.rotated(false).count()) };
                 base.overlay(&arrow);
                 base
             }

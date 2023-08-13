@@ -6,6 +6,7 @@
     slice_as_chunks,
     slice_swap_unchecked
 )]
+#![allow(clippy::missing_safety_doc, clippy::missing_const_for_fn, clippy::perf)]
 pub mod block;
 mod content;
 pub mod data;

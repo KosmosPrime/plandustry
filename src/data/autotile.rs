@@ -212,7 +212,10 @@ pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
 pub const FLIP_X: u8 = 1;
 pub const FLIP_Y: u8 = 2;
 
-pub fn flrot(flip: u8, rot: u8, with: &mut ImageHolder<4>) {
+/// # Safety
+///
+/// `with` must be square
+pub unsafe fn flrot(flip: u8, rot: u8, with: &mut ImageHolder<4>) {
     if (flip & FLIP_X) != 0 {
         with.flip_h();
     }
@@ -245,7 +248,7 @@ pub fn rotations2tile(
             load!(concat 4 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
         }
     };
-    flrot(flip, rot, &mut p);
+    unsafe { flrot(flip, rot, &mut p) };
     p
 }
 

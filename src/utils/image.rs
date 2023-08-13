@@ -3,13 +3,19 @@ use std::{num::NonZeroU32, slice::SliceIndex};
 
 pub trait Overlay<W> {
     /// Overlay with => self at coordinates x, y, without blending
-    fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
+    /// # Safety
+    ///
+    /// UB if x, y is out of bounds
+    unsafe fn overlay_at(&mut self, with: &W, x: u32, y: u32) -> &mut Self;
 }
 
 pub trait RepeatNew {
     type Output;
-    /// Repeat self till it fills x, y
-    fn repeated(&self, x: u32, y: u32) -> Self::Output;
+    /// Repeat self till it fills a new image of size x, y
+    /// # Safety
+    ///
+    /// UB if self's width is not a multiple of x, or self's height is not a multiple of y
+    unsafe fn repeated(&self, x: u32, y: u32) -> Self::Output;
 }
 
 pub trait ImageUtils {
@@ -19,7 +25,10 @@ pub trait ImageUtils {
     /// Overlay with => self (does not blend)
     fn overlay(&mut self, with: Self::With<'_>) -> &mut Self;
     /// rotate (squares only)
-    fn rotate(&mut self, times: u8) -> &mut Self;
+    /// # Safety
+    ///
+    /// UB if image is not square
+    unsafe fn rotate(&mut self, times: u8) -> &mut Self;
     /// flip along the horizontal axis
     fn flip_h(&mut self) -> &mut Self;
     /// flip along the vertical axis
@@ -33,18 +42,45 @@ pub trait ImageUtils {
 macro_rules! unsafe_assert {
     ($cond:expr) => {{
         if !$cond {
-            unsafe { std::hint::unreachable_unchecked() }
+            #[cfg(debug_assertions)]
+            panic!("assertion failed: {} returned false", stringify!($cond));
+            #[cfg(not(debug_assertions))]
+            unsafe {
+                std::hint::unreachable_unchecked()
+            };
         }
     }};
 }
 
 impl Overlay<Image<&[u8], 3>> for Image<&mut [u8], 3> {
-    fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
+    unsafe fn overlay_at(&mut self, with: &Image<&[u8], 3>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
-                unsafe {
-                    let with_index = with.slice(i, j);
-                    let their_px = with.buffer.get_unchecked(with_index);
+                let with_index = with.slice(i, j);
+                let their_px = with.buffer.get_unchecked(with_index);
+                let our_index =
+                    really_unsafe_index(i.unchecked_add(x), j.unchecked_add(y), self.width())
+                        .unchecked_mul(3);
+                let our_px = self
+                    .buffer
+                    .get_unchecked_mut(our_index..our_index.unchecked_add(3));
+                std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 3);
+            }
+        }
+        self
+    }
+}
+
+impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
+    unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
+        for j in 0..with.height() {
+            for i in 0..with.width() {
+                let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(4);
+                // solidity
+                if *with.buffer.get_unchecked(with_index.unchecked_add(3)) > 128 {
+                    let their_px = with
+                        .buffer
+                        .get_unchecked(with_index..with_index.unchecked_add(3));
                     let our_index =
                         really_unsafe_index(i.unchecked_add(x), j.unchecked_add(y), self.width())
                             .unchecked_mul(3);
@@ -59,66 +95,33 @@ impl Overlay<Image<&[u8], 3>> for Image<&mut [u8], 3> {
     }
 }
 
-impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 3> {
-    fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
-        for j in 0..with.height() {
-            for i in 0..with.width() {
-                unsafe {
-                    let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(4);
-                    // solidity
-                    if *with.buffer.get_unchecked(with_index.unchecked_add(3)) > 128 {
-                        let their_px = with
-                            .buffer
-                            .get_unchecked(with_index..with_index.unchecked_add(3));
-                        let our_index = really_unsafe_index(
-                            i.unchecked_add(x),
-                            j.unchecked_add(y),
-                            self.width(),
-                        )
-                        .unchecked_mul(3);
-                        let our_px = self
-                            .buffer
-                            .get_unchecked_mut(our_index..our_index.unchecked_add(3));
-                        std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 3);
-                    }
-                }
-            }
-        }
-        self
-    }
-}
-
 impl Overlay<Image<&[u8], 4>> for Image<&mut [u8], 4> {
-    fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
+    unsafe fn overlay_at(&mut self, with: &Image<&[u8], 4>, x: u32, y: u32) -> &mut Self {
         for j in 0..with.height() {
             for i in 0..with.width() {
-                unsafe {
-                    let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(4);
-                    let their_px = with
+                let with_index = really_unsafe_index(i, j, with.width()).unchecked_mul(4);
+                let their_px = with
+                    .buffer
+                    .get_unchecked(with_index..with_index.unchecked_add(4));
+                if *their_px.get_unchecked(3) > 128 {
+                    let our_index =
+                        really_unsafe_index(i.unchecked_add(x), j.unchecked_add(y), self.width())
+                            .unchecked_mul(4);
+                    let our_px = self
                         .buffer
-                        .get_unchecked(with_index..with_index.unchecked_add(4));
-                    if their_px.get_unchecked(3) > &128 {
-                        let our_index = really_unsafe_index(
-                            i.unchecked_add(x),
-                            j.unchecked_add(y),
-                            self.width(),
-                        )
-                        .unchecked_mul(4);
-                        let our_px = self
-                            .buffer
-                            .get_unchecked_mut(our_index..our_index.unchecked_add(4));
-                        std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 4);
-                    }
+                        .get_unchecked_mut(our_index..our_index.unchecked_add(4));
+                    std::ptr::copy_nonoverlapping(their_px.as_ptr(), our_px.as_mut_ptr(), 4);
                 }
             }
         }
+
         self
     }
 }
 
 impl RepeatNew for Image<&[u8], 4> {
     type Output = Image<Vec<u8>, 4>;
-    fn repeated(&self, x: u32, y: u32) -> Self::Output {
+    unsafe fn repeated(&self, x: u32, y: u32) -> Self::Output {
         let mut img = Image::alloc(x, y); // could probably optimize this a ton but eh
         for x in 0..(x / self.width()) {
             for y in 0..(y / self.height()) {
@@ -130,39 +133,49 @@ impl RepeatNew for Image<&[u8], 4> {
     }
 }
 
-unsafe fn flip_v<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
+pub fn flip_v<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() / 2 {
         for x in 0..img.width() {
-            let y2 = img.height() - y - 1;
-            let p2 = img.pixel(x, y2);
-            let p = img.pixel(x, y);
-            img.set_pixel(x, y2, p);
-            img.set_pixel(x, y, p2);
+            unsafe {
+                // SAFETY: cant overflow
+                let y2 = img.height().unchecked_sub(y).unchecked_sub(1);
+                // SAFETY: within bounds
+                let p2 = img.pixel(x, y2);
+                let p = img.pixel(x, y);
+                img.set_pixel(x, y2, p);
+                img.set_pixel(x, y, p2);
+            }
         }
     }
 }
 
-unsafe fn flip_h<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
+pub fn flip_h<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() {
         for x in 0..img.width() / 2 {
-            let x2 = img.width() - x - 1;
-            let p2 = img.pixel(x2, y);
-            let p = img.pixel(x, y);
-            img.set_pixel(x2, y, p);
-            img.set_pixel(x, y, p2);
+            // SAFETY: This cannot be out of bounds
+            unsafe {
+                let x2 = img.width().unchecked_sub(x).unchecked_sub(1);
+                let p2 = img.pixel(x2, y);
+                let p = img.pixel(x, y);
+                img.set_pixel(x2, y, p);
+                img.set_pixel(x, y, p2);
+            }
         }
     }
 }
 
-unsafe fn rot_180<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
+pub fn rot_180<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     for y in 0..img.height() / 2 {
         for x in 0..img.width() {
-            let p = img.pixel(x, y);
-            let x2 = img.width() - x - 1;
-            let y2 = img.height() - y - 1;
-            let p2 = img.pixel(x2, y2);
-            img.set_pixel(x, y, p2);
-            img.set_pixel(x2, y2, p);
+            // SAFETY: this is safe because it cannot be out of bounds
+            unsafe {
+                let p = img.pixel(x, y);
+                let x2 = img.width() - x - 1;
+                let y2 = img.height() - y - 1;
+                let p2 = img.pixel(x2, y2);
+                img.set_pixel(x, y, p2);
+                img.set_pixel(x2, y2, p);
+            }
         }
     }
 
@@ -170,25 +183,31 @@ unsafe fn rot_180<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
         let middle = img.height() / 2;
 
         for x in 0..img.width() / 2 {
-            let p = img.pixel(x, middle);
-            let x2 = img.width() - x - 1;
+            // SAFETY: this is safe because it cannot be out of bounds
+            unsafe {
+                let p = img.pixel(x, middle);
+                let x2 = img.width() - x - 1;
 
-            let p2 = img.pixel(x2, middle);
-            img.set_pixel(x, middle, p2);
-            img.set_pixel(x2, middle, p);
+                let p2 = img.pixel(x2, middle);
+                img.set_pixel(x, middle, p2);
+                img.set_pixel(x2, middle, p);
+            }
         }
     }
 }
 
-/// only works with squares!
-unsafe fn rot_90<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
+/// # Safety
+///
+/// UB if the image is not square
+#[inline(never)]
+pub unsafe fn rot_90<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     debug_assert_eq!(img.width(), img.height());
     let size = img.width();
     flip_v(img);
     for i in 0..size {
         for j in i..size {
             for c in 0..CHANNELS {
-                img.buffer.swap(
+                img.buffer.swap_unchecked(
                     (i * size + j) as usize * CHANNELS + c,
                     (j * size + i) as usize * CHANNELS + c,
                 );
@@ -197,15 +216,17 @@ unsafe fn rot_90<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     }
 }
 
-/// only works with squares!
-unsafe fn rot_270<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
+/// # Safety
+///
+/// UB if the image is not square
+pub unsafe fn rot_270<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
     debug_assert_eq!(img.width(), img.height());
     flip_h(img);
     let size = img.width();
     for i in 0..size {
         for j in i..size {
             for c in 0..CHANNELS {
-                img.buffer.swap(
+                img.buffer.swap_unchecked(
                     (i * size + j) as usize * CHANNELS + c,
                     (j * size + i) as usize * CHANNELS + c,
                 );
@@ -213,15 +234,14 @@ unsafe fn rot_270<const CHANNELS: usize>(img: &mut Image<&mut [u8], CHANNELS>) {
         }
     }
 }
+
 impl ImageUtils for Image<&mut [u8], 4> {
-    fn rotate(&mut self, times: u8) -> &mut Self {
-        unsafe {
-            match times {
-                2 => rot_180(self),
-                1 => rot_90(self),
-                3 => rot_270(self),
-                _ => {}
-            }
+    unsafe fn rotate(&mut self, times: u8) -> &mut Self {
+        match times {
+            2 => rot_180(self),
+            1 => unsafe { rot_90(self) },
+            3 => unsafe { rot_270(self) },
+            _ => {}
         }
         self
     }
@@ -237,8 +257,9 @@ impl ImageUtils for Image<&mut [u8], 4> {
     }
     type With<'a> = &'a Image<&'a [u8], 4>;
     fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
-        debug_assert_eq!(self.width(), with.width());
-        debug_assert_eq!(self.height(), with.height());
+        unsafe_assert!(self.width() == with.width());
+        unsafe_assert!(self.height() == with.height());
+        unsafe_assert!(with.buffer.len() > 4);
         unsafe_assert!(self.buffer.len() % 4 == 0);
         unsafe_assert!(with.buffer.len() % 4 == 0);
         for (i, other_pixels) in with.buffer.array_chunks::<4>().enumerate() {
@@ -305,17 +326,18 @@ impl ImageUtils for Image<&mut [u8], 4> {
 
     #[inline]
     fn flip_h(&mut self) -> &mut Self {
-        unsafe { flip_h(self) };
+        flip_h(self);
         self
     }
 
     #[inline(always)]
     fn flip_v(&mut self) -> &mut Self {
-        unsafe { flip_v(self) };
+        flip_v(self);
         self
     }
 }
 
+#[inline]
 unsafe fn really_unsafe_index(x: u32, y: u32, w: u32) -> usize {
     // y * w + x
     (y as usize)
@@ -377,6 +399,7 @@ impl<T: std::ops::Deref<Target = [u8]>, const CHANNELS: usize> Image<T, CHANNELS
     ///
     /// - UB if x, y is out of bounds
     /// - UB if buffer is too small
+    #[inline]
     pub unsafe fn slice(&self, x: u32, y: u32) -> impl SliceIndex<[u8], Output = [u8]> {
         debug_assert!(x < self.width(), "x out of bounds");
         debug_assert!(y < self.height(), "y out of bounds");
@@ -496,7 +519,7 @@ impl<const CHANNELS: usize> ImageHolder<CHANNELS> {
 }
 
 impl Overlay<ImageHolder<4>> for ImageHolder<4> {
-    fn overlay_at(&mut self, with: &ImageHolder<4>, x: u32, y: u32) -> &mut Self {
+    unsafe fn overlay_at(&mut self, with: &ImageHolder<4>, x: u32, y: u32) -> &mut Self {
         self.borrow_mut().overlay_at(&with.borrow(), x, y);
         self
     }
@@ -513,7 +536,7 @@ impl ImageUtils for ImageHolder<4> {
         self
     }
 
-    fn rotate(&mut self, times: u8) -> &mut Self {
+    unsafe fn rotate(&mut self, times: u8) -> &mut Self {
         if times == 0 {
             return self;
         }
@@ -600,7 +623,7 @@ mod tests {
             [00, 01]
             [02, 10]
         ];
-        unsafe { rot_180(&mut from.as_mut()) };
+        rot_180(&mut from.as_mut());
         assert_eq!(
             from,
             img![
@@ -632,7 +655,7 @@ mod tests {
             [90, 01]
             [21, 42]
         ];
-        unsafe { flip_v(&mut from.as_mut()) };
+        flip_v(&mut from.as_mut());
         assert_eq!(
             from,
             img![
@@ -647,7 +670,7 @@ mod tests {
             [90, 01]
             [21, 42]
         ];
-        unsafe { flip_h(&mut from.as_mut()) };
+        flip_h(&mut from.as_mut());
         assert_eq!(
             from,
             img![

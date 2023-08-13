@@ -103,10 +103,13 @@ impl Renderable for Schematic<'_> {
     /// ```
     fn render(&self) -> Image<Vec<u8>, 3> {
         // fill background
-        let mut bg = load!("metal-floor", Scale::Full).borrow().repeated(
-            ((self.width + 2) * 32) as u32,
-            ((self.height + 2) * 32) as u32,
-        );
+        // SAFETY: metal-floor is 32x32, the output is a multiple of 32
+        let mut bg = unsafe {
+            load!("metal-floor", Scale::Full).borrow().repeated(
+                ((self.width + 2) * 32) as u32,
+                ((self.height + 2) * 32) as u32,
+            )
+        };
         let mut canvas = Image::alloc(
             ((self.width + 2) * 32) as u32,
             ((self.height + 2) * 32) as u32,
@@ -127,17 +130,19 @@ impl Renderable for Schematic<'_> {
             };
             let x = x as u32 - ((tile.block.get_size() - 1) / 2) as u32;
             let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
-            canvas.as_mut().overlay_at(
-                &tile
-                    .image(
-                        ctx.as_ref(),
-                        tile.get_rotation().unwrap_or(Rotation::Up),
-                        Scale::Full,
-                    )
-                    .borrow(),
-                (x + 1) * 32,
-                (y + 1) * 32,
-            );
+            unsafe {
+                canvas.as_mut().overlay_at(
+                    &tile
+                        .image(
+                            ctx.as_ref(),
+                            tile.get_rotation().unwrap_or(Rotation::Up),
+                            Scale::Full,
+                        )
+                        .borrow(),
+                    (x + 1) * 32,
+                    (y + 1) * 32,
+                )
+            };
         }
         canvas.as_mut().shadow();
         for x in 0..canvas.width() {
@@ -176,17 +181,21 @@ impl Renderable for Map<'_> {
         }) {
             // draw the floor first.
             // println!("draw {tile:?} ({x}, {y}) + {scale:?}");
-            floor.as_mut().overlay_at(
-                &tile.floor(scale).borrow(),
-                scale * x as u32,
-                scale * y as u32,
-            );
-            if tile.has_ore() {
+            unsafe {
                 floor.as_mut().overlay_at(
-                    &tile.ore(scale).borrow(),
+                    &tile.floor(scale).borrow(),
                     scale * x as u32,
                     scale * y as u32,
-                );
+                )
+            };
+            if tile.has_ore() {
+                unsafe {
+                    floor.as_mut().overlay_at(
+                        &tile.ore(scale).borrow(),
+                        scale * x as u32,
+                        scale * y as u32,
+                    )
+                };
             }
 
             if let Some(build) = tile.build() {
@@ -207,14 +216,16 @@ impl Renderable for Map<'_> {
                 } else {
                     None
                 };
-                top.as_mut().overlay_at(
-                    &tile.build_image(ctx.as_ref(), scale).borrow(),
-                    scale * x as u32,
-                    scale * y as u32,
-                );
+                unsafe {
+                    top.as_mut().overlay_at(
+                        &tile.build_image(ctx.as_ref(), scale).borrow(),
+                        scale * x as u32,
+                        scale * y as u32,
+                    )
+                };
             }
         }
-        floor.as_mut().overlay_at(&top.as_ref(), 0, 0);
+        unsafe { floor.as_mut().overlay_at(&top.as_ref(), 0, 0) };
         floor
     }
 }
