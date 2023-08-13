@@ -6,7 +6,7 @@ use crate::data::renderer::load;
 
 make_simple!(WallBlock, |_, _, _, _, _, s| {
     let mut base = load!("thruster", s);
-    base.overlay(&load!("thruster-top", s));
+    unsafe { base.overlay(&load!("thruster-top", s)) };
     base
 });
 

@@ -120,9 +120,10 @@ impl BlockLogic for PayloadBlock {
             "payload-router" | "reinforced-payload-router" => {
                 let mut base =
                     load!(from name which is ["payload-router" | "reinforced-payload-router"], s);
-                unsafe { base.rotate(r.rotated(false).count()) };
-                let over = load!(concat "over" => name which is ["payload-router" | "reinforced-payload-router"], s);
-                base.overlay(&over);
+                unsafe {
+                    base.rotate(r.rotated(false).count());
+                    base.overlay(& load!(concat "over" => name which is ["payload-router" | "reinforced-payload-router"], s));
+                }
                 base
             }
             _ => {
@@ -132,9 +133,11 @@ impl BlockLogic for PayloadBlock {
                     "large-constructor" => "factory-out-5-dark",
                     _ => "factory-out-5",
                 });
-                unsafe { out.rotate(r.rotated(false).count()) };
-                base.overlay(&out);
-                base.overlay(&load!(concat "top" => name which is ["constructor" | "large-constructor" | "payload-source"], s));
+                unsafe {
+                    out.rotate(r.rotated(false).count());
+                    base.overlay(&out);
+                    base.overlay(&load!(concat "top" => name which is ["constructor" | "large-constructor" | "payload-source"], s))
+                };
                 base
             }
         }

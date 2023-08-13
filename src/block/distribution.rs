@@ -41,9 +41,12 @@ make_simple!(JunctionBlock => |_, _, _, buff| { read_directional_item_buffer(buf
 make_simple!(SimpleDuctBlock, |_, name, _, _, rot: Rotation, s| {
     let mut base = load!("duct-base", s);
     let mut top = load!(from name which is ["overflow-duct" "underflow-duct"], s);
-    // SAFETY: any load() is square
-    unsafe { top.rotate(rot.rotated(false).count()) };
-    base.overlay(&top);
+    unsafe {
+        // SAFETY: any load() is square
+        top.rotate(rot.rotated(false).count());
+        // SAFETY: same size
+        base.overlay(&top);
+    }
     base
 });
 
@@ -71,7 +74,7 @@ fn draw_stack(
             if i == skip {
                 continue;
             }
-            to.overlay(&edge(i));
+            unsafe { to.overlay(&edge(i)) };
         }
     };
     let gimme = |n: u8| match n {
@@ -104,7 +107,7 @@ fn draw_stack(
         unsafe { base.rotate(going) };
         for [r, i] in [[3, 0b1000], [0, 0b0100], [1, 0b0010], [2, 0b0001]] {
             if (mask.into_u8() & i) == 0 && (going != r || empty) {
-                base.overlay(&edge(r));
+                unsafe { base.overlay(&edge(r)) };
             }
         }
         base
@@ -120,14 +123,11 @@ make_simple!(
     |_, _, _, buff: &mut DataRead| buff.skip(8),
     true
 );
-make_simple!(
-    SurgeRouter
-        / |s| {
-            let mut base = load!("surge-router", s);
-            base.overlay(&load!("top", s));
-            base
-        }
-);
+make_simple!(SurgeRouter, |_, _, _, _, r: Rotation, s| {
+    let mut base = load!("surge-router", s);
+    unsafe { base.overlay(load!("top", s).rotate(r.rotated(false).count())) };
+    base
+});
 // format: id: [`i32`]
 make_simple!(UnitCargoLoader => |_, _, _, buff: &mut DataRead| buff.skip(4));
 
@@ -235,7 +235,7 @@ impl BlockLogic for ItemBlock {
                     "unloader" => "unloader-center",
                     _ => "center",
                 });
-                p.overlay(top.tint(item.color()));
+                unsafe { p.overlay(top.tint(item.color())) };
                 return p;
             }
         }
@@ -244,20 +244,26 @@ impl BlockLogic for ItemBlock {
         }
         if name == "duct-router" {
             let mut arrow = load!("top", s);
-            unsafe { arrow.rotate(rot.rotated(false).count()) };
-            p.overlay(&arrow);
+            unsafe {
+                arrow.rotate(rot.rotated(false).count());
+                p.overlay(&arrow);
+            }
             p
         } else if name == "duct-unloader" {
             let mut top = load!("duct-unloader-top", s);
-            unsafe { top.rotate(rot.rotated(false).count()) };
-            p.overlay(&top);
+            unsafe {
+                top.rotate(rot.rotated(false).count());
+                p.overlay(&top);
+            }
             let mut arrow = load!("duct-unloader-arrow", s);
-            unsafe { arrow.rotate(rot.rotated(false).count()) };
-            p.overlay(&arrow);
+            unsafe {
+                arrow.rotate(rot.rotated(false).count());
+                p.overlay(&arrow);
+            }
             p
         } else {
             let mut null = load!("cross-full", s);
-            null.overlay(&p);
+            unsafe { null.overlay(&p) };
             null
         }
     }
@@ -480,7 +486,7 @@ impl BlockLogic for BridgeBlock {
         match name {
             "mass-driver" => {
                 let mut base = load!("mass-driver-base", s);
-                base.overlay(&load!("mass-driver", s));
+                unsafe { base.overlay(&load!("mass-driver", s)) };
                 base
             }
             "duct-bridge" | "reinforced-bridge-conduit" => {
@@ -492,8 +498,10 @@ impl BlockLogic for BridgeBlock {
                         _ => "reinforced-bridge-conduit-dir",
                     }
                 );
-                unsafe { arrow.rotate(r.rotated(false).count()) };
-                base.overlay(&arrow);
+                unsafe {
+                    arrow.rotate(r.rotated(false).count());
+                    base.overlay(&arrow)
+                };
                 base
             }
             // "bridge-conveyor" | "phase-conveyor" | "bridge-conduit" | "phase-conduit" | "payload-mass-driver" | "large-payload-mass-driver"

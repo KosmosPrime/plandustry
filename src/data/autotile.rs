@@ -122,7 +122,7 @@ pub fn mask2tile(mask: U4, rot: Rotation, name: &str, scale: Scale) -> ImageHold
         // from bottom + left
         B0011 => match rot {
             Rotation::Right => p!("2-0"), // ┬
-            Rotation::Up => p!("2-3-h"),    // ┤
+            Rotation::Up => p!("2-3-h"),  // ┤
             _ => unreachable!(),
         },
         // from right

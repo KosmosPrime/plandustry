@@ -328,7 +328,7 @@ impl BlockLogic for SwitchLogic {
         if let Some(state) = state {
             if *Self::get_state(state) {
                 let on = load!("switch-on", s);
-                base.overlay(&on);
+                unsafe { base.overlay(&on) };
                 return base;
             }
         }

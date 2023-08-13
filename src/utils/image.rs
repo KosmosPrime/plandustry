@@ -23,7 +23,10 @@ pub trait ImageUtils {
     /// Tint this image with the color
     fn tint(&mut self, color: (u8, u8, u8)) -> &mut Self;
     /// Overlay with => self (does not blend)
-    fn overlay(&mut self, with: Self::With<'_>) -> &mut Self;
+    /// # Safety
+    ///
+    /// UB if a.width != b.width || a.height != b.height
+    unsafe fn overlay(&mut self, with: Self::With<'_>) -> &mut Self;
     /// rotate (squares only)
     /// # Safety
     ///
@@ -256,7 +259,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
         self
     }
     type With<'a> = &'a Image<&'a [u8], 4>;
-    fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
+    unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
         unsafe_assert!(self.width() == with.width());
         unsafe_assert!(self.height() == with.height());
         unsafe_assert!(with.buffer.len() > 4);
@@ -531,7 +534,7 @@ impl ImageUtils for ImageHolder<4> {
         self
     }
     type With<'a> = &'a Self;
-    fn overlay(&mut self, with: &Self) -> &mut Self {
+    unsafe fn overlay(&mut self, with: &Self) -> &mut Self {
         self.borrow_mut().overlay(&with.borrow());
         self
     }

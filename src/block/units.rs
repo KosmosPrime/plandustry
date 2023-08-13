@@ -39,14 +39,16 @@ make_simple!(
     |_, name, _, _, rot: Rotation, s| {
         let mut base =
             load!(from name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s);
-        base.overlay(unsafe {
+        unsafe {
+            base.overlay(
             match rot {
                 Rotation::Up | Rotation::Right => load!(concat "side1" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s),
                 Rotation::Down | Rotation::Left => load!(concat "side2" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s)
-            } 
+            }
             .rotate(rot.rotated(false).count())
-        });
-        base.overlay(&load!(concat "top" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s));
+        );
+            base.overlay(&load!(concat "top" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s))
+        };
         base
     },
     |_, reg, map, buff| read_assembler(reg, map, buff)
@@ -76,13 +78,15 @@ make_simple!(
     AssemblerModule,
     |_, _, _, _, rot: Rotation, scl| {
         let mut base = load!("basic-assembler-module", scl);
-        base.overlay(unsafe {
-            load!(scl -> match rot {
-                Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
-                _ => "basic-assembler-module-side2",
-            })
-            .rotate(rot.rotated(false).count())
-        });
+        unsafe {
+            base.overlay(
+                load!(scl -> match rot {
+                    Rotation::Up | Rotation::Right => "basic-assembler-module-side1",
+                    _ => "basic-assembler-module-side2",
+                })
+                .rotate(rot.rotated(false).count()),
+            )
+        };
         base
     },
     |_, reg, map, buff| read_payload_block(reg, map, buff)
@@ -186,7 +190,7 @@ impl BlockLogic for ConstructorBlock {
             "prime-refabricator" => "factory-out-5-dark",
             "tetrative-reconstructor" => "factory-out-9",
         });
-        base.overlay(unsafe { out.rotate(times) });
+        unsafe { base.overlay(out.rotate(times)) };
 
         let mut r#in = load!(s -> match name {
             "additive-reconstructor" => "factory-in-3",
@@ -197,7 +201,7 @@ impl BlockLogic for ConstructorBlock {
             "prime-refabricator" => "factory-in-5-dark",
             "tetrative-reconstructor" => "factory-in-9",
         });
-        base.overlay(unsafe { r#in.rotate(times) });
+        unsafe { base.overlay(r#in.rotate(times)) };
 
         // TODO: the context cross is too small
         // for i in 0..4u8 {
@@ -219,7 +223,9 @@ impl BlockLogic for ConstructorBlock {
         //     }
         // }
 
-        base.overlay(&load!(concat "top" => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s));
+        unsafe {
+            base.overlay(&load!(concat "top" => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s))
+        };
         base
     }
 
@@ -327,19 +333,21 @@ impl BlockLogic for UnitFactory {
         s: Scale,
     ) -> ImageHolder<4> {
         let mut base = load!(from name which is ["ground-factory" | "air-factory" | "naval-factory" | "tank-fabricator" | "ship-fabricator" | "mech-fabricator"], s);
-        base.overlay(unsafe {
-            load!(s -> match name {
-                "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
-                _ => "factory-out-3-dark",
-            })
-            .rotate(rot.rotated(false).count())
-        })
-        .overlay(&load!(s -> match name {
-            "ground-factory" | "air-factory" | "naval-factory" => "factory-top-3",
-            "tank-fabricator" => "tank-fabricator-top",
-            "ship-fabricator" => "ship-fabricator-top",
-            "mech-fabricator" => "mech-fabricator-top",
-        }));
+        unsafe {
+            base.overlay(
+                load!(s -> match name {
+                    "ground-factory" | "air-factory" | "naval-factory" => "factory-out-3",
+                    _ => "factory-out-3-dark",
+                })
+                .rotate(rot.rotated(false).count()),
+            )
+            .overlay(&load!(s -> match name {
+                "ground-factory" | "air-factory" | "naval-factory" => "factory-top-3",
+                "tank-fabricator" => "tank-fabricator-top",
+                "ship-fabricator" => "ship-fabricator-top",
+                "mech-fabricator" => "mech-fabricator-top",
+            }))
+        };
         base
     }
 

@@ -139,13 +139,12 @@ impl<'l> Tile<'l> {
     ///
     /// dont think about it too much
     #[must_use]
+    #[inline]
     pub fn size(&self) -> u8 {
-        if let Some(b) = &self.build {
-            return b.block.get_size();
-        }
-        1
+        self.build.as_ref().map_or(1, |v| v.block.get_size())
     }
 
+    #[inline]
     pub(crate) fn floor(&self, s: Scale) -> ImageHolder<4> {
         lo!(self.floor => [
 			| "darksand"
@@ -186,11 +185,13 @@ impl<'l> Tile<'l> {
     }
 
     #[must_use]
+    #[inline]
     pub(crate) fn ore(&self, s: Scale) -> ImageHolder<4> {
         lo!(self.ore => ["ore-copper" | "ore-beryllium" | "ore-lead" | "ore-scrap" | "ore-coal" | "ore-thorium" | "ore-titanium" | "ore-tungsten" | "pebbles" | "tendrils" | "ore-wall-tungsten" | "ore-wall-beryllium" | "ore-wall-thorium" | "spawn" | "ore-crystal-thorium"], s)
     }
 
     #[must_use]
+    #[inline]
     pub fn has_ore(&self) -> bool {
         self.ore != BlockEnum::Air
     }
@@ -200,13 +201,14 @@ impl<'l> Tile<'l> {
     pub fn floor_image(&self, s: Scale) -> ImageHolder<4> {
         let mut floor = self.floor(s);
         if self.has_ore() {
-            floor.overlay(&self.ore(s));
+            unsafe { floor.overlay(&self.ore(s)) };
         }
         floor
     }
 
     /// Draw this tiles build.
     #[must_use]
+    #[inline]
     pub fn build_image(&self, context: Option<&RenderingContext>, s: Scale) -> ImageHolder<4> {
         // building covers floore
         let Some(b) = &self.build else {

@@ -114,12 +114,12 @@ impl BlockLogic for FluidBlock {
         if let Some(state) = state {
             if let Some(liq) = Self::get_state(state) {
                 let mut top = load!("center", s);
-                p.overlay(top.tint(liq.color()));
+                unsafe { p.overlay(top.tint(liq.color())) };
                 return p;
             }
         }
         let mut null = load!("cross-full", s);
-        null.overlay(&p);
+        unsafe { null.overlay(&p) };
         null
     }
 
