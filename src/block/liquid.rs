@@ -15,10 +15,8 @@ make_simple!(
     |_, name, _, ctx: Option<&RenderingContext>, rot, s| {
         let ctx = ctx.unwrap();
         let mask = mask(ctx, rot, name);
-        let (index, rot, flip) = mask2rotations(mask, rot);
-
         // TODO caps. stopped trying bcz too complex
-        rotations2tile((index, rot, flip), name, s)
+        mask2tile(mask, rot, name, s)
     },
     true
 );

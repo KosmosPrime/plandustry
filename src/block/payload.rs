@@ -39,7 +39,7 @@ make_simple!(SimplePayloadBlock, |_, n, _, _, r: Rotation, scl| {
                 base.overlay(input.rotate(r.rotated(false).count()))
                 .overlay(output.rotate(r.rotated(false).count()))
                 .overlay(
-                    &load!(concat top => n which is ["payload-loader" | "payload-unloader"], scl),
+                    &load!(concat "top" => n which is ["payload-loader" | "payload-unloader"], scl),
                 )
             };
             base
@@ -121,7 +121,7 @@ impl BlockLogic for PayloadBlock {
                 let mut base =
                     load!(from name which is ["payload-router" | "reinforced-payload-router"], s);
                 unsafe { base.rotate(r.rotated(false).count()) };
-                let over = load!(concat over => name which is ["payload-router" | "reinforced-payload-router"], s);
+                let over = load!(concat "over" => name which is ["payload-router" | "reinforced-payload-router"], s);
                 base.overlay(&over);
                 base
             }
@@ -134,7 +134,7 @@ impl BlockLogic for PayloadBlock {
                 });
                 unsafe { out.rotate(r.rotated(false).count()) };
                 base.overlay(&out);
-                base.overlay(&load!(concat top => name which is ["constructor" | "large-constructor" | "payload-source"], s));
+                base.overlay(&load!(concat "top" => name which is ["constructor" | "large-constructor" | "payload-source"], s));
                 base
             }
         }

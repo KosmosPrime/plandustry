@@ -41,12 +41,12 @@ make_simple!(
             load!(from name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s);
         base.overlay(unsafe {
             match rot {
-                Rotation::Up | Rotation::Right => load!(concat side1 => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s),
-                Rotation::Down | Rotation::Left => load!(concat side2 => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s)
+                Rotation::Up | Rotation::Right => load!(concat "side1" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s),
+                Rotation::Down | Rotation::Left => load!(concat "side2" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s)
             } 
             .rotate(rot.rotated(false).count())
         });
-        base.overlay(&load!(concat top => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s));
+        base.overlay(&load!(concat "top" => name which is ["tank-assembler" | "ship-assembler" | "mech-assembler"], s));
         base
     },
     |_, reg, map, buff| read_assembler(reg, map, buff)
@@ -219,7 +219,7 @@ impl BlockLogic for ConstructorBlock {
         //     }
         // }
 
-        base.overlay(&load!(concat top => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s));
+        base.overlay(&load!(concat "top" => name which is ["additive-reconstructor" | "multiplicative-reconstructor" | "exponential-reconstructor" | "tetrative-reconstructor" | "tank-refabricator" | "mech-refabricator" | "ship-refabricator" | "prime-refabricator"], s));
         base
     }
 

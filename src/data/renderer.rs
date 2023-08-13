@@ -68,7 +68,7 @@ macro_rules! load {
             n => unreachable!("{n:?}"),
         }
     };
-    (concat $x:expr => $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
+    (concat $x:literal => $v:ident which is [$($k:literal $(|)?)+], $scale: ident) => { paste::paste! {
         match $v {
             $($k =>
                 ImageHolder::from(match $scale {

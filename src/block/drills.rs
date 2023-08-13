@@ -9,7 +9,7 @@ make_simple!(
         let mut base =
             load!(from name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s);
         unsafe {
-            base.overlay(load!(concat top => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s).rotate(rot.rotated(false).count()) )
+            base.overlay(load!(concat "top" => name which is ["large-plasma-bore" | "plasma-bore" | "cliff-crusher"], s).rotate(rot.rotated(false).count()) )
         };
         base
     },

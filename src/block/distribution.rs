@@ -57,7 +57,7 @@ fn draw_stack(
 ) -> ImageHolder<4> {
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
-    let edge = load!(concat edge => name which is ["surge-conveyor" | "plastanium-conveyor"], s);
+    let edge = load!(concat "edge" => name which is ["surge-conveyor" | "plastanium-conveyor"], s);
     let edgify = |skip, to: &mut Image<&mut [u8], 4>| {
         for i in 0..4 {
             if i == skip {

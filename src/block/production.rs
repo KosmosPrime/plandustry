@@ -83,8 +83,8 @@ make_simple!(
     |_, n, _, _, r: Rotation, s| {
         let mut base = load!(from n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s);
         base.overlay(unsafe { match r {
-            Rotation::Up | Rotation::Right => load!(concat top1 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s),
-            Rotation::Down | Rotation::Left => load!(concat top2 => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
+            Rotation::Up | Rotation::Right => load!(concat "top1" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s),
+            Rotation::Down | Rotation::Left => load!(concat "top2" => n which is ["phase-heater" | "electric-heater" | "oxidation-chamber" | "slag-heater" | "heat-source"], s)
         }.rotate(r.rotated(false).count())});
         base
     },
@@ -102,10 +102,10 @@ make_simple!(HeatConduit, |_, n, _, _, r: Rotation, s| {
     base.overlay(unsafe {
         match r {
             Rotation::Up | Rotation::Right => {
-                load!(concat top1 => n which is ["heat-router" | "heat-redirector"], s)
+                load!(concat "top1" => n which is ["heat-router" | "heat-redirector"], s)
             }
             Rotation::Down | Rotation::Left => {
-                load!(concat top2 => n which is ["heat-router" | "heat-redirector"], s)
+                load!(concat "top2" => n which is ["heat-router" | "heat-redirector"], s)
             }
         }
         .rotate(r.rotated(false).count())

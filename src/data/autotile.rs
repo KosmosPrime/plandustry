@@ -93,163 +93,110 @@ fn print_crosses(v: Vec<Cross<'_>>, height: usize) -> String {
 }
 
 pub fn tile(ctx: &RenderingContext<'_>, name: &str, rot: Rotation, s: Scale) -> ImageHolder<4> {
-    rotations2tile(mask2rotations(mask(ctx, rot, name), rot), name, s)
+    mask2tile(mask(ctx, rot, name), rot, name, s)
 }
 
-pub fn mask2rotations(mask: U4, rot: Rotation) -> (u8, u8, u8) {
-    use U4::{
-        B0000, B0001, B0010, B0011, B0100, B0101, B0110, B0111, B1000, B1001, B1010, B1011, B1100,
-        B1101, B1110, B1111,
-    };
+pub fn mask2tile(mask: U4, rot: Rotation, name: &str, scale: Scale) -> ImageHolder<4> {
+    use U4::*;
     macro_rules! p {
-        ($image:literal, $rotation:literal) => {
-            ($image, $rotation, 0)
-        };
-        ($image:literal, $rotation:literal, $flipping:expr) => {
-            ($image, $rotation, $flipping)
+        ($image:literal) => {
+            load!(concat $image => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
         };
     }
 
     match mask {
         // from left
         B0001 => match rot {
-            Rotation::Down => p!(1, 1, FLIP_Y), // ┐
-            Rotation::Right => p!(0, 0),        // ─
-            Rotation::Up => p!(1, 3),           // ┘
+            Rotation::Down => p!("1-1-h"), // ┐
+            Rotation::Right => p!("0-0"),  // ─
+            Rotation::Up => p!("1-3"),     // ┘
             Rotation::Left => unreachable!(),
         },
         // from below
         B0010 => match rot {
-            Rotation::Left => p!(1, 2),  // ┐
-            Rotation::Right => p!(1, 1), // ┌
-            Rotation::Up => p!(0, 3),    // │
+            Rotation::Left => p!("1-2"),  // ┐
+            Rotation::Right => p!("1-1"), // ┌
+            Rotation::Up => p!("0-3"),    // │
             Rotation::Down => unreachable!(),
         },
         // from bottom + left
         B0011 => match rot {
-            Rotation::Right => p!(2, 0),               // ┬
-            Rotation::Up => p!(2, 3, FLIP_Y | FLIP_X), // ┤
+            Rotation::Right => p!("2-0"), // ┬
+            Rotation::Up => p!("2-3-h"),    // ┤
             _ => unreachable!(),
         },
         // from right
         B0100 => match rot {
-            Rotation::Left => p!(0, 2),       // ─
-            Rotation::Down => p!(1, 1),       // ┌
-            Rotation::Up => p!(1, 1, FLIP_X), // └
+            Rotation::Left => p!("0-2"), // ─
+            Rotation::Down => p!("1-1"), // ┌
+            Rotation::Up => p!("1-1-v"), // └
             Rotation::Right => unreachable!(),
         },
         // from sides
         B0101 => match rot {
-            Rotation::Up => p!(4, 3),   // ┴
-            Rotation::Down => p!(4, 1), // ┬
+            Rotation::Up => p!("4-3"),   // ┴
+            Rotation::Down => p!("4-1"), // ┬
             _ => unreachable!(),
         },
         // from right + down
         B0110 => match rot {
-            Rotation::Up => p!(2, 3),           // ├,
-            Rotation::Left => p!(2, 0, FLIP_X), // ┬
+            Rotation::Up => p!("2-3"),     // ├,
+            Rotation::Left => p!("2-0-h"), // ┬
             _ => unreachable!(),
         },
         // from right + down + left
         B0111 => match rot {
-            Rotation::Up => p!(3, 3), // ┼
+            Rotation::Up => p!("3-3"), // ┼
             _ => unreachable!(),
         },
         // from above
         B1000 => match rot {
-            Rotation::Down => p!(0, 1),         // │
-            Rotation::Left => p!(1, 0, FLIP_X), // ┘
-            Rotation::Right => p!(1, 0),        // └
+            Rotation::Down => p!("0-1"),   // │
+            Rotation::Left => p!("1-0-h"), // ┘
+            Rotation::Right => p!("1-0"),  // └
             Rotation::Up => unreachable!(),
         },
         // from top and left
         B1001 => match rot {
-            Rotation::Right => p!(2, 0, FLIP_Y), // ┴
-            Rotation::Down => p!(2, 1),          // ┤
+            Rotation::Right => p!("2-0-v"), // ┴
+            Rotation::Down => p!("2-1"),    // ┤
             _ => unreachable!(),
         },
         // from top sides
         B1010 => match rot {
-            Rotation::Right => p!(4, 0), // ├
-            Rotation::Left => p!(4, 3),  // ┤
+            Rotation::Right => p!("4-0"), // ├
+            Rotation::Left => p!("4-3"),  // ┤
             _ => unreachable!(),
         },
         // from top, left, bottom
         B1011 => match rot {
-            Rotation::Right => p!(3, 0), // ┼
+            Rotation::Right => p!("3-0"), // ┼
             _ => unreachable!(),
         },
         // from top and right
         B1100 => match rot {
-            Rotation::Down => p!(2, 3, FLIP_X), // ├
-            Rotation::Left => p!(2, 2),         // ┴
+            Rotation::Down => p!("2-1-h"), // ├
+            Rotation::Left => p!("2-2"),   // ┴
             _ => unreachable!(),
         },
         // from top, left, right
         B1101 => match rot {
-            Rotation::Down => p!(3, 1), // ┼
+            Rotation::Down => p!("3-1"), // ┼
             _ => unreachable!(),
         },
         // from top, right, bottom
         B1110 => match rot {
-            Rotation::Left => p!(3, 0, FLIP_X), // ┼
+            Rotation::Left => p!("3-0-h"), // ┼
             _ => unreachable!(),
         },
-        B0000 => (
-            0,
-            match rot {
-                Rotation::Left => 2,
-                Rotation::Right => 0,
-                Rotation::Down => 1,
-                Rotation::Up => 3,
-            },
-            0,
-        ),
+        B0000 => match rot {
+            Rotation::Left => p!("0-2"),
+            Rotation::Right => p!("0-0"),
+            Rotation::Down => p!("0-1"),
+            Rotation::Up => p!("0-3"),
+        },
         B1111 => unreachable!(),
     }
-}
-
-pub const FLIP_X: u8 = 1;
-pub const FLIP_Y: u8 = 2;
-
-/// # Safety
-///
-/// `with` must be square
-pub unsafe fn flrot(flip: u8, rot: u8, with: &mut ImageHolder<4>) {
-    if (flip & FLIP_X) != 0 {
-        with.flip_h();
-    }
-    if (flip & FLIP_Y) != 0 {
-        with.flip_v();
-    }
-    with.rotate(rot);
-}
-
-/// TODO figure out if a flip is cheaper than a `rotate_270`
-pub fn rotations2tile(
-    (index, rot, flip): (u8, u8, u8),
-    name: &str,
-    scale: Scale,
-) -> ImageHolder<4> {
-    let mut p = match index {
-        0 => {
-            load!(concat 0 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
-        }
-        1 => {
-            load!(concat 1 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
-        }
-        2 => {
-            load!(concat 2 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
-        }
-        3 => {
-            load!(concat 3 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
-        }
-        _ => {
-            load!(concat 4 => name which is ["reinforced-conduit" | "armored-duct" | "pulse-conduit" | "plated-conduit" | "conduit" | "conveyor" | "titanium-conveyor" | "armored-conveyor" | "duct"], scale)
-        }
-    };
-    unsafe { flrot(flip, rot, &mut p) };
-    p
 }
 
 pub fn mask(ctx: &RenderingContext, rot: Rotation, n: &str) -> U4 {
@@ -296,8 +243,7 @@ fn test_cross() {
         ($schem: literal => $($a:tt,$b:tt,$c:tt,$d:tt)*) => {
             let s = ss.deserialize_base64($schem).unwrap();
             let mut c = vec![];
-                println!("{:#?}", s.blocks);
-
+            println!("{:#?}", s.blocks);
             for (position, _) in s.block_iter() {
                 let pctx = PositionContext {
                     position,
