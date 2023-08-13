@@ -57,15 +57,21 @@ fn draw_stack(
 ) -> ImageHolder<4> {
     let ctx = ctx.unwrap();
     let mask = mask(ctx, rot, name);
-    let edge = load!(concat "edge" => name which is ["surge-conveyor" | "plastanium-conveyor"], s);
-    let edgify = |skip, to: &mut Image<&mut [u8], 4>| {
+    #[rustfmt::skip]
+    let edge = |n: u8| {
+        match n {
+            0 => load!(concat "edge-0" => name which is ["surge-conveyor" | "plastanium-conveyor"], s),
+            1 => load!(concat "edge-1" => name which is ["surge-conveyor" | "plastanium-conveyor"], s),
+            2 => load!(concat "edge-2" => name which is ["surge-conveyor" | "plastanium-conveyor"], s),
+            _ => load!(concat "edge-3" => name which is ["surge-conveyor" | "plastanium-conveyor"], s)
+        }
+    };
+    let edgify = |skip, to: &mut ImageHolder<4>| {
         for i in 0..4 {
             if i == skip {
                 continue;
             }
-            let mut edge = edge.clone();
-            unsafe { edge.rotate(i) };
-            to.overlay(&edge.borrow());
+            to.overlay(&edge(i));
         }
     };
     let gimme = |n: u8| match n {
@@ -78,21 +84,18 @@ fn draw_stack(
     if rot.mirrored(true, true).mask() == mask && empty && name != "surge-conveyor" {
         // end
         let mut base = gimme(2);
-        edgify(
-            rot.mirrored(true, true).rotated(false).count(),
-            &mut base.borrow_mut(),
-        );
+        edgify(rot.mirrored(true, true).rotated(false).count(), &mut base);
         base
     } else if mask == B0000 && empty {
         // single
         let mut base = gimme(0);
         unsafe { base.rotate(rot.rotated(false).count()) };
-        edgify(5, &mut base.borrow_mut());
+        edgify(5, &mut base);
         base
     } else if mask == B0000 {
         // input
         let mut base = gimme(1);
-        edgify(rot.rotated(false).count(), &mut base.borrow_mut());
+        edgify(rot.rotated(false).count(), &mut base);
         base
     } else {
         // directional
@@ -101,9 +104,7 @@ fn draw_stack(
         unsafe { base.rotate(going) };
         for [r, i] in [[3, 0b1000], [0, 0b0100], [1, 0b0010], [2, 0b0001]] {
             if (mask.into_u8() & i) == 0 && (going != r || empty) {
-                let mut edge = edge.clone();
-                unsafe { edge.rotate(r) };
-                base.overlay(&edge);
+                base.overlay(&edge(r));
             }
         }
         base
