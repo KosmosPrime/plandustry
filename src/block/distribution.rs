@@ -228,44 +228,27 @@ impl BlockLogic for ItemBlock {
         s: Scale,
     ) -> ImageHolder<4> {
         let mut p = load!(from name which is ["sorter" | "inverted-sorter" | "duct-router" | "duct-unloader" | "unit-cargo-unload-point" | "unloader" | "item-source"], s);
-        if let Some(state) = state {
-            if let Some(item) = Self::get_state(state) {
-                let mut top = load!(s -> match name {
-                    "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
-                    "unloader" => "unloader-center",
-                    _ => "center",
-                });
-                unsafe { p.overlay(top.tint(item.color())) };
-                return p;
-            }
-        }
-        if matches!(name, "unloader" | "unit-cargo-unload-point") {
+        if let Some(state) = state && let Some(item) = Self::get_state(state) {
+            let mut top = load!(s -> match name {
+                "unit-cargo-unload-point" => "unit-cargo-unload-point-top",
+                "unloader" => "unloader-center",
+                _ => "center",
+            });
+            unsafe { p.overlay(top.tint(item.color())) };
             return p;
         }
-        if name == "duct-router" {
-            let mut arrow = load!("top", s);
-            unsafe {
-                arrow.rotate(rot.rotated(false).count());
-                p.overlay(&arrow);
+        match name {
+            "duct-router" => {
+                unsafe { p.overlay(&load!("top", s).rotate(rot.rotated(false).count())) };
             }
-            p
-        } else if name == "duct-unloader" {
-            let mut top = load!("duct-unloader-top", s);
-            unsafe {
-                top.rotate(rot.rotated(false).count());
-                p.overlay(&top);
+            "duct-unloader" => {
+                unsafe {
+                    p.overlay(&load!("duct-unloader-top", s).rotate(rot.rotated(false).count()))
+                };
             }
-            let mut arrow = load!("duct-unloader-arrow", s);
-            unsafe {
-                arrow.rotate(rot.rotated(false).count());
-                p.overlay(&arrow);
-            }
-            p
-        } else {
-            let mut null = load!("cross-full", s);
-            unsafe { null.overlay(&p) };
-            null
-        }
+            _ => {}
+        };
+        p
     }
 
     /// format:

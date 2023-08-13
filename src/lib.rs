@@ -4,7 +4,8 @@
     const_trait_impl,
     unchecked_math,
     slice_as_chunks,
-    slice_swap_unchecked
+    slice_swap_unchecked,
+    let_chains
 )]
 #![allow(clippy::missing_safety_doc, clippy::missing_const_for_fn, clippy::perf)]
 pub mod block;
