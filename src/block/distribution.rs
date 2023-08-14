@@ -22,8 +22,7 @@ make_simple!(
             buff.skip(4)?;
         }
         Ok(())
-    },
-    true
+    }
 );
 
 make_simple!(
@@ -33,8 +32,7 @@ make_simple!(
         // format:
         // - rec_dir: `i8`
         buff.skip(1)
-    },
-    true
+    }
 );
 
 make_simple!(JunctionBlock => |_, _, _, buff| { read_directional_item_buffer(buff) });
@@ -120,8 +118,7 @@ make_simple!(
     // format:
     // - link: `i32`
     // - cooldown: `f32`
-    |_, _, _, buff: &mut DataRead| buff.skip(8),
-    true
+    |_, _, _, buff: &mut DataRead| buff.skip(8)
 );
 make_simple!(SurgeRouter, |_, _, _, _, r: Rotation, s| {
     let mut base = load!("surge-router", s);

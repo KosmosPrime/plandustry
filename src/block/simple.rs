@@ -25,7 +25,7 @@ pub(crate) use state_impl;
 /// draw is called with self, name, state, context, rotation
 /// read is called with build, reg, `entity_mapping`, buff
 macro_rules! make_simple {
-    ($name: ident, $draw: expr, $read: expr, $wants_context: literal) => {
+    ($name: ident, $draw: expr, $read: expr) => {
         pub struct $name {
             size: u8,
             symmetric: bool,
@@ -92,10 +92,6 @@ macro_rules! make_simple {
                 $draw(self, name, state, context, rot, scale)
             }
 
-            fn want_context(&self) -> bool {
-                $wants_context
-            }
-
             fn read(
                 &self,
                 build: &mut crate::data::map::Build,
@@ -109,13 +105,10 @@ macro_rules! make_simple {
         }
     };
     ($name: ident, $draw: expr) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _, _| Ok(()), false);
-    };
-    ($name: ident, $draw: expr, $wants_context: literal) => {
-        crate::block::simple::make_simple!($name, $draw, |_, _, _, _| Ok(()), $wants_context);
+        crate::block::simple::make_simple!($name, $draw, |_, _, _, _| Ok(()));
     };
     ($name: ident, $draw: expr, $read: expr) => {
-        crate::block::simple::make_simple!($name, $draw, $read, false);
+        crate::block::simple::make_simple!($name, $draw, $read);
     };
     ($name: ident => $read: expr) => {
         crate::block::simple::make_simple!($name, |_, n, _, _, _, _| unimplemented!("{n}"), $read);

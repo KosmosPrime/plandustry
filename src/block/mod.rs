@@ -208,10 +208,6 @@ pub trait BlockLogic {
         unimplemented!("{name}")
     }
 
-    fn want_context(&self) -> bool {
-        false
-    }
-
     #[allow(unused_variables)]
     fn read(
         &self,
@@ -315,8 +311,9 @@ impl PartialEq for Block {
 }
 
 impl Block {
-    #[must_use]
     /// create a new block
+    #[must_use]
+    #[inline]
     pub(crate) const fn new(
         name: &'static str,
         logic: BlockLogicEnum,
@@ -330,18 +327,25 @@ impl Block {
     /// assert!(mindus::block::distribution::DISTRIBUTOR.name() == "distributor")
     /// ```
     #[must_use]
+    #[inline]
     pub const fn name(&self) -> &'static str {
         self.name
     }
 
     /// should you send context to [`image`]?
     #[must_use]
+    #[inline]
     pub fn wants_context(&self) -> bool {
-        self.logic.want_context()
+        use BlockLogicEnum::*;
+        matches!(
+            self.logic,
+            ConveyorBlock(..) | DuctBlock(..) | StackConveyor(..) | ConduitBlock(..)
+        )
     }
 
     /// draw this block, with this state
     #[must_use]
+    #[inline]
     pub fn image(
         &self,
         state: Option<&State>,
@@ -357,18 +361,21 @@ impl Block {
 
     /// size.
     #[must_use]
+    #[inline]
     pub fn get_size(&self) -> u8 {
         self.logic.get_size()
     }
 
     /// does it matter if its rotated
     #[must_use]
+    #[inline]
     pub fn is_symmetric(&self) -> bool {
         self.logic.is_symmetric()
     }
 
     /// cost
     #[must_use]
+    #[inline]
     pub fn get_build_cost(&self) -> Option<ItemStorage> {
         self.logic.create_build_cost()
     }
@@ -400,6 +407,7 @@ impl Block {
         self.logic.serialize_state(state)
     }
 
+    #[inline]
     pub(crate) fn read(
         &self,
         build: &mut Build,

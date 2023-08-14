@@ -10,16 +10,18 @@ use crate::data::renderer::load;
 use crate::fluid;
 use crate::utils::ImageUtils;
 
-make_simple!(
-    ConduitBlock,
-    |_, name, _, ctx: Option<&RenderingContext>, rot, s| {
-        let ctx = ctx.unwrap();
-        let mask = mask(ctx, rot, name);
-        // TODO caps. stopped trying bcz too complex
-        mask2tile(mask, rot, name, s)
-    },
-    true
-);
+make_simple!(ConduitBlock, |_,
+                            name,
+                            _,
+                            ctx: Option<&RenderingContext>,
+                            rot,
+                            s| {
+    let ctx = ctx.unwrap();
+
+    let mask = mask(ctx, rot, name);
+    // TODO caps. stopped trying bcz too complex
+    mask2tile(mask, rot, name, s)
+});
 
 make_register! {
     "reinforced-pump" -> BasicBlock::new(2, true, cost!(Beryllium: 40, Tungsten: 30, Silicon: 20));
