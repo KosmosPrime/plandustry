@@ -358,7 +358,9 @@ impl<'l> Build<'l> {
 ///
 fn read_items(from: &mut DataRead, to: &mut Storage<Item>) -> Result<(), ReadError> {
     to.clear();
-    for _ in 0..from.read_u16()? {
+    let n = from.read_u16()?;
+    to.reserve(n as usize);
+    for _ in 0..n {
         let item = from.read_u16()?;
         let amount = from.read_u32()?;
         if let Ok(item) = Item::try_from(item) {
@@ -374,7 +376,9 @@ fn read_items(from: &mut DataRead, to: &mut Storage<Item>) -> Result<(), ReadErr
 ///     - amount: [`f32`]
 fn read_liquids(from: &mut DataRead, to: &mut Storage<Fluid>) -> Result<(), ReadError> {
     to.clear();
-    for _ in 0..from.read_u16()? {
+    let n = from.read_u16()?;
+    to.reserve(n as usize);
+    for _ in 0..n {
         let fluid = from.read_u16()?;
         let amount = from.read_f32()?;
         if let Ok(fluid) = Fluid::try_from(fluid) {

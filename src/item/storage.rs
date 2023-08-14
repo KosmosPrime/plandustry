@@ -65,6 +65,10 @@ where
         self.total == 0
     }
 
+    pub fn reserve(&mut self, n: usize) {
+        self.base.reserve(n)
+    }
+
     /// get item count of certain element
     ///
     /// ```
