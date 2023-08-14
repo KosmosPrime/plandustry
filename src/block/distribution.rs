@@ -236,11 +236,11 @@ impl BlockLogic for ItemBlock {
         }
         match name {
             "duct-router" => {
-                unsafe { p.overlay(&load!("top", s).rotate(rot.rotated(false).count())) };
+                unsafe { p.overlay(load!("top", s).rotate(rot.rotated(false).count())) };
             }
             "duct-unloader" => {
                 unsafe {
-                    p.overlay(&load!("duct-unloader-top", s).rotate(rot.rotated(false).count()))
+                    p.overlay(load!("duct-unloader-top", s).rotate(rot.rotated(false).count()))
                 };
             }
             _ => {}

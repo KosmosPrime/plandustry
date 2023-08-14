@@ -115,19 +115,17 @@ impl Renderable for Schematic<'_> {
             ((self.height + 2) * 32) as u32,
         );
         for (GridPos(x, y), tile) in self.block_iter() {
-            let ctx = if tile.block.wants_context() {
+            let ctx = tile.block.wants_context().then(|| {
                 let pctx = PositionContext {
                     position: GridPos(x, y),
                     width: self.width,
                     height: self.height,
                 };
-                Some(RenderingContext {
+                RenderingContext {
                     cross: self.cross(&pctx),
                     position: pctx,
-                })
-            } else {
-                None
-            };
+                }
+            });
             let x = x as u32 - ((tile.block.get_size() - 1) / 2) as u32;
             let y = self.height as u32 - y as u32 - ((tile.block.get_size() / 2) + 1) as u32;
             unsafe {
@@ -217,20 +215,17 @@ impl Renderable for Map<'_> {
                             // SAFETY: no block too big
                             _ => unsafe { std::hint::unreachable_unchecked() },
                         }) as usize;
-                    let ctx = if build.block.wants_context() {
+                    let ctx = build.block.wants_context().then(|| {
                         let pctx = PositionContext {
                             position: GridPos(x, y),
                             width: self.width,
                             height: self.height,
                         };
-                        let rctx = RenderingContext {
+                        RenderingContext {
                             cross: self.cross(j, &pctx),
                             position: pctx,
-                        };
-                        Some(rctx)
-                    } else {
-                        None
-                    };
+                        }
+                    });
                     unsafe {
                         top.as_mut().overlay_at(
                             &tile.build_image(ctx.as_ref(), scale).borrow(),
