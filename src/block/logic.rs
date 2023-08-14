@@ -152,8 +152,9 @@ impl BlockLogic for CanvasBlock {
                 Scale::Eigth => 1,
             };
             let mut img = Image::alloc(p.width(), p.height());
-            for ([r, g, b], &y) in img.buffer.array_chunks_mut::<3>().zip(p.buffer.iter()) {
+            for ([r, g, b, a], &y) in img.chunked_mut().zip(p.buffer.iter()) {
                 (*r, *g, *b) = PALETTE[y as usize];
+                *a = 255;
             }
             let img = img.as_mut().scale((s * self.size as u32) - offset * 2);
             let mut borders = load!("canvas", s);

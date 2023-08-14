@@ -262,10 +262,7 @@ impl ImageUtils for Image<&mut [u8], 4> {
     unsafe fn overlay(&mut self, with: &Image<&[u8], 4>) -> &mut Self {
         unsafe_assert!(self.width() == with.width());
         unsafe_assert!(self.height() == with.height());
-        unsafe_assert!(with.buffer.len() > 4);
-        unsafe_assert!(self.buffer.len() % 4 == 0);
-        unsafe_assert!(with.buffer.len() % 4 == 0);
-        for (i, other_pixels) in with.buffer.array_chunks::<4>().enumerate() {
+        for (i, other_pixels) in with.chunked().enumerate() {
             if other_pixels[3] > 128 {
                 unsafe {
                     let own_pixels = self
@@ -287,15 +284,12 @@ impl ImageUtils for Image<&mut [u8], 4> {
         let from =
             fr::Image::from_slice_u8(self.width, self.height, self.buffer, fr::PixelType::U8x4)
                 .unwrap();
-        let mut dst = fr::Image::new(
-            to.try_into().unwrap(),
-            to.try_into().unwrap(),
-            fr::PixelType::U8x4,
-        );
+        let to = to.try_into().unwrap();
+        let mut dst = fr::Image::new(to, to, fr::PixelType::U8x4);
         fr::Resizer::new(fr::ResizeAlg::Nearest)
             .resize(&from.view(), &mut dst.view_mut())
             .unwrap();
-        Image::new(self.width, self.height, dst.into_vec())
+        Image::new(to, to, dst.into_vec())
     }
 
     fn shadow(&mut self) -> &mut Self {
@@ -412,24 +406,37 @@ impl<T: std::ops::Deref<Target = [u8]>, const CHANNELS: usize> Image<T, CHANNELS
     }
 
     #[inline]
+    pub fn chunked(&self) -> impl Iterator<Item = &[u8; CHANNELS]> {
+        unsafe_assert!(self.buffer.len() > CHANNELS);
+        unsafe_assert!(self.buffer.len() % CHANNELS == 0);
+        self.buffer.array_chunks::<CHANNELS>()
+    }
+
     /// Return a pixel at (x, y).
     /// # Safety
     ///
     /// Refer to [`slice`]
+    #[inline]
     pub unsafe fn pixel(&self, x: u32, y: u32) -> [u8; CHANNELS] {
         *(self.buffer.get_unchecked(self.slice(x, y)).as_ptr().cast())
     }
 }
 impl<T: std::ops::DerefMut<Target = [u8]>, const CHANNELS: usize> Image<T, CHANNELS> {
-    #[inline]
     /// Return a mutable reference to a pixel at (x, y).
     /// # Safety
     ///
     /// Refer to [`slice`]
+    #[inline]
     pub unsafe fn pixel_mut(&mut self, x: u32, y: u32) -> &mut [u8] {
         let idx = self.slice(x, y);
         self.buffer.get_unchecked_mut(idx)
     }
+
+    #[inline]
+    pub fn chunked_mut(&mut self) -> impl Iterator<Item = &mut [u8; CHANNELS]> {
+        self.buffer.array_chunks_mut::<CHANNELS>()
+    }
+
     #[inline]
     pub unsafe fn set_pixel(&mut self, x: u32, y: u32, px: [u8; CHANNELS]) {
         std::ptr::copy_nonoverlapping(px.as_ptr(), self.pixel_mut(x, y).as_mut_ptr(), CHANNELS);
@@ -681,6 +688,14 @@ mod tests {
                 [42, 21]
             ]
         )
+    }
+
+    #[test]
+    fn scale() {
+        let mut from = Image::alloc(6, 6);
+        unsafe { from.set_pixel(3, 3, [255, 255, 255, 255]) };
+        let from = from.as_mut().scale(12);
+        assert_eq!(unsafe { from.pixel(6, 6) }, [255, 255, 255, 255]);
     }
 }
 
